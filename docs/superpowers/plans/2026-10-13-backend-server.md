@@ -53,25 +53,59 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 ## Task 2: Redis会话、权限、幂等与限流
 
-**Files:** backend/.../security/；backend/.../common/idempotency/；backend/.../common/pagination/；backend/.../common/ratelimit/；对应test。
-**Interfaces:** Actor(userId,campusId,permissions,phoneBound,studentVerified,status)；CurrentActor.require()/optional()/requireStudent()/requirePermission(String)。会话存摘要，access900秒/refresh604800秒，刷新原子轮换并撤销旧值；拒绝重放。Redis协调通过Lua原子操作，业务幂等结果持久化到MySQL新增表，事务提交后才公开结果。CursorCodec签名游标绑定校园、排序及查询摘要。
-- [ ] RED：真实过滤链测试未登录401、受限用户403、伪造角色无效；刷新并发只成功一次；同键不同内容409；失败事务不标成功；游标跨校园拒绝。
-- [ ] 实现只接受Authorization: Bearer，学生/管理员会话namespace分离，业务写入幂等过滤不包含认证一次性凭证例外。
-- [ ] 实现按用户/来源和端点限流，Redis失效拒绝需要会话的操作，不放宽权限。
-- [ ] GREEN：聚焦测试后全套测试、本地检查点。
+**Files:** backend/src/main/java/com/caizhitong/security/；backend/src/main/java/com/caizhitong/common/idempotency/；backend/src/main/java/com/caizhitong/common/pagination/；backend/src/main/java/com/caizhitong/common/ratelimit/；sql/V7__runtime_coordination.sql；backend/src/test/java/com/caizhitong/security/及common对应子包。
+**Consumes:** Task1 ApiResponse/BusinessException/SnowflakeIds/SensitiveDataCrypto，生产DataSource/Redis与Clock。
+**Produces:**
+- Actor(long userId,long campusId,Set<String> permissions,boolean phoneBound,boolean studentVerified,String status,SessionKind kind)，kind=STUDENT/ADMIN。
+- CurrentActor.require()、optional()、requireStudent()、requirePermission(String)；非active拒绝。requireStudent同时要求手机号已验证和认证verified。
+- ActorLoader.load(long userId,long campusId,SessionKind kind): Optional<Actor>。实现通过JPA EntityManager参数化native读取现有users/phones/verifications/roles；管理员namespace只有合法管理员角色，业务处理身份动态重查，不接受Redis缓存的客户端权限。
+- SessionTokens(accessToken,expiresIn,refreshToken,refreshExpiresIn)；SessionTokenService.issue(long userId,long campusId,SessionKind)、authenticate(String,SessionKind)、refresh(String,SessionKind)、revoke(String,SessionKind)。JWT不是本项目方案，token使用SecureRandom 32字节base64url。
+- CursorCodec.encode(CursorPayload)、decode(String token,String scope)：payload含排序键和scope，签名HMAC，客户端不能跨校园/过滤条件复用。
+- @BusinessWrite应用服务注解与IdempotencyContext；IdempotencyExecutor在一个MySQL事务内执行真实业务及幂等结果持久化，Controller业务命令不得直接绕过此服务边界。
+- RateLimiter.check(String bucket,int max,Duration window)，原子Redis计数，超限429，Redis失效503。
+
+**事务与失败规则：** 幂等范围含namespace、user、campus、method、真实路由及key摘要。过滤器只验证业务写头并绑定规范化请求摘要，不在过滤器结束后另存已经提交的业务结果。应用服务@BusinessWrite在事务里先占唯一记录、执行业务、保存加密DTO结果后一起提交；异常一起回滚。重复提交返回相同业务data，但外层requestId是当前请求的新ID。同键不同摘要409；竞争中已提交的结果可读，未完成或锁超时409/503可重试；不能catch后强行提交回滚事务。权限检查在幂等重放之前（服务@PreAuthorize或Controller明确检查），不能因重放绕过当前撤权。注解只用于实际业务写入，不包远程微信换码/AI模型/文件扫描调用。
+
+**会话规则：** Redis只存token摘要和userId/campusId/kind/sessionId，access900秒、refresh604800秒。refresh Lua一次性消费并轮换整个会话，撤旧access和refresh，两个并发刷新只成功一次。namespace不可互换。access认证每次加载当前数据库状态，找不到/已删/非active用户拒绝；权限配置由roles.code静态矩阵映射，不接受请求roles。撤销同会话token。JSON和日志禁止原始token。Redis不可用不放行。未知/过期token401。
+
+**HTTP边界：** 只解析Bearer认证，客户端userId/campusId/roles字段不产生身份。学生端stateless bearer请求独立安全链；admin链隔离，学生token不通过。admin cookie写操作CSRF不能关闭，cookie Secure/HttpOnly/SameSite，具体管理员登录和MFA在Task3接入。公开GET仅允许文档P/P-L的特定路径，未实现路由仍404，不能通配允许所有写。临时Upload二进制凭据由Task4独立验证，不用Bearer当上传凭据。默认生产不输出生成的Spring默认密码。
+
+**幂等例外精确边界：** 登录/refresh/phone一次性换码/logout、admin认证/MFA/reauth、临时upload-intents/download-url/check-in-token及二进制上传有各自凭据机制；其他POST/PUT/DELETE业务都必需Idempotency-Key，8～128可打印ASCII字符，超过限制400。认证动作不产生持久幂等缓存里的原始token。固定路由例外列表，不接受客户端选择例外。
+
+**角色矩阵：** user/guest不给admin权限；student认证由phone+verification决定而非只靠role。content_moderator有content.review/report.review/appeal.review；business_operator有workorder.read/process、issue.read/process；resource_admin有resource.read/write/process；campus_admin拥有本校运营权限（除security.investigate及platform.campus.manage）；platform_admin可配置校园管理但跨校操作仍需显式scope；security_investigator只有security.investigate/audit.read，不能仅因其他管理员角色获得真实匿名身份。新增operator赋权范围留Task3受控管理。
+
+**数据库：** V7创建api_idempotency_records，应用生成BIGINT主键；唯一scope_digest+key_digest；request_digest、response_encrypted MEDIUMBLOB、response_type、status、created_at/expires_at，campus/user复合FK，范围索引。业务账号授权在DATABASE说明追加，不能自动给出数据库级全权。演示种子不得加载到生产，V1～V6不改。
+
+- [ ] RED：OpaqueSessionTest验证伪造token无效、过期401、学生token不能admin、刷新重放拒绝、两次刷新仅一次成功、撤销旧access即时无效。
+- [ ] RED：CurrentActorTest验证未登录401、未绑定/未认证403、跨namespace拒绝、当前DB已禁用用户不可凭旧会话访问。
+- [ ] RED：IdempotencyExecutorTest在H2实际事务库验证同键同输入只创建一次业务记录、异请求409、业务异常不留下成功记录、权限撤销后不得重放敏感结果。
+- [ ] RED：CursorCodecTest验证篡改、过滤或校园scope变化、过长游标及非法base64拒绝；分页上限100、默认20。
+- [ ] RED：RateLimiterTest验证最大次数后429、窗口更新、Redis错误503。外部Redis使用适当adapter测试替身，Lua真实集成检查单独记录；不把替身测试称为Redis并发实测。
+```java
+@Test void refreshRejectsReusedToken() {
+    SessionTokens first = sessions.issue(10001L, 1L, SessionKind.STUDENT);
+    SessionTokens next = sessions.refresh(first.refreshToken(), SessionKind.STUDENT);
+    assertThrows(BusinessException.class,
+        () -> sessions.refresh(first.refreshToken(), SessionKind.STUDENT));
+    assertTrue(sessions.authenticate(first.accessToken(), SessionKind.STUDENT).isEmpty());
+    assertTrue(sessions.authenticate(next.accessToken(), SessionKind.STUDENT).isPresent());
+}
+```
+- [ ] GREEN：按上述接口实现Redis adapter、Lua原子轮换与计数、数据库幂等服务、filter/aspect、安全链及当前用户工具。
+- [ ] GREEN：聚焦测试修正后完整mvn test/package，记录RED/GREEN与未执行的真实Redis/MySQL检查，本地检查点不推送。
 
 ## Task 3: 微信身份、手机号、学生认证与名单
 
-**Files:** identity/、campus/、integration/wechat/、admin/identity/；sql/V7__identity_runtime.sql；test相同域。
-**Interfaces:** 微信Jscode2session只服务器交换；手机号一次性code换取真实号码；AppID从环境配置。个人基础资料与画像分别用version。名单保存HMAC学号与密文字段，认证匹配姓名/学号证据不足进入人工复核，拒绝后允许重新申请，不允许占用他人已验证学号。
+**Files:** identity/、campus/、integration/wechat/、admin/identity/；sql/V8__identity_runtime.sql；test相同域。
+**Interfaces:** 微信Jscode2session只服务器交换；手机号一次性code换取真实号码；AppID从环境配置。个人基础资料与画像分别用version。名单保存HMAC学号与密文字段。用户现已确认：学校身份接口先预留，当前保留人工复核；名单命中也不自动授予学生权限。拒绝后允许重新申请，不允许占用他人已验证学号。学校接口未提供协议/可信凭据时不能伪造verified结果。
 - [ ] RED：API第4节全部身份/校园接口，测试未知字段、跨校登录、更换campusCode、重复微信身份、手机号归属冲突、未绑定手机认证拒绝、名单不匹配pending、拒绝后重申请、画像版本409。
-- [ ] 微信HTTP适配设置超时、可信固定域名，微信失败不创建虚假身份；测试用本地HTTP替身，不对生产提供fake开关。
+- [ ] 微信HTTP适配设置超时、可信固定域名，微信失败不创建虚假身份；测试用本地HTTP替身，不对生产提供fake开关。学校认证定义提供器接口与未接入状态，不开放猜测协议的公网回调。
 - [ ] 追加名单和运行时模型/最小权限授权；管理员认证/名单导入和复核记录审计。
 - [ ] GREEN：完整身份闭环及隔离测试，本地检查点。
 
 ## Task 4: 安全文件与材料基础
 
-**Files:** material/files/、integration/storage/、integration/scanner/；sql/V8__files_and_jobs.sql；test。
+**Files:** material/files/、integration/storage/、integration/scanner/；sql/V9__files_and_jobs.sql；test。
 - [ ] RED：第7节上传意向、Upload认证二进制上传、完成、元信息、授权下载、材料版本接口；测试越权、大小/MIME/文件头/摘要不一致、一次性凭据重放、未扫描下载拒绝、扫描失败不clean。
 - [ ] MinIO隔离对象键服务器生成，短期签名；ClamAV扫描或显式受控扫描服务，不提供假clean实现。JPEG/PNG移除EXIF，PDF页数限制。
 - [ ] 材料版本只追加，不允许更新已被清单引用的版本。文件删除登记可靠任务，与元信息事务一致。

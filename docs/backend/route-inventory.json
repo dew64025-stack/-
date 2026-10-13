@@ -1,0 +1,1450 @@
+{
+  "source": "campus-backend-api-v1.1-reviewed.md",
+  "sourceCommit": "68fc6ab55160de0b6dec3c38ffc7b33d0a9695e9",
+  "status": "planned-contract-not-implementation",
+  "total": 206,
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/wechat/login",
+      "permission": "P",
+      "input": "{code,campusCode}",
+      "output": "{accessToken,expiresIn,refreshToken,refreshExpiresIn,user}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campuses",
+      "permission": "P",
+      "input": "无；只返回开放校园",
+      "output": "[{id,name,code}]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campus/regions",
+      "permission": "P",
+      "input": "campusCode?；登录后忽略外校值",
+      "output": "区域树 [{id,name,type,parentId?}]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campus/organizations",
+      "permission": "P",
+      "input": "type?=college/department/club",
+      "output": "[{id,name,type}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/token/refresh",
+      "permission": "P",
+      "input": "{refreshToken}",
+      "output": "新访问/刷新令牌及期限"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "permission": "L或有效刷新会话",
+      "input": "{refreshToken?}",
+      "output": "{revoked:true}；访问令牌过期时仍可撤销绑定的刷新会话"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/phone/bind",
+      "permission": "L",
+      "input": "{phoneCode}，微信手机号一次性凭证",
+      "output": "{phoneBound:true,phoneMasked:\"138****0000\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me",
+      "permission": "L",
+      "input": "无",
+      "output": "User"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/update",
+      "permission": "L",
+      "input": "{nickname?,avatarAttachmentId?,version:用户版本}",
+      "output": "User"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/profile",
+      "permission": "L",
+      "input": "无",
+      "output": "Profile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/profile/update",
+      "permission": "L",
+      "input": "{college?,grade?,skills?,interests?,version:画像版本}",
+      "output": "Profile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/student-verifications",
+      "permission": "L＋手机号已绑定",
+      "input": "{studentNumber}，最长32；不记录明文学号日志",
+      "output": "{id,status,rejectReason?,createdAt}；名单匹配失败进入人工复核"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/student-verification",
+      "permission": "L",
+      "input": "无",
+      "output": "当前认证状态及脱敏学号，不返回完整学号"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/home/overview",
+      "permission": "P/L",
+      "input": "campusCode?,regionId?；主动定位时latitude/longitude/radiusMeters?",
+      "output": "{deadlines:[],recommendations:[],hotIssues:[],nearbyPosts:[],nearbyMode,unreadCount:int}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/search",
+      "permission": "P/L",
+      "input": "q*,types?，cursor,limit",
+      "output": "分页：[{type,id,title,summary,sourceFields}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ai/assistant/messages",
+      "permission": "L",
+      "input": "{question,scope?}，scope=campus/opportunity/service",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/jobs/{jobId}",
+      "permission": "O或相应管理员",
+      "input": "无",
+      "output": "AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/opportunities",
+      "permission": "P",
+      "input": "q?,category?,deadlineFrom?,deadlineTo?,cursor,limit",
+      "output": "分页 Opportunity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/opportunities/{id}",
+      "permission": "P",
+      "input": "无",
+      "output": "Opportunity + {notice,eligibilityRules,materialRequirements,teamCount,isFavorited}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/opportunities/{id}/eligibility-checks",
+      "permission": "S",
+      "input": "{}；从服务器画像取条件",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/opportunities/{id}/eligibility-checks/latest",
+      "permission": "O",
+      "input": "无",
+      "output": "当前用户最新匹配结果"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/favorites/{targetType}/{targetId}",
+      "permission": "L",
+      "input": "无",
+      "output": "{favorited:true}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/favorites/{targetType}/{targetId}",
+      "permission": "L",
+      "input": "无",
+      "output": "{favorited:false}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/favorites",
+      "permission": "L",
+      "input": "targetType?,cursor,limit",
+      "output": "分页收藏，目标已下架时只返回不可用标识"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reminders",
+      "permission": "L",
+      "input": "{targetType,targetId,remindAt}",
+      "output": "{id,targetType,targetId,remindAt,status}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/reminders/{id}",
+      "permission": "O",
+      "input": "无",
+      "output": "{cancelled:true}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/reminders",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "分页提醒"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/opportunities/{id}/submission",
+      "permission": "S",
+      "input": "{submittedAt}，用户自行提交时间",
+      "output": "{id,opportunityId,status:\"submitted\",submittedAt}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/materials/upload-intents",
+      "permission": "L",
+      "input": "{fileName,mimeType,sizeBytes,sha256?}；purpose固定material",
+      "output": "{uploadId,uploadUrl,uploadToken,expiresAt,maxSizeBytes}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/files/upload-intents",
+      "permission": "L；业务用途可能要求 S",
+      "input": "{purpose,fileName,mimeType,sizeBytes,sha256?}",
+      "output": "{uploadId,uploadUrl,uploadToken,expiresAt,maxSizeBytes}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/files/uploads/{uploadId}",
+      "permission": "上传凭证",
+      "input": "multipart 的 file 字段",
+      "output": "201：{uploadId,received:true}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/files/uploads/{uploadId}/complete",
+      "permission": "L＋上传所有者",
+      "input": "{}",
+      "output": "202：{attachmentId,scanStatus:\"pending\",jobId}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/files/{attachmentId}",
+      "permission": "O/有权查看关联对象",
+      "input": "无",
+      "output": "{id,fileName,mimeType,sizeBytes,scanStatus}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/files/{attachmentId}/download-url",
+      "permission": "O/有权查看关联对象",
+      "input": "{}",
+      "output": "{url,expiresAt}；私密材料链接120秒过期"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/materials",
+      "permission": "L",
+      "input": "{attachmentId,expiresAt?,tags?}；附件必须 clean",
+      "output": "201：Material"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/materials",
+      "permission": "L",
+      "input": "q?,tag?,cursor,limit",
+      "output": "当前用户的分页 Material"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/materials/{id}",
+      "permission": "O",
+      "input": "无",
+      "output": "Material + versions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/materials/{id}/update",
+      "permission": "O",
+      "input": "{expiresAt?,tags?,version}",
+      "output": "Material"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/materials/{id}/versions",
+      "permission": "O",
+      "input": "{attachmentId,version}；追加版本，不改旧版本",
+      "output": "201：Material"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/materials/{id}",
+      "permission": "O",
+      "input": "version 查询参数",
+      "output": "{deleted:true,cleanupStatus:\"pending\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/opportunities/{id}/checklist",
+      "permission": "S",
+      "input": "{}；创建或取得本人清单",
+      "output": "Checklist"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/checklists/{id}",
+      "permission": "O",
+      "input": "无",
+      "output": "Checklist"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/checklists/{id}/items/{itemId}/update",
+      "permission": "O",
+      "input": "{materialVersionId:null或本人版本ID,version:清单版本}",
+      "output": "Checklist；提升父清单版本"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/materials/{id}/prechecks",
+      "permission": "O",
+      "input": "{materialVersionId,version,aiConsentId}；仅本人版本",
+      "output": "202：AsyncJob，单材料基础预检"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/checklists/{id}/prechecks",
+      "permission": "O",
+      "input": "{version:清单版本,aiConsentId}",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/checklists/{id}/prechecks/latest",
+      "permission": "O",
+      "input": "无",
+      "output": "{id,status,checklistVersion,stale,results,checkedAt?}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/work-orders",
+      "permission": "S",
+      "input": "WorkOrderCreate",
+      "output": "201：WorkOrder，初始 pending"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/work-orders",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "本人的分页 WorkOrder"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/work-orders/{id}",
+      "permission": "O/A(workorder.read)",
+      "input": "无",
+      "output": "WorkOrder + events"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/work-orders/{id}/ratings",
+      "permission": "O",
+      "input": "{score,comment?}；score整数1～5",
+      "output": "{id,score,comment?,createdAt}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/campus-issues",
+      "permission": "S",
+      "input": "{title,category,description,location?,attachmentIds?}",
+      "output": "201：{id,status:\"pending\",displayPolicy:\"review_required\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campus-issues",
+      "permission": "P",
+      "input": "q?,category?,regionId?,cursor,limit",
+      "output": "仅已审核允许公开的分页 CampusIssue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campus-issues/{id}",
+      "permission": "P或所有者",
+      "input": "无",
+      "output": "公开 CampusIssue；所有者可看到自己的未公开审核状态"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/campus-issues/map",
+      "permission": "P",
+      "input": "bbox?,category?,limit≤200",
+      "output": "{points:[{id,title,category,status,latitude,longitude}],truncated:boolean}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/campus-issues",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "本人问题"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/campus-issues/{id}/follows",
+      "permission": "L",
+      "input": "无",
+      "output": "{following:true,followCount}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/campus-issues/{id}/follows",
+      "permission": "L",
+      "input": "无",
+      "output": "{following:false,followCount}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/campus-issues/{id}/vote",
+      "permission": "S",
+      "input": "{value:1或-1}",
+      "output": "{value,voteCount}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/campus-issues/{id}/vote",
+      "permission": "S",
+      "input": "无",
+      "output": "{value:null,voteCount}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/campus-issues/{id}/evidences",
+      "permission": "S",
+      "input": "{content?,attachmentIds?}，至少一项",
+      "output": "201：{id,reviewStatus:\"pending\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/crowd/observations",
+      "permission": "P",
+      "input": "locationType?,locationName?,cursor,limit",
+      "output": "分页 [{id,locationType,locationName,crowdLevel,observedAt,sourceFields}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/crowd/observations",
+      "permission": "S",
+      "input": "{locationType,locationName,crowdLevel}",
+      "output": "201：观测对象"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/resources",
+      "permission": "P",
+      "input": "type?,regionId?,cursor,limit",
+      "output": "分页 Resource"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/resources/{id}",
+      "permission": "P",
+      "input": "无",
+      "output": "Resource + bookingRules"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/resources/{id}/slots",
+      "permission": "P",
+      "input": "date*，YYYY-MM-DD",
+      "output": "[{Slot}]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/resources/{id}/availability",
+      "permission": "S",
+      "input": "date*，slotId?；必须属于该资源",
+      "output": "{resource:Resource,date,slots:[{slot:Slot,availableSeatNos:[],canReserve,unavailableReason?}]}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/resource-slots/{id}/availability",
+      "permission": "S",
+      "input": "无",
+      "output": "{slot:Slot,reservationMode,availableSeatNos:[],canReserve,unavailableReason?}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reservations",
+      "permission": "S",
+      "input": "{slotId,seatNo}",
+      "output": "201：Reservation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/reservations",
+      "permission": "L",
+      "input": "status?,dateFrom?,dateTo?,cursor,limit",
+      "output": "本人分页 Reservation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reservations/{id}",
+      "permission": "O/A(resource.read)",
+      "input": "无",
+      "output": "Reservation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reservations/{id}/cancel",
+      "permission": "O",
+      "input": "{version,reason?}",
+      "output": "Reservation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reservations/{id}/check-in",
+      "permission": "O",
+      "input": "{version,checkInToken}",
+      "output": "Reservation + checkedInAt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/mutual-aid/posts",
+      "permission": "P",
+      "input": "q?,category?,regionId?,cursor,limit",
+      "output": "已审核公开的分页 MutualAidPost"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/mutual-aid/posts/{id}",
+      "permission": "P/所有者",
+      "input": "无",
+      "output": "MutualAidPost + author:{id,nickname},canContact,canEdit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mutual-aid/posts",
+      "permission": "S",
+      "input": "MutualAidCreate",
+      "output": "201：MutualAidPost，pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mutual-aid/posts/{id}/update",
+      "permission": "O",
+      "input": "可编辑字段＋version",
+      "output": "MutualAidPost，内容变更重新审核"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mutual-aid/posts/{id}/actions",
+      "permission": "O",
+      "input": "{action,version}",
+      "output": "MutualAidPost"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mutual-aid/posts/{id}/ratings",
+      "permission": "已确认交接参与人",
+      "input": "{score:1～5,comment?}",
+      "output": "201：{id,score,comment?,createdAt}；双方各自至多评价一次"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/mutual-aid/posts/{id}/ratings",
+      "permission": "有权查看帖子",
+      "input": "cursor,limit",
+      "output": "脱敏分页评价，无手机号与证件"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/mutual-aid/posts",
+      "permission": "L",
+      "input": "category?,status?,cursor,limit",
+      "output": "本人分页发布"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/lost-found/matches",
+      "permission": "S",
+      "input": "postId?；仅本人帖子关联匹配",
+      "output": "分页 [{id,lostPostId,foundPostId,similarity?,status}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/lost-found/matches/{id}/actions",
+      "permission": "匹配双方",
+      "input": "{action,description?}",
+      "output": "{id,status,confirmationStatus}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mutual-aid/posts/{id}/borrow-requests",
+      "permission": "S",
+      "input": "{startTime,endTime}；仅 borrow.kind=offer",
+      "output": "201：BorrowRequest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/borrow-requests",
+      "permission": "L",
+      "input": "side=borrower/owner,status?,cursor,limit",
+      "output": "分页 BorrowRequest"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/borrow-requests/{id}/actions",
+      "permission": "双方按动作",
+      "input": "{action}",
+      "output": "BorrowRequest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/teams",
+      "permission": "P",
+      "input": "q?,opportunityId?,skill?,cursor,limit",
+      "output": "分页 Team"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/teams/{id}",
+      "permission": "P",
+      "input": "无",
+      "output": "Team + openRoles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/teams",
+      "permission": "S",
+      "input": "{title,goal?,opportunityId?,openRoles?}",
+      "output": "201：Team"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/teams/{id}/update",
+      "permission": "队长",
+      "input": "{title?,goal?,openRoles?,version}",
+      "output": "Team"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/team-applications",
+      "permission": "S",
+      "input": "{teamId,message?,openRoleId?}",
+      "output": "201：TeamApplication"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/teams/{id}/applications",
+      "permission": "队长",
+      "input": "status?,cursor,limit",
+      "output": "分页 TeamApplication"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/team-applications/{id}/decision",
+      "permission": "队长",
+      "input": "{decision:approve/reject}",
+      "output": "TeamApplication"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/teams/{id}/leave",
+      "permission": "本队成员",
+      "input": "{}",
+      "output": "{left:true}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/teams/{id}/close",
+      "permission": "队长",
+      "input": "{version}",
+      "output": "Team"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/teams",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "本人参与的 Team"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/team-applications",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "本人 TeamApplication"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/community/posts",
+      "permission": "S",
+      "input": "q?,cursor,limit",
+      "output": "本校已审核的分页 CommunityPost"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/community/posts/{id}",
+      "permission": "S/所有者",
+      "input": "无",
+      "output": "CommunityPost"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/community/posts",
+      "permission": "S",
+      "input": "{title,content}",
+      "output": "201：CommunityPost，pending"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/community/posts/{id}/update",
+      "permission": "作者",
+      "input": "{title?,content?,version}",
+      "output": "CommunityPost，重新审核"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/community/posts/{id}",
+      "permission": "作者",
+      "input": "version 查询参数",
+      "output": "{deleted:true}，软删除"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/community/posts/{id}/comments",
+      "permission": "S",
+      "input": "cursor,limit",
+      "output": "已审核分页 CommunityComment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/community/posts/{id}/comments",
+      "permission": "S",
+      "input": "{content}",
+      "output": "201：CommunityComment，pending"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/community/comments/{id}",
+      "permission": "评论作者",
+      "input": "无",
+      "output": "{deleted:true}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/community/posts",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "本人分页 CommunityPost"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "permission": "S",
+      "input": "{targetType,targetId,reason}",
+      "output": "201：Report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/reports",
+      "permission": "L",
+      "input": "status?,cursor,limit",
+      "output": "本人的分页 Report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reports/{id}",
+      "permission": "举报人",
+      "input": "无",
+      "output": "Report，不返回被举报人的身份"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/blocks/{targetType}/{targetId}",
+      "permission": "L",
+      "input": "无",
+      "output": "{blocked:true}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/blocks/{targetType}/{targetId}",
+      "permission": "L",
+      "input": "无",
+      "output": "{blocked:false}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/penalties",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "[{id,type,reason,status,expiresAt?}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appeals",
+      "permission": "L",
+      "input": "{penaltyId,reason}",
+      "output": "201：Appeal"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/appeals",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "分页 Appeal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/conversations",
+      "permission": "S",
+      "input": "{contextType,contextId}",
+      "output": "Conversation；按上下文校验双方，复用既有会话"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/conversations",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "分页 Conversation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/conversations/{id}/messages",
+      "permission": "会话成员",
+      "input": "cursor,limit",
+      "output": "分页 Message"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/conversations/{id}/messages",
+      "permission": "会话成员且 S",
+      "input": "{content,clientMessageId}",
+      "output": "201：Message"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/conversations/{id}/read",
+      "permission": "会话成员",
+      "input": "{lastReadMessageId}",
+      "output": "{unreadCount}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/notifications",
+      "permission": "L",
+      "input": "unreadOnly?,cursor,limit",
+      "output": "分页 Notification"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "permission": "接收人",
+      "input": "{}",
+      "output": "Notification"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "permission": "L",
+      "input": "{beforeId}",
+      "output": "{updatedCount}；只读到指定消息，避免漏掉并发新消息"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/subscriptions",
+      "permission": "L",
+      "input": "{templateId,scene,consentResult}",
+      "output": "{id,status}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/subscriptions/{id}",
+      "permission": "所有者",
+      "input": "无",
+      "output": "{revoked:true}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/realtime/tickets",
+      "permission": "L",
+      "input": "{}",
+      "output": "{ticket,expiresAt,websocketUrl}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/dashboard",
+      "permission": "L",
+      "input": "无",
+      "output": "{user,todoCount,unreadCount,postCount,reservationCount,workOrderCount}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/todos",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "分页 [{type,targetId,title,dueAt?,status,action}]，聚合提醒与业务状态"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/history",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "用户主动启用的浏览历史"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/history",
+      "permission": "L",
+      "input": "无",
+      "output": "{cleared:true}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/growth-records",
+      "permission": "L",
+      "input": "type?,cursor,limit",
+      "output": "分页 GrowthRecord"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/growth-records",
+      "permission": "S",
+      "input": "{type,title,description?,proofFileId?,occurredAt?,confirmed}",
+      "output": "201：GrowthRecord"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/growth-records/{id}/update",
+      "permission": "O",
+      "input": "可编辑字段＋version",
+      "output": "GrowthRecord"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/growth-records/{id}",
+      "permission": "O",
+      "input": "version 查询参数",
+      "output": "{deleted:true}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/credit-events",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "分页 CreditEvent，显示具体依据"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/credit-events/{id}/disputes",
+      "permission": "本人",
+      "input": "{reason}；1～512字符",
+      "output": "201：{id,status:\"pending\"}，人工复核，不直接改积分"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/authorizations",
+      "permission": "L",
+      "input": "无",
+      "output": "[{id,type,scope,status,documentVersion?,grantedAt,revokedAt?}]"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/authorizations",
+      "permission": "L",
+      "input": "{type,scope,documentVersion}",
+      "output": "授权对象"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/authorizations/{id}/revoke",
+      "permission": "O",
+      "input": "{}",
+      "output": "授权对象"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/privacy-settings",
+      "permission": "L",
+      "input": "无",
+      "output": "{personalization,historyEnabled,nearbyEnabled}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/privacy-settings/update",
+      "permission": "L",
+      "input": "上述 boolean 字段",
+      "output": "隐私设置"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/data-exports",
+      "permission": "L",
+      "input": "{}；导出本人数据",
+      "output": "202：DataRequest，type=export"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/account-deletion",
+      "permission": "L",
+      "input": "{confirm:true}；明确确认注销",
+      "output": "202：DataRequest，type=deletion"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/data-requests",
+      "permission": "L",
+      "input": "cursor,limit",
+      "output": "分页 DataRequest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/data-requests/{id}",
+      "permission": "O",
+      "input": "无",
+      "output": "DataRequest；导出成功含短期下载凭证申请方式"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/data-requests/{id}/cancel",
+      "permission": "O",
+      "input": "{}，仅删除冷静期内",
+      "output": "DataRequest；持久化撤销结果，当前状态枚举需补齐cancelled或等价撤销记录"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/auth/login",
+      "permission": "管理员登录入口",
+      "input": "{username,password}",
+      "output": "{challengeId,mfaRequired:true,expiresAt}，不签发完整后台会话"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/auth/mfa/verify",
+      "permission": "有效挑战",
+      "input": "{challengeId,code}",
+      "output": "{accessToken,expiresIn,refreshToken,refreshExpiresIn,admin,permissions}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/auth/token/refresh",
+      "permission": "管理员刷新凭证",
+      "input": "浏览器使用安全刷新Cookie及CSRF凭证",
+      "output": "轮换后的后台令牌"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/auth/logout",
+      "permission": "管理员",
+      "input": "{}",
+      "output": "{revoked:true}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/auth/reauth",
+      "permission": "管理员",
+      "input": "{mfaCode}",
+      "output": "{reauthToken,expiresAt}，5分钟内可用于指定高危动作"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/me",
+      "permission": "管理员",
+      "input": "无",
+      "output": "{id,nickname,roles,campusScopes,permissions}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/student-verifications",
+      "permission": "A(identity.review)",
+      "input": "status?,cursor,limit",
+      "output": "脱敏认证队列"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/student-verifications/{id}/decision",
+      "permission": "A(identity.review)",
+      "input": "{decision:approve/reject,reason,version}",
+      "output": "认证对象"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/files/upload-intents",
+      "permission": "A(file.upload)",
+      "input": "{purpose:student_roster/notice_document,fileName,mimeType,sizeBytes}",
+      "output": "上传意向，二进制上传使用第7节临时上传凭证"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/files/uploads/{uploadId}/complete",
+      "permission": "A(file.upload)＋上传所有者",
+      "input": "{}",
+      "output": "202：{attachmentId,scanStatus:\"pending\",jobId}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/files/{attachmentId}",
+      "permission": "A(file.read)且有业务归属权限",
+      "input": "无",
+      "output": "脱敏文件元数据与scanStatus"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/files/{attachmentId}/download-url",
+      "permission": "A(file.read)且有业务归属权限",
+      "input": "{}",
+      "output": "短期下载凭证，记录敏感名单访问"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/student-roster/imports",
+      "permission": "A(identity.import)",
+      "input": "{attachmentId}，私密CSV名单",
+      "output": "202：AsyncJob，result={successCount,errorCount,errors摘要}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "permission": "A(user.read)",
+      "input": "q?,status?,cursor,limit",
+      "output": "脱敏分页用户"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{id}/roles",
+      "permission": "A(user.roles)",
+      "input": "{roleCode,campusId,reauthToken,reason}",
+      "output": "{assigned:true}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/users/{id}/roles/{roleCode}",
+      "permission": "A(user.roles)",
+      "input": "campusId,reauthToken,reason",
+      "output": "{revoked:true}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/campuses",
+      "permission": "A(platform.campus.manage)",
+      "input": "{name,code}",
+      "output": "校园对象"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/campus/configs",
+      "permission": "A(campus.config.read)",
+      "input": "无",
+      "output": "白名单配置键值，不返回密钥"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/campus/configs/{key}",
+      "permission": "A(campus.config.write)",
+      "input": "{value,version,reason}",
+      "output": "配置对象"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/statistics/overview",
+      "permission": "A(statistics.read)",
+      "input": "from?,to?",
+      "output": "聚合统计，不包含私密咨询或匿名身份"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notices",
+      "permission": "A(notice.read)",
+      "input": "status?,q?,cursor,limit",
+      "output": "分页通知"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/notices",
+      "permission": "A(notice.write)",
+      "input": "{title,publisher?,content?,rawUrl?,attachmentId?}，至少一种原文来源",
+      "output": "201：{id,status:\"pending\",version}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/notices/{id}/parse",
+      "permission": "A(notice.parse)",
+      "input": "{version}",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/notice-parse-tasks/{id}",
+      "permission": "A(notice.read)",
+      "input": "无",
+      "output": "{id,status,fields:[{key,value,evidenceLocation,confidence,humanConfirmed,humanValue}],model,error?}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/notice-parse-tasks/{id}/review",
+      "permission": "A(notice.review)",
+      "input": "{fields:[{key,value}],decision:approve/reject,reason}",
+      "output": "{reviewed:true,opportunityDraftId?}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/opportunities",
+      "permission": "A(opportunity.read)",
+      "input": "status?,category?,cursor,limit",
+      "output": "分页机会"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/opportunities",
+      "permission": "A(opportunity.write)",
+      "input": "OpportunityDraft",
+      "output": "201：Opportunity，draft"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/opportunities/{id}/update",
+      "permission": "A(opportunity.write)",
+      "input": "可编辑字段＋version",
+      "output": "Opportunity，撤回公开前不得直接改已发布规则"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/opportunities/{id}/publish",
+      "permission": "A(opportunity.publish)",
+      "input": "{version,reason}",
+      "output": "Opportunity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/opportunities/{id}/unpublish",
+      "permission": "A(opportunity.publish)",
+      "input": "{version,reason}",
+      "output": "Opportunity，archived"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/work-orders",
+      "permission": "A(workorder.read)",
+      "input": "status?,assigneeId?,cursor,limit",
+      "output": "分页 WorkOrder"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/work-orders/{id}/assign",
+      "permission": "A(workorder.assign)",
+      "input": "{assigneeId,version,reason}",
+      "output": "WorkOrder"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/work-orders/{id}/transition",
+      "permission": "A(workorder.process)",
+      "input": "{toStatus,version,comment}",
+      "output": "WorkOrder"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/campus-issues",
+      "permission": "A(issue.read)",
+      "input": "status?,cursor,limit",
+      "output": "分页问题，敏感证据按权限分级"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/campus-issues/{id}/decision",
+      "permission": "A(issue.review)",
+      "input": "{decision:publish/private/reject,version,reason}",
+      "output": "问题审核结果"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/campus-issues/{id}/transition",
+      "permission": "A(issue.process)",
+      "input": "{toStatus,version,comment}",
+      "output": "CampusIssue，不改变既有隐私可见性"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/resources",
+      "permission": "A(resource.read)",
+      "input": "type?,cursor,limit",
+      "output": "分页 Resource"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/resources",
+      "permission": "A(resource.write)",
+      "input": "{type,name,regionId?,capacity?,equipment?,reservationMode}",
+      "output": "201：Resource"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/resources/{id}/update",
+      "permission": "A(resource.write)",
+      "input": "可编辑字段＋version",
+      "output": "Resource"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/resources/{id}/slots",
+      "permission": "A(resource.write)",
+      "input": "{slotDate,startTime,endTime,capacity?}",
+      "output": "201：Slot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/resource-slots/{id}/update",
+      "permission": "A(resource.write)",
+      "input": "{status?,capacity?,version,reason}",
+      "output": "Slot；不能改动已有预约的时间含义"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/reservations",
+      "permission": "A(resource.read)",
+      "input": "status?,resourceId?,date?,cursor,limit",
+      "output": "分页 Reservation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reservations/{id}/decision",
+      "permission": "A(resource.process)",
+      "input": "{decision:approve/reject,version,reason}",
+      "output": "Reservation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reservations/{id}/check-in-token",
+      "permission": "A(resource.process)",
+      "input": "{}",
+      "output": "{checkInToken,expiresAt}，演示模式可用"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/moderation-tasks",
+      "permission": "A(content.review)",
+      "input": "status?,targetType?,cursor,limit",
+      "output": "脱敏审核任务及待审内容"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation-tasks/{id}/claim",
+      "permission": "A(content.review)",
+      "input": "{}",
+      "output": "{id,status:\"assigned\"}，原子领取"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation-tasks/{id}/decision",
+      "permission": "A(content.review)",
+      "input": "{decision:approve/reject/restrict,reason}",
+      "output": "审核结果，重复决策返回状态冲突"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/reports",
+      "permission": "A(report.review)",
+      "input": "status?,cursor,limit",
+      "output": "分页 Report"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/{id}/decision",
+      "permission": "A(report.review)",
+      "input": "{decision:resolve/dismiss,reason,action?}",
+      "output": "Report，反馈给举报人"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/penalties",
+      "permission": "A(user.penalty)",
+      "input": "{userId,type,reason,expiresAt?,relatedReportId?}",
+      "output": "处罚对象"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/penalties/{id}/lift",
+      "permission": "A(user.penalty)",
+      "input": "{reason}",
+      "output": "处罚对象"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/appeals",
+      "permission": "A(appeal.review)",
+      "input": "status?,cursor,limit",
+      "output": "分页 Appeal"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/credit-disputes",
+      "permission": "A(credit.review)",
+      "input": "status?,cursor,limit",
+      "output": "分页信用纠错申请"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/credit-disputes/{id}/decision",
+      "permission": "A(credit.review)",
+      "input": "{decision:approve/reject,reason}",
+      "output": "决策对象；通过时追加修正事件，不抹除原始信用事实"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/appeals/{id}/decision",
+      "permission": "A(appeal.review)",
+      "input": "{decision:approve/reject,reason}",
+      "output": "Appeal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/security-investigations",
+      "permission": "A(security.investigate)＋二次认证",
+      "input": "{targetType,targetId,reportId,reason,reauthToken}",
+      "output": "{investigationId,subject:{userId},audited:true}；不擅自增加调查账号无权读取的手机号"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs",
+      "permission": "A(audit.read)",
+      "input": "action?,from?,to?,cursor,limit",
+      "output": "本校范围脱敏审计；平台级访问另校需授权"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/integrations",
+      "permission": "A(integration.read)",
+      "input": "无",
+      "output": "[{id,type,provider,status,lastSyncedAt?,lastError?}]"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/integrations/{type}",
+      "permission": "A(integration.write)",
+      "input": "{provider,config,version,reason}",
+      "output": "脱敏集成配置"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/integrations/{type}/test",
+      "permission": "A(integration.write)",
+      "input": "{}",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/integrations/{type}/sync",
+      "permission": "A(integration.sync)",
+      "input": "{}",
+      "output": "202：AsyncJob"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/integrations/{type}/errors",
+      "permission": "A(integration.read)",
+      "input": "cursor,limit",
+      "output": "脱敏分页同步错误"
+    }
+  ]
+}
