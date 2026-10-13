@@ -1,0 +1,25 @@
+# These fixed keys are test fixtures only; this resource is never packaged.
+spring:
+  datasource:
+    url: jdbc:h2:mem:caizhitong;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+    hikari:
+      connection-init-sql: "SET TIME ZONE 'UTC'"
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+    user: test_migrator
+    password: ""
+  data:
+    redis:
+      password: ""
+app:
+  ids:
+    worker-id: 0
+  crypto:
+    encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    hmac-key: AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

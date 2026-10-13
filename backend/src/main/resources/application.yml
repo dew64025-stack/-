@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: caizhitong
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/caizhitong?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-init-sql: "SET time_zone = '+00:00'"
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    url: ${spring.datasource.url}
+    user: ${FLYWAY_USER}
+    password: ${FLYWAY_PASSWORD}
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
+    init-sqls:
+      - "SET time_zone = '+00:00'"
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USER:}
+      password: ${REDIS_PASSWORD}
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+app:
+  ids:
+    worker-id: ${SNOWFLAKE_WORKER_ID}
+  crypto:
+    encryption-key: ${APP_ENCRYPTION_KEY}
+    hmac-key: ${APP_HMAC_KEY}
