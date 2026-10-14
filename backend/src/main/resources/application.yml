@@ -35,6 +35,12 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
 server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
   error:
     include-message: never
     include-stacktrace: never

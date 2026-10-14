@@ -241,6 +241,16 @@ spring:
 
 ## 七、连接方式
 
+### V7 运行协调表增量授权
+
+执行 `sql/V7__runtime_coordination.sql` 后，只为业务账号追加该表授权：
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.api_idempotency_records TO 'caizhitong_app'@'<ip>';
+```
+
+幂等记录和业务写入使用同一业务数据源、同一事务。记录保存24小时，结果采用服务端加密，不能缓存登录令牌；过期记录可由受控清理任务删除。Redis只协调会话与限流，不承担业务正确性的最终保证。
+
 **命令行**：
 
 ```powershell
