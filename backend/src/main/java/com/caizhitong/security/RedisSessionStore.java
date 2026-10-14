@@ -25,8 +25,9 @@ public class RedisSessionStore implements SessionStore {
     private static final DefaultRedisScript<Long> REVOKE = new DefaultRedisScript<>("""
             if redis.call('GET', KEYS[1]) == ARGV[1] or redis.call('GET', KEYS[2]) == ARGV[1] then
                 redis.call('DEL', KEYS[1], KEYS[2])
+                return 1
             end
-            return 1
+            return 0
             """, Long.class);
     private final StringRedisTemplate redis;
     public RedisSessionStore(StringRedisTemplate redis) { this.redis = redis; }
@@ -49,8 +50,10 @@ public class RedisSessionStore implements SessionStore {
         if (result == null) throw new DataAccessResourceFailureException("Session rotation failed");
         return result == 1;
     }
-    @Override public void revoke(SessionRecord record) {
-        if (redis.execute(REVOKE, keys(record), value(record)) == null) throw new DataAccessResourceFailureException("Session revocation failed");
+    @Override public boolean revoke(SessionRecord record) {
+        Long result = redis.execute(REVOKE, keys(record), value(record));
+        if (result == null) throw new DataAccessResourceFailureException("Session revocation failed");
+        return result == 1;
     }
     private String key(SessionKind kind, String digest) { return "session:{" + kind + "}:" + digest; }
     private List<String> keys(SessionRecord r) { return List.of(key(r.kind(), r.accessDigest()), key(r.kind(), r.refreshDigest())); }

@@ -77,7 +77,7 @@ class OpaqueSessionTest {
             public Optional<SessionRecord> find(String digest, SessionKind kind) { throw offline(); }
             public void create(SessionRecord r) { throw offline(); }
             public boolean rotate(SessionRecord a, SessionRecord b) { throw offline(); }
-            public void revoke(SessionRecord r) { throw offline(); }
+            public boolean revoke(SessionRecord r) { throw offline(); }
         };
         var unavailable = new SessionTokenService(offline, (u,c,k) -> Optional.of(actor), crypto());
         assertEquals(503, assertThrows(BusinessException.class, () -> unavailable.issue(10001,1,SessionKind.STUDENT)).getStatus());
@@ -85,6 +85,19 @@ class OpaqueSessionTest {
         assertEquals(503, assertThrows(BusinessException.class, () -> unavailable.refresh("a".repeat(43),SessionKind.STUDENT)).getStatus());
         assertEquals(503, assertThrows(BusinessException.class, () -> unavailable.revoke("a".repeat(43),SessionKind.STUDENT)).getStatus());
         assertEquals(401, assertThrows(BusinessException.class, () -> sessions.revoke("a".repeat(43),SessionKind.STUDENT)).getStatus());
+    }
+    @Test void rotationBetweenLogoutReadAndAtomicRevokeMustReturn401RatherThanFalseSuccess() {
+        var interleaved = new RotateBeforeRevokeStore(clock);
+        var service = new SessionTokenService(interleaved, (u,c,k) -> Optional.of(actor), crypto());
+        SessionTokens first = service.issue(10001, 1, SessionKind.STUDENT);
+        var next = new SessionTokens[1];
+        interleaved.beforeRevoke = () -> next[0] = service.refresh(first.refreshToken(), SessionKind.STUDENT);
+        assertEquals(401, assertThrows(BusinessException.class, () -> service.revoke(first.refreshToken(), SessionKind.STUDENT)).getStatus());
+        assertTrue(service.authenticate(first.accessToken(), SessionKind.STUDENT).isEmpty());
+        assertTrue(service.authenticate(next[0].accessToken(), SessionKind.STUDENT).isPresent());
+        service.revoke(next[0].accessToken(), SessionKind.STUDENT);
+        assertTrue(service.authenticate(next[0].accessToken(), SessionKind.STUDENT).isEmpty());
+        assertThrows(BusinessException.class, () -> service.refresh(next[0].refreshToken(), SessionKind.STUDENT));
     }
     static class MutableClock extends Clock {
         Instant now = Instant.parse("2026-10-13T00:00:00Z");
@@ -109,8 +122,21 @@ class OpaqueSessionTest {
             if (find(old.refreshDigest(), old.kind()).filter(old::equals).isEmpty()) return false;
             revoke(old); create(next); return true;
         }
-        public synchronized void revoke(SessionRecord old) {
+        public synchronized boolean revoke(SessionRecord old) {
+            if (find(old.accessDigest(), old.kind()).filter(old::equals).isEmpty()
+                    && find(old.refreshDigest(), old.kind()).filter(old::equals).isEmpty()) return false;
             data.remove(key(old.accessDigest(), old.kind())); data.remove(key(old.refreshDigest(), old.kind()));
+            return true;
+        }
+    }
+    static class RotateBeforeRevokeStore extends MemorySessionStore {
+        Runnable beforeRevoke;
+        RotateBeforeRevokeStore(Clock clock) { super(clock); }
+        @Override public synchronized boolean revoke(SessionRecord old) {
+            Runnable rotate = beforeRevoke;
+            beforeRevoke = null;
+            if (rotate != null) rotate.run();
+            return super.revoke(old);
         }
     }
 }

@@ -46,7 +46,10 @@ public class SessionTokenService {
     }
     public void revoke(String token, SessionKind kind) {
         if (!validToken(token)) throw unauthenticated();
-        try { store.revoke(store.find(digest(token, kind), kind).orElseThrow(SessionTokenService::unauthenticated)); }
+        try {
+            SessionRecord record = store.find(digest(token, kind), kind).orElseThrow(SessionTokenService::unauthenticated);
+            if (!store.revoke(record)) throw unauthenticated();
+        }
         catch (DataAccessException e) { throw unavailable(); }
     }
     private Actor requireActor(long user, long campus, SessionKind kind) {

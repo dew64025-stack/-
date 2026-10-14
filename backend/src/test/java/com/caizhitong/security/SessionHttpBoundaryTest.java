@@ -23,6 +23,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 class SessionHttpBoundaryTest {
     @Autowired MockMvc mvc;
     @Autowired SessionTokenService sessions;
+    @Autowired SessionStore sessionStore;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @BeforeEach void database() {
         jdbc.execute("CREATE TABLE IF NOT EXISTS api_idempotency_records (id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,scope_digest CHAR(64),key_digest CHAR(64),request_digest CHAR(64),response_encrypted BLOB,response_type VARCHAR(255),status VARCHAR(16),created_at TIMESTAMP,expires_at TIMESTAMP,UNIQUE(scope_digest,key_digest))");
@@ -107,15 +108,35 @@ class SessionHttpBoundaryTest {
         mvc.perform(post("/api/v1/files/uploads/10001").header("Authorization", bearer(10001, SessionKind.STUDENT))).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/admin/auth/login").with(csrf())).andExpect(status().isUnauthorized());
     }
+    @Test void interleavedRefreshAndLogoutReturns401AndCurrentCredentialsCanLogoutNormally() throws Exception {
+        SessionTokens first = sessions.issue(10001,1,SessionKind.STUDENT);
+        var next = new SessionTokens[1];
+        ((OpaqueSessionTest.RotateBeforeRevokeStore) sessionStore).beforeRevoke =
+                () -> next[0] = sessions.refresh(first.refreshToken(), SessionKind.STUDENT);
+        mvc.perform(post("/api/v1/auth/logout").contentType("application/json").content("{\"refreshToken\":\"" + first.refreshToken() + "\"}"))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+        mvc.perform(get("/api/v1/me/probe").header("Authorization", "Bearer " + next[0].accessToken())).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/logout").contentType("application/json").content("{\"refreshToken\":\"" + next[0].refreshToken() + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.revoked").value(true));
+        mvc.perform(get("/api/v1/me/probe").header("Authorization", "Bearer " + next[0].accessToken())).andExpect(status().isUnauthorized());
+        Assertions.assertEquals(401, Assertions.assertThrows(BusinessException.class,
+                () -> sessions.refresh(next[0].refreshToken(), SessionKind.STUDENT)).getStatus());
+    }
     record Input(int value) {}
     record Output(boolean accepted) {}
+    record LogoutInput(String refreshToken) {}
     @Service static class ProbeService {
         @BusinessWrite public Output write(Input input) { return new Output(true); }
         @BusinessWrite(ownRights = true) public Output deleteAccount() { return new Output(true); }
     }
     @RestController static class ProbeController {
-        final CurrentActor current; final ProbeService service;
-        ProbeController(CurrentActor current, ProbeService service) { this.current = current; this.service = service; }
+        final CurrentActor current; final ProbeService service; final SessionTokenService sessions;
+        ProbeController(CurrentActor current, ProbeService service, SessionTokenService sessions) { this.current = current; this.service = service; this.sessions = sessions; }
+        @PostMapping("/api/v1/auth/logout") public ApiResponse<Map<String,Boolean>> logout(@RequestBody LogoutInput input, HttpServletRequest r) {
+            sessions.revoke(input.refreshToken(),SessionKind.STUDENT);
+            return ApiResponse.ok(Map.of("revoked", true), RequestIdFilter.requestId(r));
+        }
         @GetMapping("/api/v1/me/probe") public Output me() { current.require(); return new Output(true); }
         @GetMapping("/api/v1/admin/probe") public Output admin() { current.requirePermission("content.review"); return new Output(true); }
         @GetMapping(value="/api/v1/admin/csrf-probe", produces="text/plain") public String csrf(HttpServletRequest r) {
@@ -131,8 +152,8 @@ class SessionHttpBoundaryTest {
             if (campus != 1 || user < 10001 || user > 10003 || (user == 10002) != (kind == SessionKind.ADMIN)) return Optional.empty();
             return Optional.of(new Actor(user, campus, user == 10002 ? Set.of("content.review") : Set.of(), true, true, user == 10003 ? "banned" : "active", kind));
         }; }
-        @Bean @Primary SessionStore testSessionStore() { return new OpaqueSessionTest.MemorySessionStore(java.time.Clock.systemUTC()); }
+        @Bean @Primary SessionStore testSessionStore() { return new OpaqueSessionTest.RotateBeforeRevokeStore(java.time.Clock.systemUTC()); }
         @Bean ProbeService probeService() { return new ProbeService(); }
-        @Bean ProbeController probeController(CurrentActor current, ProbeService service) { return new ProbeController(current, service); }
+        @Bean ProbeController probeController(CurrentActor current, ProbeService service, SessionTokenService sessions) { return new ProbeController(current, service, sessions); }
     }
 }
