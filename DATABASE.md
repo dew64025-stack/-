@@ -36,6 +36,7 @@ CREATE USER 'caizhitong_investigator'@'<ip>' IDENTIFIED BY '<password>';
 
 ```sql
 GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
+      CREATE TEMPORARY TABLES,
       SELECT, INSERT, UPDATE, DELETE
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
@@ -62,6 +63,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_profiles TO 'caizhitong_
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.roles TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_roles TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.authorizations TO 'caizhitong_app'@'<ip>';
+-- V8: runtime can read credentials and advance replay state; controlled bootstrap owns INSERT.
+GRANT SELECT, UPDATE (last_totp_step) ON caizhitong.admin_credentials TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.student_roster TO 'caizhitong_app'@'<ip>';
 
 -- 机会与材料
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.notices TO 'caizhitong_app'@'<ip>';

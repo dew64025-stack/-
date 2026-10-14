@@ -30,6 +30,10 @@ public final class RoutePolicy {
                 || binaryUpload(method, path);
     }
     public static boolean adminCredential(String path) { return ADMIN_CREDENTIALS.contains(relative(path)); }
+    public static boolean independentCredential(String method,String path) {
+        return "POST".equals(method) && Set.of("/auth/wechat/login","/auth/token/refresh","/auth/logout",
+                "/admin/auth/login","/admin/auth/mfa/verify","/admin/auth/token/refresh").contains(relative(path));
+    }
     public static boolean ownRights(String method, String path) {
         String route = relative(path);
         return "GET".equals(method) && (Set.of("/me/penalties", "/me/appeals", "/me/data-requests").contains(route)

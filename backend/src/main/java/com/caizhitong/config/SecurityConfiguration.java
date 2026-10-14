@@ -27,7 +27,7 @@ public class SecurityConfiguration {
         http.securityMatcher("/api/v1/admin/**")
                 .csrf(config -> config.csrfTokenRepository(csrf))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(request -> RoutePolicy.adminCredential(request.getRequestURI())).denyAll()
+                        .requestMatchers("/api/v1/admin/auth/csrf","/api/v1/admin/auth/login","/api/v1/admin/auth/mfa/verify","/api/v1/admin/auth/token/refresh").permitAll()
                         .anyRequest().access((authentication, context) -> {
                             Object principal = authentication.get().getPrincipal();
                             return new AuthorizationDecision(principal instanceof Actor actor && actor.kind() == SessionKind.ADMIN && "active".equals(actor.status()));

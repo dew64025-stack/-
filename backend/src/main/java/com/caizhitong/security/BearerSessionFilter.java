@@ -14,6 +14,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public final class BearerSessionFilter extends OncePerRequestFilter {
     private final SessionTokenService sessions; private final SessionKind kind; private final FilterErrors errors;
     public BearerSessionFilter(SessionTokenService sessions, SessionKind kind, FilterErrors errors) { this.sessions = sessions; this.kind = kind; this.errors = errors; }
+    @Override protected boolean shouldNotFilter(HttpServletRequest request) {
+        return RoutePolicy.independentCredential(request.getMethod(),request.getRequestURI());
+    }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         String authorization = request.getHeader("Authorization");
         if (authorization != null && authorization.regionMatches(true, 0, "Bearer", 0, 6)) {

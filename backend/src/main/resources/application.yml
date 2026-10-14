@@ -55,6 +55,9 @@ management:
     health:
       show-details: never
 app:
+  wechat:
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
   ids:
     worker-id: ${SNOWFLAKE_WORKER_ID}
   crypto:

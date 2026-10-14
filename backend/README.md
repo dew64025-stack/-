@@ -1,6 +1,6 @@
 # 材智通后端
 
-Java 21 / Spring Boot 4.1.1 模块化单体。当前底座提供统一响应、错误处理、请求编号、敏感字段加密、雪花 ID、Redis opaque 会话、数据库动态权限、签名游标、事务幂等和原子限流；真实登录凭据交换由身份模块接入。
+Java 21 / Spring Boot 4.1.1 模块化单体。当前提供统一响应、安全会话、动态权限、事务幂等和身份模块：服务器微信换码、手机号授权、人工学生认证，以及后台密码挑战、TOTP、角色与异步名单导入。微信真实服务联调和文件依赖接通尚未验收。
 
 ## 构建与测试
 
@@ -25,7 +25,7 @@ Redis 使用 `REDIS_HOST`、`REDIS_PORT`、可选 `REDIS_USER` 以及必需 `RED
 java -jar backend/target/backend-0.0.1-SNAPSHOT.jar
 ```
 
-Maven 打包时把根目录 `sql/V*__*.sql` 原样映射到 `classpath:db/migration`，当前为 V1～V7，不载入 `demo` 数据。`ddl-auto=validate`、禁止 Flyway clean、禁止自动 baseline。生产只支持 MySQL，生产 JAR 无 H2。
+Maven 打包时把根目录 `sql/V*__*.sql` 原样映射到 `classpath:db/migration`，当前为 V1～V8，不载入 `demo` 数据。`ddl-auto=validate`、禁止 Flyway clean、禁止自动 baseline。生产只支持 MySQL，生产 JAR 无 H2。
 
 ## 后续模块接入约定
 
@@ -33,7 +33,7 @@ Maven 打包时把根目录 `sql/V*__*.sql` 原样映射到 `classpath:db/migrat
 
 `BusinessException(int status, String code, String message, List<ApiFieldError> fieldErrors, boolean retryable)` 的 message 只接收可公开的业务提示。请求编号由服务端生成并放在响应正文和 `X-Request-Id` 头，入站同名头不被信任。
 
-学生端仅接受 STUDENT namespace 的 Bearer 会话；后台仅接受 ADMIN namespace，会话权限每次从数据库读取。公开路径和凭据例外由 `RoutePolicy` 精确声明，未实现公开端点仍404。后台认证入口在真实密码与MFA接入前保持关闭；后台写操作保留CSRF，Cookie使用Secure、HttpOnly、SameSite=Strict。临时二进制上传入口保持关闭，文件模块必须安装独立的上传凭据校验。Actuator受默认拒绝安全链保护。
+学生端仅接受 STUDENT namespace 的 Bearer 会话；后台仅接受 ADMIN namespace，会话权限每次从数据库读取。公开路径和凭据例外由 `RoutePolicy` 精确声明，未实现公开端点仍404。后台必须先密码挑战再TOTP；后台写操作保留CSRF，Cookie使用Secure、HttpOnly、SameSite=Strict。临时二进制上传入口保持关闭，文件模块必须安装独立的上传凭据校验。Actuator受默认拒绝安全链保护。
 
 校园问题详情、互助帖子详情和互助帖子评价只允许精确GET进入公开读取边界；业务服务仍必须执行同校园及公开/所有者可见性检查，未审核、私密、跨校内容对无权者返回404。公开路由匹配不代表对象已公开，其他子路径和写方法不因该策略放开。
 
@@ -46,3 +46,19 @@ Maven 打包时把根目录 `sql/V*__*.sql` 原样映射到 `classpath:db/migrat
 `@BusinessWrite`仅包实际数据库动作；远程微信换码、AI请求、文件扫描不得放进注解事务。凭据例外不进入持久幂等缓存。Redis会话access900秒、refresh604800秒，刷新轮换两种token并一次性消费旧refresh。Redis失败返回503，不放行。`RateLimiter.check(bucket,max,window)`由调用方按端点与服务端身份选择bucket，不采信客户端限流身份；客户端IP若用于bucket，代理转发头须由部署层严格校验。
 
 `CursorCodec`的scope必须由查询服务从当前校园和规范化过滤条件组成，客户端传来的scope不可直接使用；排序键须覆盖稳定排序的唯一ID。`PageLimits.resolve(null)`默认20，最大100。当前测试使用H2和测试目录的Redis adapter替身，未替代真实MySQL事务/迁移及Redis Lua并发实测。
+
+## 身份模块运行与交接
+
+微信使用部署环境中的 `WECHAT_APP_ID` / `WECHAT_APP_SECRET`。未配置时明确返回503；没有生产fake登录开关。服务器请求固定为微信HTTPS域名，连接2秒、整体请求8秒、响应256KiB上限，错误不返回上游URL或秘密。手机号与学号检索摘要分别使用 `phone` / `student` 用途，数据库CHAR(64)保存32字节HMAC的hex；密文使用相同用途。手机号检索值规范化为 `+countryCode+purePhoneNumber`。
+
+V8需要MySQL 8.0.16以上；增加唯一约束前先检查历史多条有效认证/手机号，冲突直接失败，不能删历史或自动repair。微信app_id/openid改为utf8mb4_0900_bin，H2的大小写测试不等于生产collation验收。迁移账号需要 `CREATE TEMPORARY TABLES`；正常业务账号仅能读取管理员凭据并更新 `last_totp_step`，不能创建管理员或修改密码/MFA种子。
+
+管理员初始化只有 `com.caizhitong.admin.identity.AdminBootstrap` CLI，没有HTTP注册。参数依次为显式operatorId、既有userId、campusId、roleCode；operator与目标用户必须同属显式指定的校园。环境必须提供 `MYSQL_URL`、`ADMIN_BOOTSTRAP_DB_USER`、`ADMIN_BOOTSTRAP_DB_PASSWORD`、`ADMIN_BOOTSTRAP_USERNAME`、`ADMIN_BOOTSTRAP_PASSWORD`、`ADMIN_BOOTSTRAP_MFA_SEED`、已有APP密钥及worker编号。使用受控的独立bootstrap数据库账号，至少授予users/roles读取、user_roles读取/插入及已有id的更新、admin_credentials插入、admin_audit_logs追加权限；初始化后回收该账号。密码为12字符以上且UTF-8不超过72字节，MFA种子由操作员安全生成并交付验证器，CLI不会生成默认秘密或打印秘密。运行时类路径需包含编译后的backend类及其依赖。
+
+后台先GET `/api/v1/admin/auth/csrf`，取正文token配合安全Cookie，在写请求的 `X-ADMIN-CSRF` 提交。密码成功只给五分钟挑战；MFA成功才签发会话。JSON中的refreshToken始终为null，真实值仅通过 `ADMIN-REFRESH` 安全Cookie交付。refresh与学生logout由独立刷新凭据判断，不因附带过期access而抢先拒绝；普通业务及admin logout/reauth仍要求有效Bearer。reauth五分钟且绑定管理员和校园，DELETE撤权通过 `X-Reauth-Token` 而不是URL传令牌。
+
+`IdentityFiles`只有 `validateAvatar(actor,id)`、`validateRoster(actor,id)` 与 `roster(actor,id,maxBytes)` 三个边界。Task4必须校验同校园、所有者、私密用途和clean扫描状态，并对读取再次校验；当前默认实现全部503。头像只保存attachmentId，不写入签名URL；User业务幂等DTO中的avatarUrl为null，响应在业务代理外补现有URL。Task4仍须接入真实头像读取URL解析，在代理事务外生成并验证，不能把临时签名写回users或幂等记录。
+
+名单导入先以202登记pending任务与同事务审计。`async_jobs`已由V8新增campus_id、owner_user_id、access_domain、claim_token，Task4应复用；旧任务的未知归属保留NULL。`StudentRosterWorker.run()`每次领取最多一条学生名单任务，使用五分钟租约、三次尝试和30秒重试间隔；文件读取和UTF-8 CSV解析在事务外，有效行、脱敏摘要与succeeded状态在十秒事务中原子写入。生产每五秒轮询，测试仅关闭自动调度并手动驱动真实worker。CSV四列严格为studentNumber/college/grade/status，10MiB上限，status仅active/inactive；名单只提供人工核验线索，不授予或撤销学生权限。
+
+当前未验收真实微信、Redis、MySQL V8迁移/最小授权、扫描文件存储或学校接口。学校认证提供器明确未配置，不开放猜测的认证回调。
