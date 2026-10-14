@@ -12,7 +12,7 @@ public final class IdentityInputs {
     public record Logout(JsonNode refreshToken) { public Logout { if(refreshToken!=null)text(refreshToken,128,false); } }
     public record Phone(JsonNode phoneCode) { public Phone { text(phoneCode,256,false); } }
     public record Update(JsonNode nickname,JsonNode avatarAttachmentId,JsonNode version) {
-        public Update { IdentityInputs.version(version);if(nickname==null&&avatarAttachmentId==null)throw invalid();if(nickname!=null)text(nickname,64,false);if(avatarAttachmentId!=null&&!avatarAttachmentId.isNull())id(avatarAttachmentId); }
+        public Update { IdentityInputs.version(version);if(nickname==null&&avatarAttachmentId==null)throw invalid();if(nickname!=null)text(nickname,32,false);if(avatarAttachmentId!=null&&!avatarAttachmentId.isNull())id(avatarAttachmentId); }
     }
     public record ProfileUpdate(JsonNode college,JsonNode grade,JsonNode skills,JsonNode interests,JsonNode version) {
         public ProfileUpdate { IdentityInputs.version(version);if(college==null&&grade==null&&skills==null&&interests==null)throw invalid();if(college!=null)text(college,128,true);if(grade!=null)text(grade,32,true);if(skills!=null)strings(skills);if(interests!=null)strings(interests); }
@@ -35,7 +35,7 @@ public final class IdentityInputs {
     public static long id(JsonNode node) { return id(text(node,20,false)); }
     public static long id(String value) {if(value==null||!value.matches("[1-9][0-9]{0,18}"))throw invalid();try{return Long.parseLong(value);}catch(NumberFormatException e){throw invalid();} }
     public static int version(JsonNode node) {if(node==null||!node.isIntegralNumber()||!node.canConvertToInt()||node.asInt()<0)throw invalid();return node.asInt();}
-    public static List<String> strings(JsonNode node) {if(node==null||!node.isArray()||node.size()>32)throw invalid();Set<String> result=new LinkedHashSet<>();node.forEach(item->result.add(text(item,64,false)));return List.copyOf(result);}
+    public static List<String> strings(JsonNode node) {if(node==null||!node.isArray()||node.size()>20)throw invalid();Set<String> result=new LinkedHashSet<>();node.forEach(item->result.add(text(item,32,false)));return List.copyOf(result);}
     public static String totp(JsonNode node) {String code=text(node,6,false);if(!code.matches("[0-9]{6}"))throw invalid();return code;}
     public static BusinessException invalid(){return new BusinessException(400,"VALIDATION_FAILED","请检查填写的信息");}
 }

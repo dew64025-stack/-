@@ -70,6 +70,43 @@ class IdentityHttpTest {
         write("/me/profile/update",token,"{\"college\":\"其他学院\",\"version\":0}","wrong-college").andExpect(status().isBadRequest());
         write("/me/profile/update",token,"{\"grade\":\"2027\",\"version\":0}","wrong-grade").andExpect(status().isBadRequest());
     }
+    @Test void nicknameLongerThanThirtyTwoCharactersDoesNotWriteUser() throws Exception {
+        String body=new tools.jackson.databind.json.JsonMapper().writeValueAsString(Map.of("nickname","名".repeat(33),"version",0));
+        write("/me/update",bearer(101,1,SessionKind.STUDENT),body,"nickname-too-long").andExpect(status().isBadRequest());
+        Assertions.assertNull(jdbc.queryForObject("SELECT nickname FROM users WHERE id=101",String.class));
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT version FROM users WHERE id=101",Integer.class));
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM api_idempotency_records",Integer.class));
+    }
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"skills","interests"})
+    void profileArraysWithTwentyOneItemsDoNotWriteProfile(String field) throws Exception {
+        List<String> items=java.util.stream.IntStream.range(0,21).mapToObj(i->"项目"+i).toList();
+        String body=new tools.jackson.databind.json.JsonMapper().writeValueAsString(Map.of(field,items,"version",0));
+        write("/me/profile/update",bearer(101,1,SessionKind.STUDENT),body,"too-many-"+field).andExpect(status().isBadRequest());
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM user_profiles",Integer.class));
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM api_idempotency_records",Integer.class));
+    }
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"skills","interests"})
+    void profileItemsLongerThanThirtyTwoCharactersDoNotWriteProfile(String field) throws Exception {
+        String body=new tools.jackson.databind.json.JsonMapper().writeValueAsString(Map.of(field,List.of("项".repeat(33)),"version",0));
+        write("/me/profile/update",bearer(101,1,SessionKind.STUDENT),body,"item-too-long-"+field).andExpect(status().isBadRequest());
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM user_profiles",Integer.class));
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM api_idempotency_records",Integer.class));
+    }
+    @Test void nicknameAtThirtyTwoCharactersPersists() throws Exception {
+        String nickname="名".repeat(32),body=new tools.jackson.databind.json.JsonMapper().writeValueAsString(Map.of("nickname",nickname,"version",0));
+        write("/me/update",bearer(101,1,SessionKind.STUDENT),body,"nickname-at-limit").andExpect(status().isOk()).andExpect(jsonPath("$.data.nickname").value(nickname));
+        Assertions.assertEquals(nickname,jdbc.queryForObject("SELECT nickname FROM users WHERE id=101",String.class));
+        Assertions.assertEquals(1,jdbc.queryForObject("SELECT version FROM users WHERE id=101",Integer.class));
+    }
+    @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"skills","interests"})
+    void profileArraysAtTwentyItemsAndThirtyTwoCharactersPersist(String field) throws Exception {
+        List<String> items=java.util.stream.IntStream.range(0,20).mapToObj(i->"项".repeat(30)+String.format("%02d",i)).toList();
+        var mapper=new tools.jackson.databind.json.JsonMapper();String body=mapper.writeValueAsString(Map.of(field,items,"version",0));
+        write("/me/profile/update",bearer(101,1,SessionKind.STUDENT),body,"profile-at-limit-"+field).andExpect(status().isOk()).andExpect(jsonPath("$.data."+field+".length()").value(20)).andExpect(jsonPath("$.data."+field+"[19]").value(items.get(19)));
+        Assertions.assertEquals(mapper.writeValueAsString(items),jdbc.queryForObject("SELECT "+field+" FROM user_profiles WHERE user_id=101",String.class));
+        Assertions.assertEquals(1,jdbc.queryForObject("SELECT version FROM user_profiles WHERE user_id=101",Integer.class));
+        Assertions.assertEquals(0,jdbc.queryForObject("SELECT version FROM users WHERE id=101",Integer.class));
+    }
     @Test void unboundPhoneCannotApplyAndUnknownRosterStillCreatesPending() throws Exception {
         String token=bearer(101,1,SessionKind.STUDENT);
         write("/student-verifications",token,"{\"studentNumber\":\"20260001\"}","student-unbound").andExpect(status().isForbidden());
