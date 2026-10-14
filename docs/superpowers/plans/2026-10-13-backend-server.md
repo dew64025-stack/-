@@ -106,11 +106,17 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 **微信边界：** 微信登录与手机号换码远程请求在业务事务外；固定https://api.weixin.qq.com，禁止用户提供上游地址/重定向。连接超时2秒、请求超时8秒，响应限制256KiB，错误不输出请求URL、AppSecret、token、code、openid或手机号。登录code按摘要短时去重并限流，重复code不能因上游替身返回相同结果而创建第二账号。同app_id/openid唯一约束与重试读处理同时登录竞争；服务器既有校园不能被campusCode更改。手机号只接受微信返回值，校验watermark.appid，按countryCode和号码规范化检索；事务锁用户并保持一个当前已验证号码、记录新的phone授权，不把历史撤回当作有效授权。数据库唯一冲突返回安全业务错误，不泄露他人归属。
 
+有效学生refresh可在access过期时登出，学生/管理员refresh入口由各自真实刷新凭据验证；附带过期access Header不能抢先阻断这些精确凭据路由。没有有效刷新凭据仍401；不能全局忽略非法Bearer，普通业务以及admin logout/reauth仍保持所需身份/CSRF检查。
+
+微信标识按服务器返回的不透明字符串原样精确匹配，不能lowercase或依赖unionid自动合并。V1的utf8mb4_unicode_ci会忽略大小写，V8对app_id/openid保留utf8mb4字符集与列长度/约束，仅改为utf8mb4_0900_bin（NO PAD）的binary语义；仅大小写不同的openid不能混号，不做有损字符转换/静默清数据。H2默认字符串比较不能替代真实MySQL collation验证，须记录测试范围。依据：https://dev.mysql.com/doc/refman/8.0/en/charset-mysql.html 。
+
 **人工认证与V8：** 删除旧的全状态uq_student_campus_search，改为同校一个verified学号归属，以及每用户至多一个pending/verified申请的可空生成列唯一索引；保留检索索引和被拒绝的历史。创建约束遇到旧冲突必须失败，不能自动删数据。申请最长32、加密且HMAC；同学号的待审申请不永久占号，名单匹配只能附带审核线索。approve/reject校验本校identity.review、pending状态、当前version和手机号当前有效；rejectReason最长255、普通reason最长512。决定和不可变审计同事务；未认证不赋予学生业务能力。学校提供器只声明未来可信接入能力和明确未配置状态，不暴露猜测的认证callback。
 
 **管理员：** V8补独立管理员凭据和加密MFA种子、TOTP防重放状态及名单表，初始化只能受控CLI且显式操作员参数/环境输入，无默认账号/密码，无公开注册，不输出密码/种子到日志。密码BCrypt且登录限流，失败信息统一。先密码挑战，再6位TOTP（30秒步长、±1窗口），挑战摘要存Redis且一次消费，TOTP时间步数据库条件更新防重放；任何失败不签发admin会话。管理员JSON的refreshToken为null，通过Secure/HttpOnly/SameSite=Strict刷新Cookie交付。GET /admin/auth/csrf公开但仅返回当前请求的CSRF凭证和安全Cookie；登录/MFA/刷新也必须CSRF，logout/reauth必须有效active管理员。reauthToken随机、存摘要、有效5分钟、绑定当前admin与校园，敏感动作一次性消费。角色赋权要求user.roles和reauth；不能授予操作者没有的权限/外校权限，不能凭campus_admin授予security_investigator/platform_admin；角色撤销即时影响Task2 ActorLoader。返回脱敏队列/用户列表，敏感字段不进入审计detail。
 
 **文件依赖交接：** 头像与名单输入依赖Task4的已扫描私密文件。Task3声明窄接口验证附件归属/用途/scanStatus并读取受限字节；未接入时明确拒绝，不返回假的URL/导入成功。Task4必须替换为真实实现并补跨域测试。名单CSV限制10MiB、UTF-8、studentNumber/college/grade/status四列，排除格式/重复/非法值后持久化HMAC和密文字段；任务登记与审计同事务，扫描/读取不持有长数据库事务。是否命中名单不能自动认证。Task3审查须列出文件依赖尚未联通，最终验收不得把它算已完成。
+
+名单status精确为active/inactive，只有active是辅助审核命中；inactive不自动撤销认证，任何名单状态都不自动授予权限。POST /admin/student-roster/imports必须真正异步：HTTP202先登记pending任务与审计，后台限量领取后在数据库事务外读取/解析clean附件，再原子持久化有效行与摘要结果/任务succeeded状态。失败可有限重试并回收失效领取，不能同步处理完后仍冒充202异步受理。必要的async_jobs.campus_id/owner_user_id/access_domain元信息可提前由V8补充，Task4复用、不重复加列；旧未知归属保持NULL且不可凭猜测开放给用户。报告错误摘要只含行号/错误码，不含明文学号、CSV行或秘密；测试手动驱动真实worker，关闭自动定时只限测试配置。
 
 **已有测试兼容：** 新Controller会使旧SessionHttpBoundaryTest中的未实现路由从404变为真实响应；同步调整受影响的探针/切片或真实数据夹具，保留原安全断言，不通过排除真实安全链/删除失败用例来绿灯。测试数据库按套件隔离，不能依赖另一套件恰好先建表或写入数据。
 
@@ -124,8 +130,17 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 ## Task 4: 安全文件与材料基础
 
 **Files:** material/files/、integration/storage/、integration/scanner/；sql/V9__files_and_jobs.sql；test。
+**最小文件职责：** files下按上传意向/Upload认证、附件授权读取、材料版本、格式校验、扫描worker和清理worker分开；storage下保留S3适配与配置，scanner下保留ClamD协议适配与扫描结果。Controller不持有对象存储密钥，不把格式解析或网络扫描放进数据库事务。人类使用说明放docs/backend/，真实遗留对象键转换只提供受控工具和测试，不在应用启动时自动执行。
+**依赖与提供器：** 允许新增io.minio:minio:9.0.3（兼容S3客户端，不要求MinIO服务端）和org.apache.pdfbox:pdfbox:3.0.8（PDF真实结构及页数校验），均已核对官方发布信息；已告知用户用途与自写协议/只看文件头的替代风险。ClamD使用Java Socket实现受限INSTREAM协议，不为简单适配引入额外框架。保留配置的S3端点，凭据只从服务端配置读取，拒绝重定向，不记录签名URL/HTTP trace；本机Docker的具体S3服务端仍由部署验收选择。
+**当前提供器核查：** 2026-10-14核查MinIO社区服务端已归档、不再维护（https://github.com/minio/minio）。原规格允许MinIO或兼容S3，所以存储接口保持S3兼容，不把历史MinIO镜像直接设为上线默认；具体本机Docker存储提供器在部署前核对维护/安全状态并留记录。客户端SDK与服务端的维护状态分别判断，不能把SDK仍更新等同服务端仍受支持。
+**跨任务交接：** 接通Task3声明的头像/私密名单文件窄接口，补真实归属、用途、clean状态、限量读取验证；导入/头像的跨域行为只有这时才能列为完成。复用V8已经增加的async_jobs校园/创建人/访问域/领取元信息，不重复加列；核对索引与权限，不靠可编辑payload中的userId授予访问。已有未知归属任务不得凭猜测回填为某用户任务。
+**范围：** 第7.1节6条上传/文件路由、第7.2节前6条材料CRUD/版本路由，以及第16.2节4条管理员文件路由；清单与预检由Task6实现。公共GET/关联业务读文件要在后续模块显式接入所有者/参与人/已审核公开对象策略，不开放任意校园内附件。API返回ID字符串，不返回真实objectKey/存储凭据/私密名单内容。
+**约束：** 上传仅接受Upload临时凭证，随机32字节、仅存摘要、绑定用户/校园/namespace/purpose/uploadId/大小/MIME/摘要、10分钟有效且原子单次领取；重新校验当前用户/用途权限。流式写隔离对象，超限停止并登记孤儿清理，远程上传不占长数据库事务。文件名最多255且拒绝路径/控制字符；材料20MiB、业务图片5MiB、名单10MiB。JPEG/PNG/PDF/DOCX白名单；头像只图片、名单只受控UTF-8 CSV。ZIP条目/展开总量/压缩比/路径均受限，XML禁外部实体，PDF最多500页，图片最多2500万像素且先读尺寸再解码。原始摘要与图片重编码后的摘要分开，不能拿清理后的文件规避原始病毒扫描。
+**状态与保密：** 完成登记原子创建attachment与scan job，重试不重复登记；扫描pending/infected/failed一律不得下载或送AI，只有真实扫描成功并验证格式才可clean。私密链接120秒，下载/临时签名不进持久幂等缓存，存储bucket默认私密。对象键/材料地址按规格加密存储，旧V2明文object_key需要受控转换/验证记录，不静默清空旧字段或谎称旧数据已加密。清理任务与元信息变更同事务，失败可重试；版本绑定不可变附件和散列，追加版本不覆盖被引用的旧内容。材料删除需检查清单/历史保留义务，不破坏已有复合约束。
+**扫描具体边界：** ClamD连接超时2秒、读取超时30秒、响应最多4KiB；仅明确的本次stream: OK为扫描通过，FOUND为infected，超时/断连/ERROR/超限/无法识别结果为failed并有限重试。扫描端口不暴露公网，部署须让StreamMaxLength覆盖最大上传、启用超限告警，扫描配置/病毒库未验收不能宣称安全上线。DOCX最多1000条ZIP entry、总展开64MiB、单entry20MiB、压缩比不超过100，拒绝路径穿越/重复entry/加密内容/宏/外部关系；XML禁DTD和外部实体，不能只检查PK魔数。
+**遗留数据过渡：** V9增加加密对象键/版本附件关联字段并保留原始数据；旧明文对象键不在HTTP返回，也不被当成已加密的新记录。新写入只保存密文。受控转换工具先校验显式备份确认和专用操作权限，逐条加密、回读核对后才清除对应旧明文字段；失败可恢复，业务账号不因此获得更新不可变版本的权限。报告区分工具验证与尚未执行的真实旧数据转换。
 - [ ] RED：第7节上传意向、Upload认证二进制上传、完成、元信息、授权下载、材料版本接口；测试越权、大小/MIME/文件头/摘要不一致、一次性凭据重放、未扫描下载拒绝、扫描失败不clean。
-- [ ] MinIO隔离对象键服务器生成，短期签名；ClamAV扫描或显式受控扫描服务，不提供假clean实现。JPEG/PNG移除EXIF，PDF页数限制。
+- [ ] S3隔离对象键服务器生成，短期签名；ClamAV扫描或显式受控扫描服务，不提供假clean实现。JPEG/PNG移除EXIF，PDF页数限制。
 - [ ] 材料版本只追加，不允许更新已被清单引用的版本。文件删除登记可靠任务，与元信息事务一致。
 - [ ] GREEN：本地文件服务替身集成测试，注明真实对象存储/扫描验证范围，本地检查点。
 
@@ -202,5 +217,6 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 - [ ] 从v1.1文档提取206个计划接口，对照实际Spring映射和实现测试；31主路由全部有真实业务行为，额外接口不计替代。
 - [ ] 执行全套单元/HTTP/数据库/Redis/文件集成、关键安全、预约并发、核心链路；执行真实环境压力和恢复检查后才认定对应门槛通过。
 - [ ] 文档列出每个已实现路由、配置、启动、测试命令、已知限制和需要运营者准备的外部配置；不把缺凭据的真实联调列为通过。
+- [ ] 身份补强：验证同时首次微信登录唯一键冲突后回读；真实MySQL8 V8冲突失败及NO PAD大小写/尾随空格语义；接近10MiB名单及租约竞争，确认10秒事务可支撑，否则改为受控分段暂存后原子发布并复测。捕获断言预期配置负例WARN；新身份安全代码常规多行格式化后回归，不借此重构。
 - [ ] 独立全分支审查并修复关键问题，秘密扫描、git diff --check、打包验证。
 - [ ] 用户授权的统一提交：仅完成并通过验收的代码推送到dew64025-stack/-，非强制推送；读远端SHA与文件核验。若仍存在核心未完成项，禁止推送并如实说明。
