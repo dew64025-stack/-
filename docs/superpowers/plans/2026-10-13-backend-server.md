@@ -57,8 +57,8 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 **Consumes:** Task1 ApiResponse/BusinessException/SnowflakeIds/SensitiveDataCrypto，生产DataSource/Redis与Clock。
 **Produces:**
 - Actor(long userId,long campusId,Set<String> permissions,boolean phoneBound,boolean studentVerified,String status,SessionKind kind)，kind=STUDENT/ADMIN。
-- CurrentActor.require()、optional()、requireStudent()、requirePermission(String)；非active拒绝。requireStudent同时要求手机号已验证和认证verified。
-- ActorLoader.load(long userId,long campusId,SessionKind kind): Optional<Actor>。实现通过JPA EntityManager参数化native读取现有users/phones/verifications/roles；管理员namespace只有合法管理员角色，业务处理身份动态重查，不接受Redis缓存的客户端权限。
+- CurrentActor.require()、optional()、requireAuthenticatedIdentity()、requireStudent()、requirePermission(String)。require默认拒绝非active；requireAuthenticatedIdentity仅证明会话身份，供明确受限账号数据权利端点使用；requireStudent同时要求手机号已验证和认证verified。已删除账号/已撤销会话始终拒绝。
+- ActorLoader.load(long userId,long campusId,SessionKind kind): Optional<Actor>。实现通过JPA EntityManager参数化native读取现有users/phones/verifications/roles；phoneBound必须同时有已验证号码和当前有效phone授权，撤回授权后不能只凭历史verified号码继续放行。管理员namespace只有合法管理员角色，业务处理身份动态重查，不接受Redis缓存的客户端权限。
 - SessionTokens(accessToken,expiresIn,refreshToken,refreshExpiresIn)；SessionTokenService.issue(long userId,long campusId,SessionKind)、authenticate(String,SessionKind)、refresh(String,SessionKind)、revoke(String,SessionKind)。JWT不是本项目方案，token使用SecureRandom 32字节base64url。
 - CursorCodec.encode(CursorPayload)、decode(String token,String scope)：payload含排序键和scope，签名HMAC，客户端不能跨校园/过滤条件复用。
 - @BusinessWrite应用服务注解与IdempotencyContext；IdempotencyExecutor在一个MySQL事务内执行真实业务及幂等结果持久化，Controller业务命令不得直接绕过此服务边界。
@@ -66,7 +66,7 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 **事务与失败规则：** 幂等范围含namespace、user、campus、method、真实路由及key摘要。过滤器只验证业务写头并绑定规范化请求摘要，不在过滤器结束后另存已经提交的业务结果。应用服务@BusinessWrite在事务里先占唯一记录、执行业务、保存加密DTO结果后一起提交；异常一起回滚。重复提交返回相同业务data，但外层requestId是当前请求的新ID。同键不同摘要409；竞争中已提交的结果可读，未完成或锁超时409/503可重试；不能catch后强行提交回滚事务。权限检查在幂等重放之前（服务@PreAuthorize或Controller明确检查），不能因重放绕过当前撤权。注解只用于实际业务写入，不包远程微信换码/AI模型/文件扫描调用。
 
-**会话规则：** Redis只存token摘要和userId/campusId/kind/sessionId，access900秒、refresh604800秒。refresh Lua一次性消费并轮换整个会话，撤旧access和refresh，两个并发刷新只成功一次。namespace不可互换。access认证每次加载当前数据库状态，找不到/已删/非active用户拒绝；权限配置由roles.code静态矩阵映射，不接受请求roles。撤销同会话token。JSON和日志禁止原始token。Redis不可用不放行。未知/过期token401。
+**会话规则：** Redis只存token摘要和userId/campusId/kind/sessionId，access900秒、refresh604800秒。refresh Lua一次性消费并轮换整个会话，撤旧access和refresh，两个并发刷新只成功一次。namespace不可互换。access认证每次加载当前数据库状态，找不到/已删用户拒绝；受限用户仍保留可验证身份，但只能访问严格白名单的本人处罚/申诉/数据权利，不能恢复发布等业务权限。权限配置由roles.code静态矩阵映射，不接受请求roles。撤销同会话token。JSON和日志禁止原始token。Redis不可用不放行。未知/过期token401。
 
 **HTTP边界：** 只解析Bearer认证，客户端userId/campusId/roles字段不产生身份。学生端stateless bearer请求独立安全链；admin链隔离，学生token不通过。admin cookie写操作CSRF不能关闭，cookie Secure/HttpOnly/SameSite，具体管理员登录和MFA在Task3接入。公开GET仅允许文档P/P-L的特定路径，未实现路由仍404，不能通配允许所有写。临时Upload二进制凭据由Task4独立验证，不用Bearer当上传凭据。默认生产不输出生成的Spring默认密码。
 
@@ -78,6 +78,7 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 - [ ] RED：OpaqueSessionTest验证伪造token无效、过期401、学生token不能admin、刷新重放拒绝、两次刷新仅一次成功、撤销旧access即时无效。
 - [ ] RED：CurrentActorTest验证未登录401、未绑定/未认证403、跨namespace拒绝、当前DB已禁用用户不可凭旧会话访问。
+- [ ] RED：受限身份普通业务403，但本人处罚、申诉与注销/数据请求仍可经明确的身份读取能力访问；没有有效会话仍401，已删除用户不可凭旧token访问。不能通过宽泛/me通配符放行其他写入。
 - [ ] RED：IdempotencyExecutorTest在H2实际事务库验证同键同输入只创建一次业务记录、异请求409、业务异常不留下成功记录、权限撤销后不得重放敏感结果。
 - [ ] RED：CursorCodecTest验证篡改、过滤或校园scope变化、过长游标及非法base64拒绝；分页上限100、默认20。
 - [ ] RED：RateLimiterTest验证最大次数后429、窗口更新、Redis错误503。外部Redis使用适当adapter测试替身，Lua真实集成检查单独记录；不把替身测试称为Redis并发实测。
@@ -98,7 +99,24 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 **Files:** identity/、campus/、integration/wechat/、admin/identity/；sql/V8__identity_runtime.sql；test相同域。
 **Interfaces:** 微信Jscode2session只服务器交换；手机号一次性code换取真实号码；AppID从环境配置。个人基础资料与画像分别用version。名单保存HMAC学号与密文字段。用户现已确认：学校身份接口先预留，当前保留人工复核；名单命中也不自动授予学生权限。拒绝后允许重新申请，不允许占用他人已验证学号。学校接口未提供协议/可信凭据时不能伪造verified结果。
+
+**精确路由范围：** API第4节的13个接口（含微信登录），第16.1节6个管理员身份接口，以及第16.2节认证列表/decision、名单imports、users列表和roles赋予/撤销。第16.2节文件接口由Task4接入，校园创建/配置/统计由Task13实现。增加必要的GET /admin/auth/csrf来获取CSRF凭证，属于安全辅助路由，不替代206个计划接口。公开GET校园组织/地区从登录校园或开放campusCode选取，不允许登录用户切换校园。
+
+**输入与资料：** 独立DTO拒绝未知属性和标量转换，version只能非负JSON整数；ID/学号/code只能JSON字符串；字符串数组不能接收数字、对象、null。至少修改一个可编辑字段，显式null仅对允许清除的字段生效。college来自本校active college组织，grade来自本校配置profile.allowedGrades；没有允许值时拒绝设置，不猜测任何年份均合法。老用户无画像时返回空数组和version=0，首次更新锁定users行、创建version=1，后续使用user_profiles.version；并发首次更新最多一次成功。不修改users.version来替代画像version。
+
+**微信边界：** 微信登录与手机号换码远程请求在业务事务外；固定https://api.weixin.qq.com，禁止用户提供上游地址/重定向。连接超时2秒、请求超时8秒，响应限制256KiB，错误不输出请求URL、AppSecret、token、code、openid或手机号。登录code按摘要短时去重并限流，重复code不能因上游替身返回相同结果而创建第二账号。同app_id/openid唯一约束与重试读处理同时登录竞争；服务器既有校园不能被campusCode更改。手机号只接受微信返回值，校验watermark.appid，按countryCode和号码规范化检索；事务锁用户并保持一个当前已验证号码、记录新的phone授权，不把历史撤回当作有效授权。数据库唯一冲突返回安全业务错误，不泄露他人归属。
+
+**人工认证与V8：** 删除旧的全状态uq_student_campus_search，改为同校一个verified学号归属，以及每用户至多一个pending/verified申请的可空生成列唯一索引；保留检索索引和被拒绝的历史。创建约束遇到旧冲突必须失败，不能自动删数据。申请最长32、加密且HMAC；同学号的待审申请不永久占号，名单匹配只能附带审核线索。approve/reject校验本校identity.review、pending状态、当前version和手机号当前有效；rejectReason最长255、普通reason最长512。决定和不可变审计同事务；未认证不赋予学生业务能力。学校提供器只声明未来可信接入能力和明确未配置状态，不暴露猜测的认证callback。
+
+**管理员：** V8补独立管理员凭据和加密MFA种子、TOTP防重放状态及名单表，初始化只能受控CLI且显式操作员参数/环境输入，无默认账号/密码，无公开注册，不输出密码/种子到日志。密码BCrypt且登录限流，失败信息统一。先密码挑战，再6位TOTP（30秒步长、±1窗口），挑战摘要存Redis且一次消费，TOTP时间步数据库条件更新防重放；任何失败不签发admin会话。管理员JSON的refreshToken为null，通过Secure/HttpOnly/SameSite=Strict刷新Cookie交付。GET /admin/auth/csrf公开但仅返回当前请求的CSRF凭证和安全Cookie；登录/MFA/刷新也必须CSRF，logout/reauth必须有效active管理员。reauthToken随机、存摘要、有效5分钟、绑定当前admin与校园，敏感动作一次性消费。角色赋权要求user.roles和reauth；不能授予操作者没有的权限/外校权限，不能凭campus_admin授予security_investigator/platform_admin；角色撤销即时影响Task2 ActorLoader。返回脱敏队列/用户列表，敏感字段不进入审计detail。
+
+**文件依赖交接：** 头像与名单输入依赖Task4的已扫描私密文件。Task3声明窄接口验证附件归属/用途/scanStatus并读取受限字节；未接入时明确拒绝，不返回假的URL/导入成功。Task4必须替换为真实实现并补跨域测试。名单CSV限制10MiB、UTF-8、studentNumber/college/grade/status四列，排除格式/重复/非法值后持久化HMAC和密文字段；任务登记与审计同事务，扫描/读取不持有长数据库事务。是否命中名单不能自动认证。Task3审查须列出文件依赖尚未联通，最终验收不得把它算已完成。
+
+**已有测试兼容：** 新Controller会使旧SessionHttpBoundaryTest中的未实现路由从404变为真实响应；同步调整受影响的探针/切片或真实数据夹具，保留原安全断言，不通过排除真实安全链/删除失败用例来绿灯。测试数据库按套件隔离，不能依赖另一套件恰好先建表或写入数据。
+
 - [ ] RED：API第4节全部身份/校园接口，测试未知字段、跨校登录、更换campusCode、重复微信身份、手机号归属冲突、未绑定手机认证拒绝、名单不匹配pending、拒绝后重申请、画像版本409。
+- [ ] RED：JSON类型严格边界：数字ID不能当String接收，boolean不能从字符串true转换，skills/interests元素必须字符串；日期、金额、枚举不能依赖隐式类型转换。失败返回400，不触发外部调用或数据库写入。
+- [ ] RED：管理员密码失败不发会话，挑战重放、TOTP重放、角色撤销、跨校复核/越级赋权拒绝；安全Cookie与CSRF真实请求验证、reauth超时/错误归属；认证审批与审计/幂等同事务。
 - [ ] 微信HTTP适配设置超时、可信固定域名，微信失败不创建虚假身份；测试用本地HTTP替身，不对生产提供fake开关。学校认证定义提供器接口与未接入状态，不开放猜测协议的公网回调。
 - [ ] 追加名单和运行时模型/最小权限授权；管理员认证/名单导入和复核记录审计。
 - [ ] GREEN：完整身份闭环及隔离测试，本地检查点。
@@ -129,7 +147,7 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 ## Task 7: 资源预约与签到
 
 **Files:** resource/、integration/providers/resource/、admin/resource/；test。
-- [ ] RED：第9、16.5节资源、时段、availability、预约/取消/签到/历史与后台占用；容量、重复时段、跨校、未认证、越界seatNo、取消释放及重复签到测试。
+- [ ] RED：第9、16.4节资源、时段、availability、预约/取消/签到/历史与后台占用；容量、重复时段、跨校、未认证、越界seatNo、取消释放及重复签到测试。
 - [ ] Redis短锁加MySQL事务行锁，resource_occupancies唯一约束最终防重；预约resource从slot导出，遵循复合FK。
 - [ ] 过期/爽约产生解释性信用事件和可靠提醒；始终标模拟预约。
 - [ ] GREEN：300个并发申请同一座位最多1个成功，取消后可重订，记录真实执行环境，本地检查点。
@@ -144,21 +162,21 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 ## Task 9: 互助、失物、借用与组队
 
 **Files:** mutualaid/、team/、credit/ratings/、admin/mutualaid/；补交接与评价模型；test。
-- [ ] RED：第10、16.6节全部路由，失物核验不公开关键特征、二手预留/完成、借用交接/归还/超期、双方评价、队伍申请受理/拒绝/退出。
+- [ ] RED：第10、11节互助与组队全部路由，相关内容治理遵循第16.5节，失物核验不公开关键特征、二手预留/完成、借用交接/归还/超期、双方评价、队伍申请受理/拒绝/退出。
 - [ ] 禁公开手机号、二维码引流；无付款/押金接口。明确双方参与关系、状态前置和version；人数/成员唯一。
 - [ ] GREEN：越权、跨校、并发重复入队、归还与评价测试，本地检查点。
 
 ## Task 10: 会话、消息、订阅与可靠通知
 
 **Files:** messaging/、integration/wechat/subscription/、admin/messaging/；补消息去重/已读游标/屏蔽模型；test。
-- [ ] RED：第12、16.8节路由及WebSocket，成员权限、clientMessageId唯一、未读游标单调、屏蔽后发送拒绝、订阅未授权不发送。
+- [ ] RED：第14节消息路由及WebSocket，成员权限、clientMessageId唯一、未读游标单调、屏蔽后发送拒绝、订阅未授权不发送。
 - [ ] 消息先落库再通知，发送失败有限重试，不回滚已完成业务。WebSocket认证不在URL传永久令牌，断线增量轮询。
 - [ ] GREEN：消息隐私、可靠重试、去重测试，本地检查点。
 
 ## Task 11: 匿名社区、审核、举报、申诉与调查
 
 **Files:** community/、moderation/、admin/governance/、security/investigation/；追加匿名归属与加密映射迁移；test。
-- [ ] RED：第11、16.7/16.10节路由，每帖独立假名、匿名DTO无真实ID/可串联信息、作者维护归属、普通账号无法查询真实作者。
+- [ ] RED：第12、13、16.5节匿名社区/治理/调查路由，每帖独立假名、匿名DTO无真实ID/可串联信息、作者维护归属、普通账号无法查询真实作者；屏蔽关系的共享持久化由Task10提供。
 - [ ] 迁移设计保留已有数据，不静默删除明文映射；专门转换流程备份/验证后去明文，调查专用数据源只能授权最小查询，每次写不可变审计。
 - [ ] 审核待审不伪装成功发布，高风险私密队列，处罚/举报/申诉恢复状态闭环。
 - [ ] GREEN：泄露/越权测试、调查最小权限验证，仍需执行的外部权限检查必须记录，本地检查点。
@@ -166,14 +184,14 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 ## Task 12: 首页、我的、成长与数据权利
 
 **Files:** home/、identity/me/、credit/、privacy/；补历史/信用纠错/注销状态；test。
-- [ ] RED：第5、13～15、16.9节全部路由；游客无私人数据、附近缺位置不伪造距离、匿名社区不进成长档案、AI答案无依据明确未知。
+- [ ] RED：第5、15节首页/我的/成长/隐私路由，以及第16.5节信用纠错；游客无私人数据、附近缺位置不伪造距离、匿名社区不进成长档案、AI答案无依据明确未知。
 - [ ] 授权撤销、数据导出/注销冷静期/撤销与清理队列，重认证、本人范围、短期下载；法定保留项解释。
 - [ ] GREEN：数据权利闭环、权限与幂等测试，本地检查点。
 
 ## Task 13: 管理后台、提供器与运维
 
 **Files:** admin/remaining/、integration/、deploy/、scripts/、backend/README.md、docs/backend/。
-- [ ] RED：接口第16～18节剩余管理/集成路由，管理员cookie/CSRF/MFA、权限矩阵、跨校拒绝、统计脱敏、配置凭据不返回。
+- [ ] RED：接口第16节剩余管理/集成路由，管理员cookie/CSRF/MFA、权限矩阵、跨校拒绝、统计脱敏、配置凭据不返回；第17/18节用于错误码和调用流程对照，不当作额外业务路由。
 - [ ] Demo/Manual持久化提供器与Official接口隔离，SSRF协议/IP限制、超时/失败显式、不静默demo回退。
 - [ ] Docker Compose、Nginx HTTPS示例、Windows一键启动、备份/恢复脚本；默认端口不覆盖已有MySQL。
 - [ ] GREEN：启动/健康/退出脚本行为测试，部署最小权限和监控暴露验证，本地检查点。
