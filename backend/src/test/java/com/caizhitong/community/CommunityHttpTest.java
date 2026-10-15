@@ -114,6 +114,21 @@ class CommunityHttpTest {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM blocks WHERE blocker_id=101",Integer.class));
     }
 
+    @Test void moderationDecisionMapsStatusPerTargetType() throws Exception {
+        long post1=Long.parseLong(mapper.readTree(command("/mutual-aid/posts",student,"{\"category\":\"secondhand\",\"title\":\"A\"}","md-post1").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        long task1=jdbc.queryForObject("SELECT id FROM moderation_tasks WHERE target_id=?",Long.class,post1);
+        adminCommand("/admin/moderation-tasks/"+task1+"/claim",admin,"{}","md-claim1").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/"+task1+"/decision",admin,"{\"decision\":\"restrict\",\"reason\":\"x\"}","md-decision1").andExpect(status().isOk());
+        assertEquals("rejected",jdbc.queryForObject("SELECT status FROM mutual_aid_posts WHERE id=?",String.class,post1));
+        long post2=Long.parseLong(mapper.readTree(command("/community/posts",student,"{\"title\":\"B\",\"content\":\"b\"}","md-post2").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        jdbc.update("UPDATE community_posts SET status='published' WHERE id=?",post2);
+        long comment=Long.parseLong(mapper.readTree(command("/community/posts/"+post2+"/comments",student,"{\"content\":\"c\"}","md-comment").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        long task2=jdbc.queryForObject("SELECT id FROM moderation_tasks WHERE target_id=?",Long.class,comment);
+        adminCommand("/admin/moderation-tasks/"+task2+"/claim",admin,"{}","md-claim2").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/"+task2+"/decision",admin,"{\"decision\":\"reject\",\"reason\":\"x\"}","md-decision2").andExpect(status().isOk());
+        assertEquals("deleted",jdbc.queryForObject("SELECT status FROM community_comments WHERE id=?",String.class,comment));
+    }
+
     private ResultActions command(String path,String bearer,String body,String key) throws Exception {
         return mvc.perform(post("/api/v1"+path).header("Authorization",bearer).header("Idempotency-Key",key).contentType("application/json").content(body));
     }

@@ -38,8 +38,8 @@ public class AdminGovernanceService {
         String targetType=(String)rows.getFirst().get("target_type");long targetId=(Long)rows.getFirst().get("target_id");
         String targetStatus=switch(decision){
             case "approve"->"published";
-            case "reject"->targetType.equals("community_post")?"deleted":"rejected";
-            case "restrict"->"restricted";
+            case "reject"->"mutual_aid_post".equals(targetType)?"rejected":"deleted";
+            case "restrict"->"community_post".equals(targetType)?"restricted":("mutual_aid_post".equals(targetType)?"rejected":"deleted");
             default->throw invalid();
         };
         applyTargetStatus(targetType,targetId,targetStatus);
@@ -102,6 +102,7 @@ public class AdminGovernanceService {
         Actor actor=current.requirePermission("security.investigate");
         auth.consumeReauth(text(input.reauthToken(),128,false),actor);
         long targetId=IdentityInputs.id(input.targetId());String targetType=text(input.targetType(),32,false);
+        if(!Set.of("community_post","community_comment").contains(targetType))throw invalid();
         byte[] encrypted="community_comment".equals(targetType)
                 ?jdbc.queryForObject("SELECT user_id_encrypted FROM pseudo_identities WHERE comment_id=?",byte[].class,targetId)
                 :jdbc.queryForObject("SELECT user_id_encrypted FROM pseudo_identities WHERE post_id=?",byte[].class,targetId);

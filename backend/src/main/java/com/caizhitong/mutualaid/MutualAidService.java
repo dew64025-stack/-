@@ -170,8 +170,8 @@ public class MutualAidService {
         return new MutualAidViews.Detail(postView(p),author,canContact,canEdit);
     }
 
-    public MutualAidViews.RatingPage ratings(long id,String cursor,Integer limit){
-        postRow(id);
+    public MutualAidViews.RatingPage ratings(long id,long campus,String cursor,Integer limit){
+        if(postRow(id).campusId()!=campus)throw missing();
         int size=PageLimits.resolve(limit);
         String scope="mutual-aid-ratings:"+id;
         long before=Long.MAX_VALUE;
@@ -215,6 +215,7 @@ public class MutualAidService {
     }
 
     public MutualAidViews.BorrowPage myBorrows(String side,String status,String cursor,Integer limit){
+        if(side!=null&&!Set.of("borrower","owner").contains(side))throw invalid();
         Actor actor=current.require();int size=PageLimits.resolve(limit);
         String scope="borrows:"+actor.userId()+":"+side;
         long before=Long.MAX_VALUE;

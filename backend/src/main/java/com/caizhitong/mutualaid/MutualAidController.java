@@ -28,7 +28,7 @@ public class MutualAidController {
     @PostMapping("/mutual-aid/posts/{id}/ratings") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public ApiResponse<MutualAidViews.Rating> rate(@PathVariable String id,@RequestBody MutualAidInputs.Rating input,HttpServletRequest r){return ok(service.rate(IdentityInputs.id(id),input),r);}
     @GetMapping("/mutual-aid/posts/{id}/ratings")
-    public ApiResponse<MutualAidViews.RatingPage> ratings(@PathVariable String id,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.ratings(IdentityInputs.id(id),cursor,limit),r);}
+    public ApiResponse<MutualAidViews.RatingPage> ratings(@PathVariable String id,@RequestParam(required=false)String campusCode,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.ratings(IdentityInputs.id(id),campus(campusCode),cursor,limit),r);}
     @GetMapping("/me/mutual-aid/posts")
     public ApiResponse<MutualAidViews.Page> myPosts(@RequestParam(required=false)String category,@RequestParam(required=false)String status,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.myPosts(category,status,cursor,limit),r);}
     @GetMapping("/lost-found/matches")
