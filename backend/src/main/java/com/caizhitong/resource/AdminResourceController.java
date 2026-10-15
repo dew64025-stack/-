@@ -21,7 +21,7 @@ public class AdminResourceController {
     @PostMapping("/resource-slots/{id}/update")
     public ApiResponse<ResourceViews.Slot> updateSlot(@PathVariable String id,@RequestBody ResourceInputs.SlotUpdate input,HttpServletRequest r){return ok(service.updateSlot(IdentityInputs.id(id),input),r);}
     @GetMapping("/reservations")
-    public ApiResponse<ResourceViews.ReservationPage> reservations(@RequestParam(required=false)String status,@RequestParam(required=false)String resourceId,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.adminReservations(status,resourceId,cursor,limit),r);}
+    public ApiResponse<ResourceViews.ReservationPage> reservations(@RequestParam(required=false)String status,@RequestParam(required=false)String resourceId,@RequestParam(required=false)String date,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.adminReservations(status,resourceId,date,cursor,limit),r);}
     @PostMapping("/reservations/{id}/decision")
     public ApiResponse<ResourceViews.Reservation> decide(@PathVariable String id,@RequestBody ResourceInputs.Decision input,HttpServletRequest r){return ok(service.decide(IdentityInputs.id(id),input),r);}
     @PostMapping("/reservations/{id}/check-in-token")

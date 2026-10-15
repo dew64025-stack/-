@@ -361,6 +361,8 @@ WorkOrderCreate：{category,location,description,urgency,attachmentIds}。catego
 
 SQL保留pending/reviewing/accepted/processing/completed/rated/rejected。规划书要求“待审核→待受理→处理中→待评价→已完成”，不能把数据库completed直接显示为整项已完成。WorkOrder额外返回serviceStage：pending/reviewing→pending_review；审核通过等待受理→pending_acceptance；accepted未开始处理→accepted；processing→processing；数据库completed且无评价→awaiting_rating；rated或completed且已有评价→completed；rejected→rejected。待受理阶段需持久化明确的审核通过依据。评价只允许提交人、处于awaiting_rating时写入，评分记录与状态迁移同事务完成。关闭、无法处理、转办仍须补齐状态/事件模型并同步字典，不能把它们冒充普通completed。用户不能设置处理人或服务状态。未接官方系统的工单显示“平台处理”。
 
+现有运行实现：管理员以 `toStatus=reviewing`、非空 `comment` 记录审核通过，保存 `review_approved_at` 和审核事件，此时 `serviceStage=pending_acceptance`；随后才可 accepted→processing→completed，评价后 rated。历史 reviewing 且无审核通过依据仍为 pending_review，不能直接受理。详情字段平铺在 data 内，并附 events；分派和评价也保留事件。附件仅返回已校验关联的 `{id,thumbnailUrl:null,urlExpiresAt:null}`，下载仍由文件服务的狭窄关联策略授权。
+
 ### 8.2 校园问题
 
 | 方法 | 路径 | 权限 | 输入 | data |
@@ -377,6 +379,8 @@ SQL保留pending/reviewing/accepted/processing/completed/rated/rejected。规划
 | POST | /campus-issues/{id}/evidences | S | {content?,attachmentIds?}，至少一项 | 201：{id,reviewStatus:"pending"} |
 
 title 1～256字符；category=repair/canteen/express/other；description 最多1024；补充证据最多512字符。location={name?,latitude:number,longitude:number}，经纬度范围分别[-90,90]/[-180,180]。bbox 为 minLng,minLat,maxLng,maxLat，必须符合范围和最大校园查询面积。
+
+现有运行实现：创建问题另接受可选 regionId，必须是当前校园有效区域，用于列表 regionId 筛选。bbox 坐标必须有限且严格有序；球面矩形面积默认最多100 km²，可由服务端 `app.issue-map.max-area-km2` 或 `APP_ISSUE_MAP_MAX_AREA_KM2` 配置为有限正数。此值约束单次查询面积，不代表学校真实地理边界；当前没有学校边界模型。无 bbox 时仍限校园与1～200条结果。公开授权同时要求 visibility=public 及 published/processing/completed 状态；审核决定及理由持久化，补充证据保留 pending 审核状态，不能随原问题公开。
 
 公开内容脱敏：手机号、学号、身份证、门牌、人脸和个人纠纷证据必须按审核结果处理。补充证据也需审核，不能作为绕过原帖审核的入口。公开接口不能仅凭 processing/completed 状态判断可见性，必须同时检查独立的公开授权结果；当前表需补充 visibility 或等价的受控发布信息。
 
@@ -465,6 +469,10 @@ Idempotency-Key: 97ff39c3-0718-4c5f-b02a-78ad06d0fd99
 
 确认规则：demo 按演示规则自动确认；需要人工或外部确认时返回 pending。pending 是否占位由统一规则决定；首版占位并设置超时释放，禁止无限等待。官方接口超时不得生成 confirmed 结果。
 
+现有运行实现：reservationMode 为必填管理配置，持久化为 exclusive/capacity；运行时不根据容量是否为空猜模式。capacity 时段缺省容量继承已显式配置的父资源容量，缺失有效容量则拒订。人工预约保持 manual 来源，pending 占位15分钟；30秒轮询释放超时占位（`app.resources.expiry-poll-ms`），预约写入时也在资源锁内清理。官方集成未接入时返回503，不能产生假 confirmed。新增时段拒绝同资源同日重叠；历史重叠时段按同一资源、相交时间、同座位检查有效占用。
+
+V17 对历史数据仅做一次兼容回填：依据旧 resource_slots.capacity，一致的空容量时段保留 exclusive，一致的非空容量时段保留 capacity；混合语义、不相容座位或无明确容量的无时段资源设置 booking_blocked，返回409 RESERVATION_CONFIGURATION_INVALID。保留原预约、seatNo与占用，不重排；管理员须在不破坏占用前提下显式修复模式。
+
 ### 9.3 服务端必须执行的步骤
 
 1. 验证用户认证、校园归属、信用限制、资源和时段开放状态。
@@ -475,6 +483,8 @@ Idempotency-Key: 97ff39c3-0718-4c5f-b02a-78ad06d0fd99
 6. 一条单席位预约仅能有一条有效占用；占用的 slotId、seatNo 必须与预约一致。
 
 签到不能仅凭用户提交坐标判断。演示环境由后台生成短期演示签到令牌；正式环境需要资源管理员二维码、学校签到接口或经过授权的其他方式。防止重复签到和令牌跨资源复用。
+
+现有演示签到策略：仅 demo 来源且 confirmed 的预约，在 Asia/Shanghai 校园本地时间 `startTime <= now < endTime` 内允许签发和使用；令牌最长5分钟且不超过时段结束时间，无提前/迟到宽限。令牌绑定预约和校园；先锁定并校验版本、状态、窗口，再消耗提交令牌对应的一次性记录。错误令牌或版本不消耗正确令牌，重放返回409。人工和官方预约不能借用演示令牌绕过正式签到规则。
 
 ## 10. 二手、失物、教材、技能与借用
 

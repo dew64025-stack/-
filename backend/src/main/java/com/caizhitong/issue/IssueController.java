@@ -17,7 +17,7 @@ public class IssueController {
     @PostMapping("/campus-issues") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public ApiResponse<IssueViews.Issue> create(@RequestBody IssueInputs.Create input,HttpServletRequest r){return ok(service.create(input),r);}
     @GetMapping("/campus-issues")
-    public ApiResponse<IssueViews.Page> list(@RequestParam(required=false)String q,@RequestParam(required=false)String category,@RequestParam(required=false)String campusCode,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.list(campus(campusCode),q,category,cursor,limit),r);}
+    public ApiResponse<IssueViews.Page> list(@RequestParam(required=false)String q,@RequestParam(required=false)String category,@RequestParam(required=false)String regionId,@RequestParam(required=false)String campusCode,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.list(campus(campusCode),q,category,regionId,cursor,limit),r);}
     @GetMapping("/campus-issues/{id}")
     public ApiResponse<IssueViews.Issue> detail(@PathVariable String id,@RequestParam(required=false)String campusCode,HttpServletRequest r){return ok(service.detail(IdentityInputs.id(id),campus(campusCode)),r);}
     @GetMapping("/campus-issues/map")
@@ -39,6 +39,6 @@ public class IssueController {
     @PostMapping("/crowd/observations") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public ApiResponse<IssueViews.Crowd> observe(@RequestBody IssueInputs.Crowd input,HttpServletRequest r){return ok(service.observe(input),r);}
 
-    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->{if(code==null)throw IdentityInputs.invalid();return campuses.open(code);});}
+    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->code==null?Long.parseLong(campuses.campuses().stream().findFirst().orElseThrow(IdentityInputs::invalid).id()):campuses.open(code));}
     private <T> ApiResponse<T> ok(T data,HttpServletRequest r){return ApiResponse.ok(data,RequestIdFilter.requestId(r));}
 }

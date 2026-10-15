@@ -11,7 +11,7 @@ public final class WorkOrderInputs {
     private WorkOrderInputs() {}
     private static final Set<String> CATEGORIES = Set.of("dorm","facility","other");
     private static final Set<String> URGENCIES = Set.of("normal","urgent");
-    private static final Set<String> TRANSITIONS = Set.of("accepted","processing","completed","rejected");
+    private static final Set<String> TRANSITIONS = Set.of("reviewing","accepted","processing","completed","rejected");
 
     public record Create(JsonNode category, JsonNode location, JsonNode description, JsonNode urgency, JsonNode attachmentIds) {
         public Create { String c=text(category,32,false); if(!CATEGORIES.contains(c))throw invalid(); if(location!=null)text(location,255,true); text(description,1024,false); String u=text(urgency,16,false); if(!URGENCIES.contains(u))throw invalid(); checkAttachmentIds(attachmentIds); }

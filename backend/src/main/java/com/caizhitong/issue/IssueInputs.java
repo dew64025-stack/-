@@ -15,14 +15,14 @@ public final class IssueInputs {
     private static final Set<String> CROWD_TYPES = Set.of("canteen","express");
     private static final Set<String> CROWD_LEVELS = Set.of("low","medium","high");
 
-    public record Create(JsonNode title, JsonNode category, JsonNode description, JsonNode location, JsonNode attachmentIds) {
-        public Create { text(title,256,false); String c=text(category,32,false); if(!CATEGORIES.contains(c))throw invalid(); if(description!=null)text(description,1024,true); checkLocation(location); checkAttachmentIds(attachmentIds); }
+    public record Create(JsonNode title, JsonNode category, JsonNode description, JsonNode location, JsonNode attachmentIds,JsonNode regionId) {
+        public Create { text(title,256,false); String c=text(category,32,false); if(!CATEGORIES.contains(c))throw invalid(); if(description!=null)text(description,1024,true); checkLocation(location); checkAttachmentIds(attachmentIds); if(regionId!=null&&!regionId.isNull())id(regionId); }
     }
     public record Vote(JsonNode value) {
         public Vote { if(value==null||!value.isIntegralNumber()||!value.canConvertToInt()||!Set.of(1,-1).contains(value.asInt()))throw invalid(); }
     }
     public record Evidence(JsonNode content, JsonNode attachmentIds) {
-        public Evidence { if((content==null||content.isNull())&&(attachmentIds==null||attachmentIds.isNull()))throw invalid(); if(content!=null&&!content.isNull())text(content,512,false); if(attachmentIds!=null&&!attachmentIds.isNull())checkAttachmentIds(attachmentIds); }
+        public Evidence { if((content==null||content.isNull())&&checkAttachmentIds(attachmentIds).isEmpty())throw invalid(); if(content!=null&&!content.isNull())text(content,512,false); if(attachmentIds!=null&&!attachmentIds.isNull())checkAttachmentIds(attachmentIds); }
     }
     public record Decision(JsonNode decision, JsonNode version, JsonNode reason) {
         public Decision { String d=text(decision,16,false); if(!DECISIONS.contains(d))throw invalid(); IdentityInputs.version(version); text(reason,512,false); }
@@ -36,5 +36,5 @@ public final class IssueInputs {
     public record Empty() {}
 
     public static List<Long> checkAttachmentIds(JsonNode node) { if(node==null||node.isNull())return List.of(); if(!node.isArray()||node.size()>9)throw invalid(); List<Long> ids=new ArrayList<>(); node.forEach(item->ids.add(id(item))); return List.copyOf(ids); }
-    public static void checkLocation(JsonNode node) { if(node==null||node.isNull())return; if(!node.isObject())throw invalid(); if(node.hasNonNull("name"))text(node.get("name"),128,true); JsonNode lat=node.get("latitude"),lng=node.get("longitude"); if(lat==null||!lat.isNumber()||lng==null||!lng.isNumber())throw invalid(); double la=lat.asDouble(),ln=lng.asDouble(); if(la<-90||la>90||ln<-180||ln>180)throw invalid(); }
+    public static void checkLocation(JsonNode node) { if(node==null||node.isNull())return; if(!node.isObject()||!Set.of("name","latitude","longitude").containsAll(node.propertyNames()))throw invalid(); if(node.hasNonNull("name"))text(node.get("name"),128,true); JsonNode lat=node.get("latitude"),lng=node.get("longitude"); if(lat==null||!lat.isNumber()||lng==null||!lng.isNumber())throw invalid(); double la=lat.asDouble(),ln=lng.asDouble(); if(!Double.isFinite(la)||!Double.isFinite(ln)||la<-90||la>90||ln<-180||ln>180)throw invalid(); }
 }

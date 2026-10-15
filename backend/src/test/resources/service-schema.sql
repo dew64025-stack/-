@@ -12,3 +12,13 @@ CREATE TABLE reservations(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,
 CREATE TABLE resource_occupancies(id BIGINT PRIMARY KEY,slot_id BIGINT,reservation_id BIGINT,seat_no INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,UNIQUE(slot_id,seat_no),UNIQUE(reservation_id));
 CREATE TABLE reservation_checkins(id BIGINT PRIMARY KEY,reservation_id BIGINT,checked_in_at TIMESTAMP,created_at TIMESTAMP,UNIQUE(reservation_id));
 CREATE TABLE crowd_observations(id BIGINT PRIMARY KEY,campus_id BIGINT,location_type VARCHAR(32),location_name VARCHAR(128),crowd_level VARCHAR(16),source_type VARCHAR(16),observed_at TIMESTAMP,is_stale BOOLEAN DEFAULT FALSE,created_at TIMESTAMP);
+ALTER TABLE resources ADD COLUMN reservation_mode VARCHAR(16) DEFAULT 'capacity' NOT NULL;
+ALTER TABLE resources ADD COLUMN booking_blocked BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE reservations ADD COLUMN pending_expires_at TIMESTAMP;
+ALTER TABLE campus_issues ADD COLUMN region_id BIGINT;
+ALTER TABLE campus_issues ADD COLUMN images_json VARCHAR(4000);
+ALTER TABLE campus_issue_evidences ADD COLUMN review_status VARCHAR(16) DEFAULT 'pending' NOT NULL;
+CREATE TABLE campus_issue_events(id BIGINT PRIMARY KEY,issue_id BIGINT,from_status VARCHAR(32),to_status VARCHAR(32),operator_id BIGINT,comment VARCHAR(512),created_at TIMESTAMP);
+ALTER TABLE work_orders ADD COLUMN review_approved_at TIMESTAMP;
+CREATE TABLE external_systems(id BIGINT PRIMARY KEY,campus_id BIGINT,type VARCHAR(32),provider VARCHAR(32),status VARCHAR(32));
+CREATE TABLE external_references(id BIGINT PRIMARY KEY,external_system_id BIGINT,local_type VARCHAR(32),local_id BIGINT,external_id VARCHAR(128));
