@@ -1,0 +1,280 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'on-tertiary-fixed': '#3a0a00', 'surface': '#f9f9ff', 'surface-dim': '#d0daf0', 'on-primary-fixed-variant': '#1d4b67', 'on-tertiary-container': '#ff9878', 'surface-container': '#e7eeff', 'secondary-container': '#a5f3c9', 'on-error-container': '#93000a', 'surface-tint': '#386380', 'surface-container-highest': '#d9e3f9', 'on-surface-variant': '#41474d', 'on-tertiary-fixed-variant': '#812909', 'on-secondary': '#ffffff', 'secondary-fixed-dim': '#8ad6ae', 'background': '#f9f9ff', 'primary': '#00324b', 'tertiary-fixed-dim': '#ffb59f', 'error-container': '#ffdad6', 'surface-bright': '#f9f9ff', 'tertiary-container': '#7f2708', 'on-secondary-fixed-variant': '#005235', 'surface-container-high': '#dee8ff', 'on-surface': '#121c2c', 'error': '#ba1a1a', 'on-secondary-container': '#237150', 'secondary-fixed': '#a5f3c9', 'on-primary-container': '#8eb8d8', 'surface-variant': '#d9e3f9', 'on-primary': '#ffffff', 'on-tertiary': '#ffffff', 'primary-container': '#1b4965', 'outline-variant': '#c1c7ce', 'primary-fixed': '#c9e6ff', 'on-primary-fixed': '#001e2f', 'on-secondary-fixed': '#002113', 'on-background': '#121c2c', 'inverse-primary': '#a1cced', 'inverse-on-surface': '#ebf1ff', 'tertiary-fixed': '#ffdbd0', 'secondary': '#1a6b4a', 'primary-fixed-dim': '#a1cced', 'on-error': '#ffffff', 'tertiary': '#5c1600', 'outline': '#72787e', 'inverse-surface': '#273141', 'surface-container-low': '#f0f3ff', 'surface-container-lowest': '#ffffff' }, borderRadius: { DEFAULT: '0.25rem', lg: '0.5rem', xl: '0.75rem', full: '9999px' }, spacing: { 'space-md': '0.75rem', 'space-lg': '1rem', 'space-sm': '0.5rem', 'space-xs': '0.25rem', 'margin': '1rem', 'space-xl': '1.5rem', 'gutter': '0.75rem' }, fontFamily: { 'caption': ['Plus Jakarta Sans'], 'label-sm': ['Plus Jakarta Sans'], 'label-md': ['Plus Jakarta Sans'], 'body-md': ['Plus Jakarta Sans'], 'body-lg': ['Plus Jakarta Sans'], 'headline-sm': ['Plus Jakarta Sans'], 'headline-xl': ['Plus Jakarta Sans'], 'body-sm': ['Plus Jakarta Sans'], 'headline-lg': ['Plus Jakarta Sans'] }, fontSize: { 'caption': ['10px', { lineHeight: '12px', fontWeight: '500' }], 'label-sm': ['11px', { lineHeight: '14px', fontWeight: '500' }], 'label-md': ['13px', { lineHeight: '18px', fontWeight: '600' }], 'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }], 'body-lg': ['15px', { lineHeight: '22px', fontWeight: '400' }], 'headline-sm': ['17px', { lineHeight: '24px', fontWeight: '600' }], 'headline-xl': ['24px', { lineHeight: '32px', letterSpacing: '-0.01em', fontWeight: '700' }], 'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }], 'headline-lg': ['20px', { lineHeight: '28px', fontWeight: '600' }] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col antialiased selection:bg-primary-fixed selection:text-on-primary-fixed"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(27,73,101,0.04)]"><div class="h-11 px-margin flex items-center justify-between relative"><div class="flex items-center gap-space-xs z-10"><button aria-label="返回上一页" class="w-11 h-11 -ml-space-xs flex items-center justify-center text-on-surface hover:text-primary active:scale-95 transition-transform" onclick="history.back()"><span class="material-symbols-outlined text-[20px]">arrow_back_ios_new</span></button></div><div class="absolute inset-0 flex items-center justify-center pointer-events-none px-24"><h1 class="text-headline-sm font-headline-sm text-primary tracking-tight truncate text-center">Packages/Material/Vault</h1></div><div class="flex items-center gap-space-xs z-10 pl-space-xs"><div class="h-8 px-space-xs bg-surface-container-low/90 rounded-full flex items-center justify-between gap-space-xs shadow-[0_1px_3px_rgba(27,73,101,0.06)]"><button aria-label="小程序更多操作" class="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary" type="button"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button><div class="w-px h-3.5 bg-outline-variant/60"></div><button aria-label="关闭小程序" class="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary" type="button"><span class="material-symbols-outlined text-[16px]">radio_button_checked</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-space-xs shrink-0 shadow-[0_1px_3px_rgba(27,73,101,0.12)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-11 bg-surface pb-safe px-margin"><div class="flex flex-col w-full pb-10 space-y-space-md">
+<!-- 顶部标头与安全背书 -->
+<div class="flex items-center justify-between pt-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary-container text-[20px]" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+<h2 class="font-headline-sm text-headline-sm text-primary tracking-tight">材料保险箱 (Material Vault)</h2>
+</div>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-high text-primary-container flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+      隐私加密存储
+    </span>
+</div>
+<!-- 资产概览卡 (Bento Dashboard) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="space-y-1">
+<div class="flex items-center gap-1.5 text-secondary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+<span>ClamAV 隔离毒检已通过 · clean</span>
+</div>
+<p class="font-headline-xl text-headline-xl text-primary font-bold">4 <span class="font-headline-sm text-headline-sm text-on-surface-variant font-normal">份核心学业凭据</span></p>
+</div>
+<button class="h-9 px-space-md bg-primary-container text-on-primary rounded-lg font-label-md text-label-md flex items-center gap-1 active:bg-primary transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>上传新凭据</span>
+</button>
+</div>
+<!-- 容量进度条 -->
+<div class="space-y-1.5 bg-surface-container-low rounded-lg p-space-sm">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">pie_chart</span>
+          存储占用空间
+        </span>
+<span class="font-medium text-primary">4.2 MB / 20.0 MB</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 21%;"></div>
+</div>
+<div class="flex justify-between items-center text-[10px] text-on-surface-variant">
+<span>单文件上限 20MB (AES-256 GCM 加密落盘)</span>
+<span class="px-1.5 py-0.2 bg-surface-container rounded font-label-sm text-on-surface-variant">演示数据</span>
+</div>
+</div>
+<!-- 盲水印与复用核心引导 -->
+<div class="flex items-start gap-space-xs p-space-sm bg-surface-container-low rounded-lg text-primary">
+<span class="material-symbols-outlined text-primary-container text-[18px] shrink-0 mt-0.5">fingerprint</span>
+<p class="font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
+        一次上传，多场景复用。所有敏感附件外发或下载时，均在内存级动态注入不可见频域盲水印，防止跨场景越权外泄与非授权篡改。
+      </p>
+</div>
+</div>
+<!-- 列表模块标题 -->
+<div class="flex items-center justify-between pt-space-xs">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-primary">受保护的归档凭据</span>
+<span class="px-1.5 py-0.5 bg-surface-container font-label-sm text-label-sm rounded-full text-on-surface-variant">4 项生效中</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">lock</span>
+      双密匙沙盒隔离
+    </span>
+</div>
+<!-- 材料卡片 1：身份证 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-start gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0 text-primary-container">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+<div class="min-w-0">
+<h3 class="font-label-md text-label-md text-primary truncate">身份证正反面复印件 (校园业务备案专用)</h3>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">PDF/A · 1.4 MB · 2026-10-12 更新 · 版本 v2.1</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-tertiary-fixed text-on-tertiary-fixed shrink-0 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">security</span>
+        敏感证件
+      </span>
+</div>
+<!-- 盲水印专有标记条 -->
+<div class="p-space-xs bg-surface-container-low rounded-lg flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[15px] shrink-0">filter_center_focus</span>
+<span class="font-label-sm text-label-sm text-secondary truncate">
+        已嵌入频域盲水印：仅限材料学院奖学金申报备案·严禁外泄
+      </span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="h-9 px-2 bg-surface-container text-primary-container rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container-high transition-colors" onclick="triggerTempLink(this)" type="button">
+<span class="material-symbols-outlined text-[15px]">timer</span>
+<span>获取120s临时链接</span>
+</button>
+<button class="h-9 px-2 bg-surface-container-low text-on-surface-variant rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">history</span>
+<span>版本历史 (2)</span>
+</button>
+</div>
+</div>
+<!-- 材料卡片 2：成绩单 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-start gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded-lg bg-secondary-container flex items-center justify-center shrink-0 text-on-secondary-container">
+<span class="material-symbols-outlined text-[20px]">school</span>
+</div>
+<div class="min-w-0">
+<h3 class="font-label-md text-label-md text-primary truncate">研究生阶段官方成绩单 (教务处盖章件)</h3>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">PDF/A · 820 KB · 加权平均分 89.4</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-secondary-container text-on-secondary-container shrink-0 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+        官方认证
+      </span>
+</div>
+<div class="flex items-center justify-between px-space-xs py-1 bg-surface-container-low rounded-lg text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">tag</span>
+        SHA-256: 4e8b...9c1a (一致)
+      </span>
+<span class="text-secondary font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">done_all</span>已固化
+      </span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="h-9 px-2 bg-surface-container text-primary-container rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+<span>预览只读文件</span>
+</button>
+<button class="h-9 px-2 bg-surface-container-low text-on-surface-variant rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container transition-colors" onclick="copyHash(this)" type="button">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+<span>复制哈希签名</span>
+</button>
+</div>
+</div>
+<!-- 材料卡片 3：导师亲笔推荐意见表 (警示与待签) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-start gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded-lg bg-tertiary-fixed flex items-center justify-center shrink-0 text-on-tertiary-fixed">
+<span class="material-symbols-outlined text-[20px]">draw</span>
+</div>
+<div class="min-w-0">
+<h3 class="font-label-md text-label-md text-primary truncate">导师亲笔推荐意见表 (待签名纸质件)</h3>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">PDF · 450 KB · 关联：2026卓越创新奖学金</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-error-container text-on-error-container shrink-0 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">pending_actions</span>
+        待签章
+      </span>
+</div>
+<div class="p-space-xs bg-error-container/40 rounded-lg flex items-center gap-1.5 text-on-error-container font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px] shrink-0">error</span>
+<span>需包含导师亲笔黑色签字笔手写签名及教研室实体公章。</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="h-9 px-2 bg-surface-container-low text-on-surface-variant rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">download</span>
+<span>下载空白待签模板</span>
+</button>
+<button class="h-9 px-2 bg-primary-container text-on-primary rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">file_upload</span>
+<span>上传签章扫描件</span>
+</button>
+</div>
+</div>
+<!-- 材料卡片 4：学术成果套件 -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-start gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0 text-primary-container">
+<span class="material-symbols-outlined text-[20px]">folder_zip</span>
+</div>
+<div class="min-w-0">
+<h3 class="font-label-md text-label-md text-primary truncate">代表性学术成果与学科竞赛获奖套件</h3>
+<p class="font-caption text-caption text-on-surface-variant mt-0.5">ZIP · 2.8 MB · 含 SCI 收录证明、互联网+省二等奖</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-highest text-primary-container shrink-0 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">fact_check</span>
+        加分已核验
+      </span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="h-9 px-2 bg-surface-container text-primary-container rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">inventory_2</span>
+<span>管理子附件 (3)</span>
+</button>
+<button class="h-9 px-2 bg-surface-container-low text-on-surface-variant rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-1 active:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">update</span>
+<span>更新发布版本</span>
+</button>
+</div>
+</div>
+<!-- 隐私与数据权利治理板块（个保法合规专区） -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary-container text-[18px]">gavel</span>
+<h3 class="font-label-md text-label-md text-primary">个人数据权利与合规控制</h3>
+</div>
+<!-- AI 专项授权开关 -->
+<div class="flex items-start justify-between gap-space-sm p-space-sm bg-surface-container-low rounded-lg">
+<div class="space-y-0.5 pr-2">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-primary">AI 辅助预检专项授权</span>
+<span class="px-1.5 py-0.2 rounded font-caption text-caption bg-surface-container text-on-surface-variant">material_ai</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-tight">
+          材料提交给大模型做合规自检前，自动抹除个人身份证号与联系方式；可随时单向撤回。
+        </p>
+</div>
+<button aria-label="AI授权开关" class="w-11 h-6 rounded-full bg-primary-container p-0.5 transition-colors shrink-0 flex items-center justify-end" id="toggleAiAuth" onclick="toggleAuth(this)" type="button">
+<span class="w-5 h-5 rounded-full bg-surface shadow-sm inline-block"></span>
+</button>
+</div>
+<!-- 120 秒防盗链机制说明 -->
+<div class="flex items-start gap-2 p-space-sm bg-surface-container-low rounded-lg text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary-container text-[18px] shrink-0 mt-0.5">timer_10</span>
+<p class="leading-relaxed">
+<strong>120秒防外泄短链机制：</strong>所有材料下载均颁发一次性临时凭据，倒计时归零即刻失效销毁，杜绝任何公网爬取与越权外发。
+      </p>
+</div>
+<!-- 数据权利动作 -->
+<div class="space-y-space-xs pt-1">
+<button class="w-full h-11 bg-surface-container text-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-1.5 active:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">archive</span>
+<span>打包导出个人材料保险箱档案 (ZIP)</span>
+</button>
+<div class="text-center pt-1">
+<button class="font-label-sm text-label-sm text-error underline underline-offset-2 active:opacity-70 transition-opacity" type="button">
+          申请注销与物理擦除该保管箱全部记录
+        </button>
+</div>
+</div>
+</div>
+<!-- 底部业务免责与合规提示 -->
+<div class="px-space-sm pt-space-xs text-center space-y-1">
+<div class="inline-flex items-center gap-1 text-[11px] text-on-surface-variant">
+<span class="material-symbols-outlined text-[13px]">info</span>
+<span>合规声明：平台仅提供材料整理与私密存储辅助</span>
+</div>
+<p class="font-caption text-caption text-outline leading-tight">
+      本系统生成防伪预览并不替代各国家级赛事主办方、院系教务及奖学金评审工作组的官方纸质原件审核流程。
+    </p>
+</div>
+</div>
+<script>
+  function triggerTempLink(btn) {
+    const origText = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">refresh</span><span>生成中...</span>';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[15px] text-secondary">check</span><span>链接已就绪 (120s)</span>';
+      setTimeout(() => {
+        btn.innerHTML = origText;
+      }, 3500);
+    }, 600);
+  }
+
+  function copyHash(btn) {
+    const origText = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[15px] text-secondary">check</span><span>哈希已复制</span>';
+    setTimeout(() => {
+      btn.innerHTML = origText;
+    }, 2000);
+  }
+
+  function toggleAuth(btn) {
+    const dot = btn.firstElementChild;
+    const isChecked = btn.classList.contains('bg-primary-container');
+    if (isChecked) {
+      btn.classList.remove('bg-primary-container', 'justify-end');
+      btn.classList.add('bg-outline-variant', 'justify-start');
+    } else {
+      btn.classList.remove('bg-outline-variant', 'justify-start');
+      btn.classList.add('bg-primary-container', 'justify-end');
+    }
+  }
+</script></main></body></html>

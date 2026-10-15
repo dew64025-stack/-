@@ -1,0 +1,243 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-background": "#121c2c", "background": "#f9f9ff", "on-secondary": "#ffffff", "on-secondary-fixed": "#002113", "secondary-fixed": "#a5f3c9", "on-tertiary-container": "#ff9878", "on-surface": "#121c2c", "tertiary": "#5c1600", "primary": "#00324b", "secondary-fixed-dim": "#8ad6ae", "primary-fixed": "#c9e6ff", "tertiary-fixed-dim": "#ffb59f", "surface": "#f9f9ff", "on-primary-container": "#8eb8d8", "on-primary-fixed-variant": "#1d4b67", "outline-variant": "#c1c7ce", "error-container": "#ffdad6", "on-tertiary": "#ffffff", "on-tertiary-fixed": "#3a0a00", "on-tertiary-fixed-variant": "#812909", "surface-container": "#e7eeff", "surface-container-highest": "#d9e3f9", "secondary": "#1a6b4a", "error": "#ba1a1a", "inverse-surface": "#273141", "surface-variant": "#d9e3f9", "surface-tint": "#386380", "on-surface-variant": "#41474d", "primary-fixed-dim": "#a1cced", "surface-container-lowest": "#ffffff", "outline": "#72787e", "surface-bright": "#f9f9ff", "on-primary": "#ffffff", "inverse-primary": "#a1cced", "on-primary-fixed": "#001e2f", "on-secondary-fixed-variant": "#005235", "on-error": "#ffffff", "surface-container-high": "#dee8ff", "surface-dim": "#d0daf0", "inverse-on-surface": "#ebf1ff", "surface-container-low": "#f0f3ff", "tertiary-container": "#7f2708", "on-error-container": "#93000a", "on-secondary-container": "#237150", "secondary-container": "#a5f3c9", "tertiary-fixed": "#ffdbd0", "primary-container": "#1b4965" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin": "1rem", "space-xs": "0.25rem", "gutter": "0.75rem", "space-xl": "1.5rem", "space-sm": "0.5rem", "space-md": "0.75rem", "space-lg": "1rem" }, "fontFamily": { "label-md": ["Plus Jakarta Sans"], "body-sm": ["Plus Jakarta Sans"], "caption": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "headline-xl": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"] }, "fontSize": { "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "600" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "caption": ["10px", { "lineHeight": "12px", "fontWeight": "500" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-xl": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "headline-lg": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "headline-sm": ["17px", { "lineHeight": "24px", "fontWeight": "600" }], "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "400" }] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(27,73,101,0.04)] pt-safe"><div class="h-11 px-margin flex items-center justify-between"><div class="flex items-center gap-space-xs min-w-0 pr-space-md"><button aria-label="返回" class="w-11 h-11 -ml-space-xs flex items-center justify-center text-on-surface active:scale-95 transition-transform" onclick="history.back()"><span class="material-symbols-outlined text-[22px]">arrow_back_ios_new</span></button><h1 class="font-headline-sm text-headline-sm text-on-surface truncate">Pre Check Flow</h1></div><div class="flex items-center gap-space-sm pl-space-xs"><div class="flex items-center h-8 px-space-sm rounded-full bg-surface-container/70 border border-outline-variant/30"><div class="w-4 h-4 flex items-center justify-center"><span class="material-symbols-outlined text-[16px] text-on-surface-variant">more_horiz</span></div><div class="w-[1px] h-3 bg-outline-variant/40 mx-1"></div><div class="w-4 h-4 flex items-center justify-center"><span class="material-symbols-outlined text-[14px] text-on-surface-variant">adjust</span></div></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex flex-col relative w-full pt-11 px-margin pb-safe bg-surface flex-1"><div class="flex flex-col w-full pb-36 pt-2">
+  <!-- 顶部轻量提示条 (微信原生风格小条) -->
+  <div class="flex items-center justify-between px-3 py-1.5 bg-[#f1f5f9] text-[#64748b] rounded text-body-sm mb-3">
+    <div class="flex items-center gap-1.5 min-w-0">
+      <span class="material-symbols-outlined text-[15px] text-[#475569]">info</span>
+      <span class="text-[12px] truncate">演示模式 · 校园演示提供器 (模拟数据)</span>
+    </div>
+    <span class="text-[11px] text-[#94a3b8]">CAS-MAT-2026</span>
+  </div>
+
+  <!-- 机会申报基础信息卡片 -->
+  <section class="bg-white rounded-lg border border-[#e2e8f0] p-4 mb-3 flex flex-col gap-2.5">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="px-2 py-0.5 rounded bg-[#f1f5f9] text-[#475569] text-[11px] font-medium">专项创新类</span>
+      <span class="px-2 py-0.5 rounded bg-[#f8fafc] text-[#64748b] text-[11px] border border-[#e2e8f0]">材料科学与工程学院教务科</span>
+    </div>
+    <h2 class="text-[16px] font-semibold text-[#0f172a] leading-snug tracking-tight">2026年材料学院研究生卓越创新奖学金</h2>
+    <div class="flex items-center gap-1.5 text-[12px] text-[#dc2626] font-medium pt-0.5">
+      <span class="material-symbols-outlined text-[15px]">schedule</span>
+      <span class="">截止时间：2026-10-20 18:00 (倒计时 5天)</span>
+    </div>
+
+    <!-- 微信原生克制预检总评条 -->
+    <div class="mt-1 p-3 rounded bg-[#f8fafc] border border-[#e2e8f0] flex items-start justify-between gap-3">
+      <div class="flex flex-col gap-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[17px] text-[#16a34a]">check_circle</span>
+          <span class="text-[13px] font-semibold text-[#0f172a]">预检基本完整 (3/4 项就绪)</span>
+        </div>
+        <p class="text-[12px] text-[#64748b] leading-relaxed">
+          已满足申报门槛基础检查，检测到 <span class="text-[#dc2626] font-medium">1项关键签名空缺</span>，需线下完善后重新预检。
+        </p>
+      </div>
+      <span class="px-2 py-0.5 rounded bg-[#e2e8f0] text-[#475569] text-[11px] font-medium flex-shrink-0">AI 已核验</span>
+    </div>
+  </section>
+
+  <!-- 资格契约快照 (极简折叠卡片) -->
+  <section class="bg-white rounded-lg border border-[#e2e8f0] p-3.5 mb-4 flex flex-col gap-2.5">
+    <div class="flex items-center justify-between cursor-pointer" onclick="document.getElementById('rules-box').classList.toggle('hidden'); document.getElementById('rules-chevron').classList.toggle('rotate-180');">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[16px] text-[#475569]">verified</span>
+        <span class="text-[13px] font-medium text-[#0f172a]">资格契约规则快照比对</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <span class="text-[11px] text-[#16a34a] font-medium bg-[#f0fdf4] px-1.5 py-0.5 rounded border border-[#bbf7d0]">4/4 硬性符合</span>
+        <span class="material-symbols-outlined text-[18px] text-[#94a3b8] transition-transform duration-200" id="rules-chevron">expand_more</span>
+      </div>
+    </div>
+    <div id="rules-box" class="flex flex-col gap-2 pt-1 border-t border-[#f1f5f9]">
+      <div class="text-[11px] text-[#64748b] flex items-center justify-between">
+        <span class="">申报画像基准</span>
+        <span class="text-[#0f172a] font-medium">材料学硕二年级 · 绩点前15% · SCI论文1篇</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <div class="flex items-center gap-1.5 text-[11px] text-[#334155] bg-[#f8fafc] p-1.5 rounded">
+          <span class="material-symbols-outlined text-[14px] text-[#16a34a]">done</span>
+          <span class="truncate">学籍注册正常在读</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-[11px] text-[#334155] bg-[#f8fafc] p-1.5 rounded">
+          <span class="material-symbols-outlined text-[14px] text-[#16a34a]">done</span>
+          <span class="truncate">加权绩点无挂科</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-[11px] text-[#334155] bg-[#f8fafc] p-1.5 rounded">
+          <span class="material-symbols-outlined text-[14px] text-[#16a34a]">done</span>
+          <span class="truncate">学术署名单位为本校</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-[11px] text-[#334155] bg-[#f8fafc] p-1.5 rounded">
+          <span class="material-symbols-outlined text-[14px] text-[#16a34a]">done</span>
+          <span class="truncate">无学术诚信违纪记录</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 材料清单标头 -->
+  <div class="flex items-center justify-between px-1 mb-2">
+    <div class="flex items-center gap-2">
+      <span class="text-[14px] font-semibold text-[#0f172a]">申报材料清单明细</span>
+      <span class="text-[11px] text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.5 rounded">共 4 份</span>
+    </div>
+    <span class="text-[11px] text-[#94a3b8]">已接入智能校验与防伪</span>
+  </div>
+
+  <!-- 材料清单卡片容器 -->
+  <div class="flex flex-col gap-3">
+    <!-- 1: 申请审批表 -->
+    <article class="bg-white rounded-lg border border-[#e2e8f0] p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2">
+          <span class="w-5 h-5 rounded bg-[#f1f5f9] text-[#475569] text-[11px] font-bold flex items-center justify-center mt-0.5 flex-shrink-0">1</span>
+          <h3 class="text-[13px] font-semibold text-[#0f172a] leading-tight">《研究生国家奖学金/创新奖学金申请审批表》</h3>
+        </div>
+        <span class="text-[11px] text-[#16a34a] font-medium bg-[#f0fdf4] border border-[#bbf7d0] px-1.5 py-0.5 rounded flex-shrink-0">检查通过</span>
+      </div>
+      <div class="p-2.5 rounded bg-[#f8fafc] border border-[#f1f5f9] flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[18px] text-[#dc2626] flex-shrink-0">description</span>
+          <div class="flex flex-col min-w-0">
+            <span class="text-[12px] font-medium text-[#0f172a] truncate">申请表_林学长_v1.2.pdf</span>
+            <span class="text-[11px] text-[#94a3b8]">1.4 MB · 扫描状态: clean · 格式 PDF/A</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-[11px] text-[#64748b] bg-[#f8fafc] p-2 rounded leading-relaxed border border-[#f1f5f9]">
+        <span class="text-[#16a34a] font-medium mr-1">就绪:</span>PDF/A 格式符合、页面无乱码、检测到本人手写电子签名及学院公章占位框有效。
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-0.5">
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">visibility</span>
+          <span class="">查看附件</span>
+        </button>
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">swap_horiz</span>
+          <span class="">更换版本</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- 2: 学术论文 -->
+    <article class="bg-white rounded-lg border border-[#e2e8f0] p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2">
+          <span class="w-5 h-5 rounded bg-[#f1f5f9] text-[#475569] text-[11px] font-bold flex items-center justify-center mt-0.5 flex-shrink-0">2</span>
+          <h3 class="text-[13px] font-semibold text-[#0f172a] leading-tight">《代表性学术论文及检索收录证明》</h3>
+        </div>
+        <span class="text-[11px] text-[#16a34a] font-medium bg-[#f0fdf4] border border-[#bbf7d0] px-1.5 py-0.5 rounded flex-shrink-0">检查通过</span>
+      </div>
+      <div class="p-2.5 rounded bg-[#f8fafc] border border-[#f1f5f9] flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[18px] text-[#dc2626] flex-shrink-0">description</span>
+          <div class="flex flex-col min-w-0">
+            <span class="text-[12px] font-medium text-[#0f172a] truncate">Advanced_Materials_Accepted.pdf</span>
+            <span class="text-[11px] text-[#94a3b8]">3.8 MB · 扫描状态: clean · DOI 解析已完成</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-[11px] text-[#64748b] bg-[#f8fafc] p-2 rounded leading-relaxed border border-[#f1f5f9]">
+        <span class="text-[#16a34a] font-medium mr-1">就绪:</span>已成功提取 DOI 标识符、第一作者单位为“某某工业大学材料学院”、发表时间在学年评奖周期内。
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-0.5">
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">visibility</span>
+          <span class="">查看附件</span>
+        </button>
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">swap_horiz</span>
+          <span class="">更换版本</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- 3: 学习成绩单 -->
+    <article class="bg-white rounded-lg border border-[#e2e8f0] p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2">
+          <span class="w-5 h-5 rounded bg-[#f1f5f9] text-[#475569] text-[11px] font-bold flex items-center justify-center mt-0.5 flex-shrink-0">3</span>
+          <h3 class="text-[13px] font-semibold text-[#0f172a] leading-tight">《研究生阶段课程学习成绩单（教务处盖章件）》</h3>
+        </div>
+        <span class="text-[11px] text-[#16a34a] font-medium bg-[#f0fdf4] border border-[#bbf7d0] px-1.5 py-0.5 rounded flex-shrink-0">检查通过</span>
+      </div>
+      <div class="p-2.5 rounded bg-[#f8fafc] border border-[#f1f5f9] flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[18px] text-[#dc2626] flex-shrink-0">description</span>
+          <div class="flex flex-col min-w-0">
+            <span class="text-[12px] font-medium text-[#0f172a] truncate">官方成绩单扫描件_教务认证.pdf</span>
+            <span class="text-[11px] text-[#94a3b8]">820 KB · 扫描状态: clean · 电子验真签</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-[11px] text-[#64748b] bg-[#f8fafc] p-2 rounded leading-relaxed border border-[#f1f5f9]">
+        <span class="text-[#16a34a] font-medium mr-1">就绪:</span>已核验教务系统防伪数字签名哈希值，无不及格挂科记录，加权平均分 89.4。
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-0.5">
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">visibility</span>
+          <span class="">查看附件</span>
+        </button>
+        <button class="px-2.5 py-1 text-[12px] text-[#475569] bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] rounded flex items-center gap-1 active:bg-[#e2e8f0]">
+          <span class="material-symbols-outlined text-[14px]">swap_horiz</span>
+          <span class="">更换版本</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- 4: 导师推荐意见 (需操作项，极简警示边框) -->
+    <article class="bg-white rounded-lg border border-[#fecaca] p-3.5 flex flex-col gap-2.5 relative">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2">
+          <span class="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[11px] font-bold flex items-center justify-center mt-0.5 flex-shrink-0">4</span>
+          <h3 class="text-[13px] font-semibold text-[#0f172a] leading-tight">《导师推荐意见及科研学术诚信评价表》</h3>
+        </div>
+        <span class="text-[11px] text-[#d97706] font-medium bg-[#fffbeb] border border-[#fde68a] px-1.5 py-0.5 rounded flex-shrink-0">待补齐/待签章</span>
+      </div>
+      <div class="p-2.5 rounded bg-[#f8fafc] border border-[#f1f5f9] flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[18px] text-[#94a3b8] flex-shrink-0">draft</span>
+          <div class="flex flex-col min-w-0">
+            <span class="text-[12px] font-medium text-[#0f172a] truncate">导师推荐表_草稿.pdf</span>
+            <span class="text-[11px] text-[#94a3b8]">450 KB · 扫描状态: clean · 缺失盖章</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-[11px] text-[#b45309] bg-[#fffbeb] p-2 rounded leading-relaxed border border-[#fef3c7]">
+        ⚠️ 检测到“<span class="font-medium text-[#dc2626]">导师亲笔签名及导师评语</span>”栏位内容为空，不符合最终材料提交硬性标准。
+      </div>
+      <div class="flex flex-col gap-1.5 pt-1">
+        <div class="flex items-center gap-2">
+          <button class="flex-1 h-9 px-3 rounded bg-[#f8fafc] hover:bg-[#f1f5f9] border border-[#e2e8f0] text-[#334155] text-[12px] font-medium flex items-center justify-center gap-1 active:bg-[#e2e8f0]">
+            <span class="material-symbols-outlined text-[15px]">file_download</span>
+            <span class="">下载待签模板</span>
+          </button>
+          <button class="flex-1 h-9 px-3 rounded bg-[#07c160] hover:bg-[#06ad56] text-white text-[12px] font-medium flex items-center justify-center gap-1 active:opacity-90">
+            <span class="material-symbols-outlined text-[15px]">cloud_upload</span>
+            <span class="">重新上传替换</span>
+          </button>
+        </div>
+        <p class="text-[10px] text-[#94a3b8] text-center">可从微信聊天记录选择或调用“我的材料库”</p>
+      </div>
+    </article>
+  </div>
+</div>
+
+<!-- 极简微信原生底部操作栏 -->
+<footer class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md z-40 px-4 py-2.5 flex flex-col gap-2 border-t border-[#e2e8f0] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+  <div class="flex items-center gap-2.5 w-full">
+    <button class="h-10 px-3.5 rounded border border-[#e2e8f0] bg-[#f8fafc] active:bg-[#f1f5f9] text-[#334155] text-[13px] font-medium flex items-center justify-center gap-1 flex-shrink-0">
+      <span class="material-symbols-outlined text-[16px]">refresh</span>
+      <span class="">重新预检</span>
+    </button>
+    <button class="flex-1 h-10 px-4 rounded bg-[#07c160] active:bg-[#06ad56] text-white text-[13px] font-medium flex items-center justify-center gap-1.5">
+      <span class="material-symbols-outlined text-[17px]">archive</span>
+      <span class="">打包导出材料套件 (ZIP)</span>
+    </button>
+  </div>
+  <div class="flex items-center justify-between text-[11px] text-[#94a3b8] px-0.5">
+    <span class="truncate">含防伪盲水印: CAS-MAT-2026-9810</span>
+    <button class="text-[#475569] hover:underline flex-shrink-0">标记已自行线下提交</button>
+  </div>
+</footer></main>
+
+</body></html>

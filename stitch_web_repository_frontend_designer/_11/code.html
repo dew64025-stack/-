@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-high":"#dee8ff","surface-container-low":"#f0f3ff","on-tertiary-fixed-variant":"#812909","background":"#f9f9ff","surface-container":"#e7eeff","secondary":"#1a6b4a","primary-container":"#1b4965","inverse-surface":"#273141","primary-fixed":"#c9e6ff","surface-variant":"#d9e3f9","tertiary-fixed":"#ffdbd0","surface-container-highest":"#d9e3f9","tertiary":"#5c1600","on-secondary-fixed":"#002113","on-primary-container":"#8eb8d8","secondary-fixed-dim":"#8ad6ae","surface-dim":"#d0daf0","surface-bright":"#f9f9ff","on-tertiary-fixed":"#3a0a00","on-secondary":"#ffffff","on-secondary-container":"#237150","on-error-container":"#93000a","tertiary-container":"#7f2708","outline":"#72787e","primary-fixed-dim":"#a1cced","outline-variant":"#c1c7ce","on-tertiary-container":"#ff9878","on-primary-fixed-variant":"#1d4b67","on-tertiary":"#ffffff","surface":"#f9f9ff","secondary-fixed":"#a5f3c9","on-surface-variant":"#41474d","surface-container-lowest":"#ffffff","on-error":"#ffffff","error":"#ba1a1a","on-secondary-fixed-variant":"#005235","on-surface":"#121c2c","on-primary-fixed":"#001e2f","tertiary-fixed-dim":"#ffb59f","surface-tint":"#386380","primary":"#00324b","on-primary":"#ffffff","inverse-on-surface":"#ebf1ff","error-container":"#ffdad6","on-background":"#121c2c","inverse-primary":"#a1cced","secondary-container":"#a5f3c9"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"margin":"1rem","space-lg":"1rem","space-md":"0.75rem","gutter":"0.75rem","space-sm":"0.5rem","space-xl":"1.5rem","space-xs":"0.25rem"},"fontFamily":{"label-md":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"caption":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"body-sm":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"headline-sm":["Plus Jakarta Sans"],"headline-xl":["Plus Jakarta Sans"]},"fontSize":{"label-md":["13px",{"lineHeight":"18px","fontWeight":"600"}],"label-sm":["11px",{"lineHeight":"14px","fontWeight":"500"}],"caption":["10px",{"lineHeight":"12px","fontWeight":"500"}],"headline-lg":["20px",{"lineHeight":"28px","fontWeight":"600"}],"body-lg":["15px",{"lineHeight":"22px","fontWeight":"400"}],"body-sm":["12px",{"lineHeight":"16px","fontWeight":"400"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-sm":["17px",{"lineHeight":"24px","fontWeight":"600"}],"headline-xl":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-body-md text-on-surface flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-20 flex flex-col justify-between"><div class="h-11 px-margin flex items-center justify-between"><div class="flex items-center gap-space-xs"><button aria-label="返回" class="w-11 h-11 -ml-space-sm flex items-center justify-center text-on-surface active:bg-surface-variant/40 rounded-full transition-colors" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[20px]">arrow_back_ios_new</span></button><h1 class="font-headline-sm text-headline-sm text-on-surface truncate max-w-[170px]">Create Mutual Aid Post</h1></div><div class="flex items-center gap-space-sm"><div class="h-8 px-space-sm rounded-full bg-surface-container-highest/80 flex items-center gap-space-sm"><button aria-label="更多操作" class="w-5 h-5 flex items-center justify-center text-on-surface" type="button"><span class="material-symbols-outlined text-[16px]">more_horiz</span></button><div class="w-px h-3.5 bg-outline-variant/60"></div><button aria-label="关闭小程序" class="w-5 h-5 flex items-center justify-center text-on-surface" type="button"><span class="material-symbols-outlined text-[14px]">radio_button_checked</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="h-9 px-margin bg-surface-container-low flex items-center justify-between text-on-surface-variant"><div class="flex items-center gap-space-xs min-w-0"><span class="material-symbols-outlined text-primary text-[16px] shrink-0">verified_user</span><span class="font-caption text-caption text-on-surface-variant truncate">校园互助平台已开启全流程数据脱敏与实名双重认证</span></div><div class="shrink-0 flex items-center gap-space-xs"><span class="px-space-xs py-0.5 rounded-full bg-surface-container text-primary font-caption text-caption">演示环境</span><span class="px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption text-caption">已脱敏</span></div></div></div></header><main class="flex flex-col relative w-full px-margin pt-20 pb-safe bg-surface min-h-screen"><div class="flex flex-col w-full pb-24">
+<!-- 1. 顶部合规安全指引 (Warm Alert Notice) -->
+<div class="mb-space-md p-space-md rounded-xl bg-tertiary-fixed text-on-tertiary-fixed shadow-sm">
+<div class="flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-[18px] text-tertiary mt-0.5 shrink-0" style="font-variation-settings: 'FILL' 1;">flip_camera_ios</span>
+<div class="flex flex-col gap-0.5 min-w-0">
+<span class="font-label-md text-label-md text-tertiary">校内合规发布安全须知</span>
+<p class="font-body-sm text-body-sm text-on-tertiary-fixed-variant leading-relaxed">
+          平台严禁涉及在线资金交易、预付款转账或押金，线下交接须在公共监控区域。匿名树洞每帖生成独立保护随机笔名，严禁泄露他人隐私。
+        </p>
+</div>
+</div>
+</div>
+<!-- 2. 发布类别切换（胶囊选择器） -->
+<div class="mb-space-md">
+<div class="flex items-center justify-between mb-space-xs px-1">
+<span class="font-label-md text-label-md text-on-surface">选择互助类型</span>
+<span class="font-caption text-caption text-on-surface-variant">演示环境 · 规范互助</span>
+</div>
+<div class="flex items-center gap-space-xs overflow-x-auto py-1 no-scrollbar">
+<button class="shrink-0 px-space-md py-2 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all" onclick="switchCategory(this, 'borrow')" type="button">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">swap_horizontal_circle</span>
+          借用共享
+        </span>
+</button>
+<button class="shrink-0 px-space-md py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high transition-all" onclick="switchCategory(this, 'lost')" type="button">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">location_searching</span>
+          失物寻主
+        </span>
+</button>
+<button class="shrink-0 px-space-md py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high transition-all" onclick="switchCategory(this, 'book')" type="button">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">menu_book</span>
+          教材出让
+        </span>
+</button>
+<button class="shrink-0 px-space-md py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high transition-all" onclick="switchCategory(this, 'team')" type="button">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+          组队搭子
+        </span>
+</button>
+<button class="shrink-0 px-space-md py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high transition-all" onclick="switchCategory(this, 'anonymous')" type="button">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">masks</span>
+          匿名树洞
+        </span>
+</button>
+</div>
+</div>
+<!-- 3. 动态表单主体（借用共享） -->
+<div class="flex flex-col gap-space-md">
+<!-- 标题卡片 -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface flex items-center gap-1" for="post-title">
+<span>互助标题</span>
+<span class="text-error text-body-sm">*</span>
+</label>
+<span class="font-caption text-caption text-on-surface-variant" id="title-counter">25/50</span>
+</div>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline outline-none focus:bg-surface-container-lowest focus:ring-0 transition-colors" id="post-title" maxlength="50" oninput="document.getElementById('title-counter').innerText = this.value.length + '/50'" placeholder="清晰注明物品名称、规格及借用特性..." type="text" value="【物品出借】罗技激光翻页笔（配USB接收器与五号电池）">
+</div>
+<!-- 物品属性选择（分类/成色/时长） -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-md">
+<div>
+<span class="font-label-md text-label-md text-on-surface block mb-space-xs">物品分类与成色</span>
+<div class="flex flex-wrap gap-space-xs">
+<span class="px-space-md py-1.5 rounded-lg bg-surface-container text-primary font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">devices_other</span>
+            数码周边
+          </span>
+<span class="px-space-md py-1.5 rounded-lg bg-surface-container text-primary font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+            九成新
+          </span>
+<button class="px-space-sm py-1.5 rounded-lg bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm flex items-center gap-1 active:bg-surface-container" type="button">
+<span>修改属性</span>
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+</div>
+<div class="pt-space-xs flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">单次最长可借</span>
+<span class="font-caption text-caption text-on-surface-variant">支持学业答辩或会议应急周转</span>
+</div>
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-md py-1.5 rounded-lg text-primary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>最长 3 天</span>
+<span class="material-symbols-outlined text-[14px] text-outline">unfold_more</span>
+</div>
+</div>
+</div>
+<!-- 详细描述文本域 -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface flex items-center gap-1" for="post-desc">
+<span>详细说明与借用须知</span>
+<span class="text-error text-body-sm">*</span>
+</label>
+<span class="px-space-xs py-0.5 rounded bg-surface-container text-primary font-caption text-caption">倡导爱护公物</span>
+</div>
+<textarea class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md leading-relaxed placeholder:text-outline outline-none resize-none focus:bg-surface-container-lowest transition-colors" id="post-desc" placeholder="请详细描述设备状况、配件清单、使用注意事项及归还时限约定..." rows="4">研一实验室自用，支持红绿双光指引与PPT全屏播放翻页。近期答辩周急需的同院同学可优先借用，内附新电池及收纳软包，请爱护设备，按时归还。</textarea>
+</div>
+<!-- 共享方式与费用约定 -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface">互助费用与结算</span>
+<span class="px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption text-caption">非营利公益</span>
+</div>
+<div class="flex items-baseline justify-between p-space-md rounded-lg bg-surface-container-low">
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-secondary font-bold">¥ 0.00</span>
+<span class="font-label-sm text-label-sm text-secondary">公益免费借用</span>
+</div>
+<span class="px-space-xs py-0.5 rounded bg-surface-container text-on-surface-variant font-caption text-caption">免收押金</span>
+</div>
+<div class="flex items-center gap-space-xs px-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[15px] text-primary shrink-0">info</span>
+<p class="font-caption text-caption leading-tight">平台为纯校园互助桥梁，不设在线支付接口，严禁以押金、租金名义私下转账，谨防电信诈骗。</p>
+</div>
+</div>
+<!-- 线下推荐安全交接点 -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between mb-0.5">
+<span class="font-label-md text-label-md text-on-surface flex items-center gap-1">
+<span>推荐安全交接区域</span>
+<span class="material-symbols-outlined text-[15px] text-secondary">videocam</span>
+</span>
+<button class="font-label-sm text-label-sm text-primary flex items-center gap-0.5 active:opacity-75" type="button">
+<span>切换校区点位</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+<div class="flex items-center gap-space-sm p-space-md rounded-lg bg-surface-container-low">
+<div class="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">材料楼 A座 一层大厅门禁处</span>
+<span class="font-caption text-caption text-secondary">校保卫处联网监控全天候覆盖点</span>
+</div>
+</div>
+</div>
+<!-- 照片实拍区 (最多4张) -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface">实物照片</span>
+<span class="font-caption text-caption text-on-surface-variant">1 / 4 张（支持多角度实拍）</span>
+</div>
+<div class="grid grid-cols-4 gap-gutter mt-1">
+<!-- 已上传实拍图 -->
+<div class="relative aspect-square rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Close up photo of an elegant wireless matte black presenter clicker laser pointer placed on an academic library oak study desk, surrounded by lecture slides and notebooks, sharp focus, clean institutional lighting with soft teal and navy hues" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGv_39LgTDy2cEp-g-HBaMcyrIwZAmmJ8vEjUmuZEqwXhRgjC-CKGjlkTKb-TL3tepz6Ytba7xdrRrNXwRzy9umWYt8Q3CZk7DmAML3ML4-xy9mAlUsIdIdHhv4psEkTto3bY7LuNerv3IvtTfFDt5O4PzT3AASO_gc9C2IDJl14DDyMSd61V-4p08l0gqCO6TEBwjQk1efLYRtk6DJOaD15LSi9DWeXBPiLW9Zl_d8QmacnAwbvWO">
+<button class="absolute top-1 right-1 w-5 h-5 rounded-full bg-inverse-surface/75 text-inverse-on-surface flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[12px]">close</span>
+</button>
+<span class="absolute bottom-1 left-1 px-1 rounded bg-inverse-surface/60 text-inverse-on-surface font-caption text-[9px] leading-tight">实物照</span>
+</div>
+<!-- 添加图片框 -->
+<button class="aspect-square rounded-lg bg-surface-container-low flex flex-col items-center justify-center gap-1 text-on-surface-variant active:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[24px] text-primary">add_a_photo</span>
+<span class="font-caption text-caption">添加相片</span>
+</button>
+<!-- 占位预留框 -->
+<div class="aspect-square rounded-lg bg-surface-container-low/50 flex items-center justify-center text-outline-variant">
+<span class="material-symbols-outlined text-[20px]">image</span>
+</div>
+<div class="aspect-square rounded-lg bg-surface-container-low/50 flex items-center justify-center text-outline-variant">
+<span class="material-symbols-outlined text-[20px]">image</span>
+</div>
+</div>
+</div>
+<!-- 4. 匿名与隐私保护设置 -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-primary">psychology_alt</span>
+<span class="font-label-md text-label-md text-on-surface">独立随机笔名保护</span>
+</div>
+<!-- Switch Toggle -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" id="anon-switch" onchange="toggleAnonMode(this)" type="checkbox">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- 动态身份呈现条 -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between" id="identity-banner">
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="w-6 h-6 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[14px]">school</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface truncate" id="identity-name">发布身份：材料研一 · 陈同学</span>
+</div>
+<span class="shrink-0 px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption text-caption flex items-center gap-0.5" id="identity-badge">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+          已实名核验
+        </span>
+</div>
+<p class="font-caption text-caption text-on-surface-variant leading-relaxed px-1">
+        当前为实名互助模式。若开启或切换至匿名树洞，系统将为本帖随机生成哈希笔名（如“学工楼旁的小齿轮 #A814”），隔绝非必要检索。
+      </p>
+</div>
+<!-- 5. 协议声明勾选 -->
+<div class="flex items-start gap-space-xs px-1 pt-1">
+<input checked="" class="mt-1 w-4 h-4 rounded text-primary accent-primary cursor-pointer shrink-0" id="agree-terms" type="checkbox">
+<label class="font-body-sm text-body-sm text-on-surface-variant leading-snug cursor-pointer select-none" for="agree-terms">
+        我已阅读并承诺遵守
+        <span class="text-primary font-medium">《校内互助文明公约与防诈声明》</span>
+        ，保证出借物品来源合法，线下遵循安全防疫与监控区交接规范。
+      </label>
+</div>
+</div>
+<!-- 底部固定发布底栏 (Sticky Dock) -->
+<div class="fixed bottom-0 inset-x-0 z-40 bg-surface/90 backdrop-blur-xl px-margin py-space-sm pb-safe shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+<div class="flex items-center gap-gutter max-w-md mx-auto">
+<button class="flex-1 h-11 rounded-lg bg-surface-container text-primary font-label-md text-label-md active:bg-surface-container-high transition-colors flex items-center justify-center gap-1" onclick="saveDraftToast()" type="button">
+<span class="material-symbols-outlined text-[18px]">bookmark</span>
+        存为草稿
+      </button>
+<button class="flex-[2] h-11 rounded-lg text-on-primary font-label-md text-label-md shadow-md active:bg-primary-container transition-all flex items-center justify-center gap-1.5" onclick="submitPostToast()" type="button" style="background-color: #3a7294;">
+<span class="material-symbols-outlined text-[18px]">send</span>
+        确认发布互助
+      </button>
+</div>
+</div>
+<!-- 轻量交互与反馈提示 Toast 容器 -->
+<div class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 translate-y-2" id="toast-node">
+<div class="px-space-md py-space-xs rounded-full bg-inverse-surface/90 text-inverse-on-surface font-label-md text-label-md shadow-lg flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary-fixed" id="toast-icon">check_circle</span>
+<span id="toast-msg">草稿已自动备份至本地</span>
+</div>
+</div>
+</div>
+<script>
+  function switchCategory(btn, type) {
+    const parent = btn.parentElement;
+    parent.querySelectorAll('button').forEach(b => {
+      b.className = 'shrink-0 px-space-md py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high transition-all';
+    });
+    btn.className = 'shrink-0 px-space-md py-2 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-sm transition-all';
+
+    const anonSwitch = document.getElementById('anon-switch');
+    if (type === 'anonymous') {
+      anonSwitch.checked = true;
+      toggleAnonMode(anonSwitch);
+      showToast('已自动切换至匿名树洞保护模式', 'masks');
+    } else {
+      if (anonSwitch.checked) {
+        anonSwitch.checked = false;
+        toggleAnonMode(anonSwitch);
+      }
+    }
+  }
+
+  function toggleAnonMode(toggle) {
+    const nameEl = document.getElementById('identity-name');
+    const badgeEl = document.getElementById('identity-badge');
+    if (toggle.checked) {
+      nameEl.innerText = '发布身份：学工楼旁的小齿轮 #A814';
+      badgeEl.className = 'shrink-0 px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant font-caption text-caption flex items-center gap-0.5';
+      badgeEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">visibility_off</span> 单帖随机掩码';
+    } else {
+      nameEl.innerText = '发布身份：材料研一 · 陈同学';
+      badgeEl.className = 'shrink-0 px-space-xs py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-caption text-caption flex items-center gap-0.5';
+      badgeEl.innerHTML = '<span class="material-symbols-outlined text-[12px]">verified</span> 已实名核验';
+    }
+  }
+
+  function showToast(text, icon = 'check_circle') {
+    const toast = document.getElementById('toast-node');
+    const msg = document.getElementById('toast-msg');
+    const ico = document.getElementById('toast-icon');
+    msg.innerText = text;
+    ico.innerText = icon;
+    toast.classList.remove('opacity-0', 'translate-y-2');
+    toast.classList.add('opacity-100', 'translate-y-0');
+    setTimeout(() => {
+      toast.classList.add('opacity-0', 'translate-y-2');
+      toast.classList.remove('opacity-100', 'translate-y-0');
+    }, 2200);
+  }
+
+  function saveDraftToast() {
+    showToast('互助草稿已存入离线空间', 'bookmark_added');
+  }
+
+  function submitPostToast() {
+    const terms = document.getElementById('agree-terms');
+    if (!terms.checked) {
+      showToast('请勾选校内互助文明公约', 'warning');
+      return;
+    }
+    showToast('发布成功！已提交校园安全审核', 'verified');
+  }
+</script></main>
+
+</body></html>

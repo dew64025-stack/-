@@ -1,0 +1,273 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'on-tertiary-fixed': '#3a0a00', 'surface': '#f9f9ff', 'surface-dim': '#d0daf0', 'on-primary-fixed-variant': '#1d4b67', 'on-tertiary-container': '#ff9878', 'surface-container': '#e7eeff', 'secondary-container': '#a5f3c9', 'on-error-container': '#93000a', 'surface-tint': '#386380', 'surface-container-highest': '#d9e3f9', 'on-surface-variant': '#41474d', 'on-tertiary-fixed-variant': '#812909', 'on-secondary': '#ffffff', 'secondary-fixed-dim': '#8ad6ae', 'background': '#f9f9ff', 'primary': '#00324b', 'tertiary-fixed-dim': '#ffb59f', 'error-container': '#ffdad6', 'surface-bright': '#f9f9ff', 'tertiary-container': '#7f2708', 'on-secondary-fixed-variant': '#005235', 'surface-container-high': '#dee8ff', 'on-surface': '#121c2c', 'error': '#ba1a1a', 'on-secondary-container': '#237150', 'secondary-fixed': '#a5f3c9', 'on-primary-container': '#8eb8d8', 'surface-variant': '#d9e3f9', 'on-primary': '#ffffff', 'on-tertiary': '#ffffff', 'primary-container': '#1b4965', 'outline-variant': '#c1c7ce', 'primary-fixed': '#c9e6ff', 'on-primary-fixed': '#001e2f', 'on-secondary-fixed': '#002113', 'on-background': '#121c2c', 'inverse-primary': '#a1cced', 'inverse-on-surface': '#ebf1ff', 'tertiary-fixed': '#ffdbd0', 'secondary': '#1a6b4a', 'primary-fixed-dim': '#a1cced', 'on-error': '#ffffff', 'tertiary': '#5c1600', 'outline': '#72787e', 'inverse-surface': '#273141', 'surface-container-low': '#f0f3ff', 'surface-container-lowest': '#ffffff' }, borderRadius: { DEFAULT: '0.25rem', lg: '0.5rem', xl: '0.75rem', full: '9999px' }, spacing: { 'space-md': '0.75rem', 'space-lg': '1rem', 'space-sm': '0.5rem', 'space-xs': '0.25rem', 'margin': '1rem', 'space-xl': '1.5rem', 'gutter': '0.75rem' }, fontFamily: { 'caption': ['Plus Jakarta Sans'], 'label-sm': ['Plus Jakarta Sans'], 'label-md': ['Plus Jakarta Sans'], 'body-md': ['Plus Jakarta Sans'], 'body-lg': ['Plus Jakarta Sans'], 'headline-sm': ['Plus Jakarta Sans'], 'headline-xl': ['Plus Jakarta Sans'], 'body-sm': ['Plus Jakarta Sans'], 'headline-lg': ['Plus Jakarta Sans'] }, fontSize: { 'caption': ['10px', { lineHeight: '12px', fontWeight: '500' }], 'label-sm': ['11px', { lineHeight: '14px', fontWeight: '500' }], 'label-md': ['13px', { lineHeight: '18px', fontWeight: '600' }], 'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }], 'body-lg': ['15px', { lineHeight: '22px', fontWeight: '400' }], 'headline-sm': ['17px', { lineHeight: '24px', fontWeight: '600' }], 'headline-xl': ['24px', { lineHeight: '32px', letterSpacing: '-0.01em', fontWeight: '700' }], 'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }], 'headline-lg': ['20px', { lineHeight: '28px', fontWeight: '600' }] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col antialiased selection:bg-primary-fixed selection:text-on-primary-fixed"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(27,73,101,0.04)]"><div class="h-11 px-margin flex items-center justify-between relative"><div class="flex items-center gap-space-xs z-10"><button aria-label="返回上一页" class="w-11 h-11 -ml-space-xs flex items-center justify-center text-on-surface hover:text-primary active:scale-95 transition-transform" onclick="history.back()"><span class="material-symbols-outlined text-[20px]">arrow_back_ios_new</span></button></div><div class="absolute inset-0 flex items-center justify-center pointer-events-none px-24"><h1 class="text-headline-sm font-headline-sm text-primary tracking-tight truncate text-center">Packages/Account/Verify</h1></div><div class="flex items-center gap-space-xs z-10 pl-space-xs"><div class="h-8 px-space-xs bg-surface-container-low/90 rounded-full flex items-center justify-between gap-space-xs shadow-[0_1px_3px_rgba(27,73,101,0.06)]"><button aria-label="小程序更多操作" class="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary" type="button"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button><div class="w-px h-3.5 bg-outline-variant/60"></div><button aria-label="关闭小程序" class="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-primary" type="button"><span class="material-symbols-outlined text-[16px]">radio_button_checked</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-space-xs shrink-0 shadow-[0_1px_3px_rgba(27,73,101,0.12)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-11 bg-surface pb-safe px-margin"><div class="flex flex-col w-full pb-10">
+<!-- Step & Progress Tracker -->
+<div class="pt-space-sm pb-space-md">
+<div class="flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant mb-space-xs">
+<span class="font-headline-sm text-headline-sm text-primary tracking-tight">学生身份官方核验</span>
+<span class="px-space-sm py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm">
+        步骤 3/3
+      </span>
+</div>
+<!-- Progress Indicator Bar (No border, tonal depth) -->
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="w-full h-full bg-primary-container rounded-full transition-all duration-500"></div>
+</div>
+</div>
+<!-- Status Banner (Pending Verification & Algorithmic Notice) -->
+<div class="bg-surface-container-low rounded-xl p-space-md shadow-sm mb-space-md relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-primary-container/10 pointer-events-none"></div>
+<div class="flex items-start gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">hourglass_top</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="text-label-md font-label-md text-primary">当前状态：待认证 (Unverified)</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant text-caption font-caption">演示数据</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1 leading-relaxed">
+          系统已挂接教务处在籍名册哈希检索中枢，提交后将触发离线特征秒级匹配。
+        </p>
+</div>
+</div>
+</div>
+<!-- Academic Entitlements Showcase Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm mb-space-lg">
+<div class="flex items-center gap-space-sm mb-space-md">
+<div class="w-9 h-9 rounded-xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<div>
+<h2 class="text-headline-sm font-headline-sm text-primary">认证学生专属学术权益</h2>
+<p class="text-caption font-caption text-on-surface-variant">通过校级可信鉴权后即刻激活以下权限</p>
+</div>
+</div>
+<!-- 4 Rights Grid -->
+<div class="grid grid-cols-2 gap-gutter">
+<!-- Item 1 -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-primary-container mb-2">
+<span class="material-symbols-outlined text-[17px]">science</span>
+</div>
+<div>
+<span class="text-label-md font-label-md text-on-surface block mb-0.5">器材免押借用</span>
+<span class="text-caption font-caption text-on-surface-variant line-clamp-2">翻页笔、显微镜配件免押金快速扫码领调</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-primary-container mb-2">
+<span class="material-symbols-outlined text-[17px]">chair</span>
+</div>
+<div>
+<span class="text-label-md font-label-md text-on-surface block mb-0.5">逸夫馆研习席位</span>
+<span class="text-caption font-caption text-on-surface-variant line-clamp-2">研讨间实时平面可视化查座与预约入座</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-primary-container mb-2">
+<span class="material-symbols-outlined text-[17px]">auto_awesome</span>
+</div>
+<div>
+<span class="text-label-md font-label-md text-on-surface block mb-0.5">奖学金AI资格匹配</span>
+<span class="text-caption font-caption text-on-surface-variant line-clamp-2">卓越奖学金预评测及申报材料规则预核验</span>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-primary-container mb-2">
+<span class="material-symbols-outlined text-[17px]">groups</span>
+</div>
+<div>
+<span class="text-label-md font-label-md text-on-surface block mb-0.5">竞赛交叉组队</span>
+<span class="text-caption font-caption text-on-surface-variant line-clamp-2">“挑战杯”新材料等重点课题跨学院协作</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Academic Credential Form -->
+<form class="flex flex-col gap-space-md mb-space-lg" id="verifyForm" onsubmit="event.preventDefault(); handleSubmit();">
+<!-- Institution / School (Locked) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between mb-1.5">
+<label class="text-body-sm font-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+          所属高校与院系
+        </label>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant text-caption font-caption flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[12px]">lock</span> 会话已锁
+        </span>
+</div>
+<div class="bg-surface-container-low rounded-lg px-space-md py-2.5 text-body-md font-body-md text-on-surface flex items-center justify-between">
+<span class="font-medium">某某工业大学 · 材料科学与工程学院</span>
+<span class="material-symbols-outlined text-outline text-[18px]">domain_verification</span>
+</div>
+</div>
+<!-- Education Degree Level Selector Pills -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<label class="text-body-sm font-body-sm text-on-surface-variant block mb-2">当前就读培养层次</label>
+<div class="grid grid-cols-3 gap-space-sm" id="degreeSelector">
+<button class="degree-pill py-2.5 px-space-xs rounded-lg text-label-md font-label-md text-center bg-surface-container-low text-on-surface-variant active:scale-95 transition-all" onclick="selectDegree(this, 'undergraduate')" type="button">
+          本科生
+        </button>
+<button class="degree-pill py-2.5 px-space-xs rounded-lg text-label-md font-label-md text-center bg-primary text-on-primary shadow-sm active:scale-95 transition-all" onclick="selectDegree(this, 'master')" type="button">
+          硕士研究生
+        </button>
+<button class="degree-pill py-2.5 px-space-xs rounded-lg text-label-md font-label-md text-center bg-surface-container-low text-on-surface-variant active:scale-95 transition-all" onclick="selectDegree(this, 'doctor')" type="button">
+          博士研究生
+        </button>
+</div>
+</div>
+<!-- Student ID Input Area -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<label class="text-body-sm font-body-sm text-on-surface-variant block mb-1.5" for="studentId">
+        真实学号 (9位校内统一标识)
+      </label>
+<div class="relative flex items-center">
+<span class="absolute left-space-md material-symbols-outlined text-outline text-[20px]">badge</span>
+<input class="w-full h-11 pl-11 pr-space-md bg-surface-container-low rounded-lg text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(27,73,101,0.25)] transition-all" id="studentId" placeholder="请输入完整9位学号" type="text" value="2024****08">
+</div>
+<p class="text-caption font-caption text-on-surface-variant mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-secondary">shield</span>
+        系统仅与教务处在籍名册哈希比对，不向其他同学公开
+      </p>
+</div>
+<!-- Cohort & Major -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<label class="text-body-sm font-body-sm text-on-surface-variant block mb-1.5">所在年级与培养方向</label>
+<div class="bg-surface-container-low rounded-lg px-space-md py-2.5 text-body-md font-body-md text-on-surface flex items-center justify-between">
+<span>2024级 · 材料学（工学学硕）</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-caption font-caption">
+          规范专业库
+        </span>
+</div>
+</div>
+<!-- Bound Phone (Linked) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<div class="flex items-center justify-between">
+<div>
+<span class="text-body-sm font-body-sm text-on-surface-variant block">安全绑定手机</span>
+<span class="text-body-md font-body-md text-on-surface font-medium">138****8826</span>
+</div>
+<div class="flex items-center gap-1 text-secondary text-caption font-caption bg-secondary-container/50 px-2.5 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+          微信安全绑定
+        </div>
+</div>
+</div>
+</form>
+<!-- Dual Channel Verification Explainers -->
+<div class="bg-surface-container-low rounded-xl p-space-md mb-space-lg flex flex-col gap-space-md">
+<div class="text-label-md font-label-md text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">alt_route</span>
+      核验机制双轨保障
+    </div>
+<!-- Track 1: Fast Auto -->
+<div class="flex items-start gap-space-sm bg-surface-container-lowest p-space-sm rounded-lg">
+<div class="w-6 h-6 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed shrink-0 text-caption font-bold">
+        1
+      </div>
+<div>
+<h3 class="text-label-md font-label-md text-on-surface">主通道：自动化密文核验</h3>
+<p class="text-caption font-caption text-on-surface-variant mt-0.5 leading-snug">
+          优先匹配教务处在籍生安全名单数据库（秒级核验通过）。
+        </p>
+</div>
+</div>
+<!-- Track 2: Manual Fallback -->
+<div class="flex items-start gap-space-sm bg-surface-container-lowest p-space-sm rounded-lg">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface shrink-0 text-caption font-bold">
+        2
+      </div>
+<div>
+<h3 class="text-label-md font-label-md text-on-surface">备选通道：教务人工复核</h3>
+<p class="text-caption font-caption text-on-surface-variant mt-0.5 leading-snug">
+          若名册未更新或新生初次录入，可
+          <button class="text-primary-container font-label-md underline underline-offset-2 hover:opacity-80" onclick="triggerManualUpload()" type="button">
+            上传学生证/校园卡封面及内页照片
+          </button>
+          申请人工教务复核（1个工作日内办结）。
+        </p>
+</div>
+</div>
+</div>
+<!-- Institutional Academic Integrity Notice -->
+<div class="mb-space-lg bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
+<label class="flex items-start gap-space-sm cursor-pointer select-none">
+<input checked="" class="mt-1 w-4 h-4 rounded bg-surface-container text-primary-container accent-primary focus:ring-0" id="pledgeAgreement" type="checkbox">
+<div class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
+<span class="text-on-surface font-medium">学术诚信承诺与保密声明：</span>
+        我保证所填报学籍信息真实有效，知悉冒用他人学号属于严重学术不端并记入校园信用事件。
+      </div>
+</label>
+<div class="mt-space-sm pt-space-xs flex items-center gap-1.5 text-caption font-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">lock_reset</span>
+      数据仅用于校内身份凭据鉴权，不上传第三方商业服务器
+    </div>
+</div>
+<!-- Bottom CTA Actions (No borders, elevated touchpoints) -->
+<div class="flex flex-col gap-space-sm pt-space-xs">
+<button class="w-full h-11 active:scale-[0.99] text-on-primary font-headline-sm text-label-md rounded-lg flex items-center justify-center gap-space-xs shadow-md transition-all" id="submitVerifyBtn" onclick="handlePostVerify()" type="button" style="background-color: #3a7294;">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>提交官方学籍核验</span>
+<span class="text-caption font-caption opacity-75 font-mono">(POST /student-verifications)</span>
+</button>
+<button class="w-full py-2.5 text-center text-body-sm font-body-sm text-on-surface-variant hover:text-primary transition-colors" onclick="handleSkipVerify()" type="button">
+      暂不认证，保留访客身份
+    </button>
+</div>
+<!-- Micro-Toast for Instant Feedback (Client JS toggled) -->
+<div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-space-md py-2 rounded-full text-body-sm font-body-sm shadow-xl opacity-0 pointer-events-none transition-opacity duration-300 flex items-center gap-2 z-50" id="verifyToast">
+<span class="material-symbols-outlined text-secondary-fixed text-[18px]">sync</span>
+<span id="toastMsg">正在核验教务数据...</span>
+</div>
+</div>
+<script>
+  function selectDegree(el, degree) {
+    document.querySelectorAll('.degree-pill').forEach(btn => {
+      btn.className = 'degree-pill py-2.5 px-space-xs rounded-lg text-label-md font-label-md text-center bg-surface-container-low text-on-surface-variant active:scale-95 transition-all';
+    });
+    el.className = 'degree-pill py-2.5 px-space-xs rounded-lg text-label-md font-label-md text-center bg-primary text-on-primary shadow-sm active:scale-95 transition-all';
+  }
+
+  function showToast(msg, duration = 2500) {
+    const toast = document.getElementById('verifyToast');
+    const label = document.getElementById('toastMsg');
+    label.innerText = msg;
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+    }, duration);
+  }
+
+  function handlePostVerify() {
+    const checkbox = document.getElementById('pledgeAgreement');
+    if (!checkbox.checked) {
+      showToast('请先勾选学术诚信及合规声明');
+      return;
+    }
+    const btn = document.getElementById('submitVerifyBtn');
+    btn.disabled = true;
+    btn.classList.add('opacity-75');
+    showToast('正在向教务名单哈希池提交鉴权...');
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.classList.remove('opacity-75');
+      showToast('学籍核验匹配成功！正在跳转工作台...');
+    }, 1800);
+  }
+
+  function triggerManualUpload() {
+    showToast('已唤起教务凭证上传通道：支持学生证内页或录取通知书扫描件');
+  }
+
+  function handleSkipVerify() {
+    showToast('已切换为游客只读模式，部分学术借用特权暂不可用');
+  }
+</script></main>
+
+</body></html>

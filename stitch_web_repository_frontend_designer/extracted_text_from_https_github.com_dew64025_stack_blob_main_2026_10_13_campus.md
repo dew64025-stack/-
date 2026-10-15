@@ -1,0 +1,1034 @@
+Skip to content
+
+## Navigation Menu
+
+[](/)
+
+[Sign in](/login?return_to=https%3A%2F%2Fgithub.com%2Fdew64025-stack%2F-%2Fblob%2Fmain%2F2026-10-13-campus-one-stop-platform-design.md)
+
+Appearance settings
+
+  * Platform
+
+    * AI CODE CREATION
+      * [GitHub CopilotWrite better code with AI](https://github.com/features/copilot)
+      * [GitHub Copilot appDirect agents from issue to merge](https://github.com/features/ai/github-app)
+      * [MCP RegistryIntegrate external tools](https://github.com/mcp)
+
+    * DEVELOPER WORKFLOWS
+      * [ActionsAutomate any workflow](https://github.com/features/actions)
+      * [CodespacesInstant dev environments](https://github.com/features/codespaces)
+      * [IssuesPlan and track work](https://github.com/features/issues)
+      * [Code ReviewManage code changes](https://github.com/features/code-review)
+      * [Code QualityEnforce quality at merge](https://github.com/features/code-quality)
+
+    * APPLICATION SECURITY
+      * [GitHub Advanced SecurityFind and fix vulnerabilities](https://github.com/security/advanced-security)
+      * [Code securitySecure your code as you build](https://github.com/security/advanced-security/code-security)
+      * [Secret protectionStop leaks before they start](https://github.com/security/advanced-security/secret-protection)
+
+    * EXPLORE
+      * [Why GitHub](https://github.com/why-github)
+      * [Documentation](https://docs.github.com)
+      * [Blog](https://github.blog)
+      * [Changelog](https://github.blog/changelog)
+      * [Marketplace](https://github.com/marketplace)
+
+[View all features](https://github.com/features)
+
+  * Solutions
+
+    * BY COMPANY SIZE
+      * [Enterprises](https://github.com/enterprise)
+      * [Small and medium teams](https://github.com/team)
+      * [Startups](https://github.com/enterprise/startups)
+      * [Nonprofits](https://github.com/solutions/industry/nonprofits)
+
+    * BY USE CASE
+      * [App Modernization](https://github.com/solutions/use-case/app-modernization)
+      * [DevSecOps](https://github.com/solutions/use-case/devsecops)
+      * [DevOps](https://github.com/solutions/use-case/devops)
+      * [CI/CD](https://github.com/solutions/use-case/ci-cd)
+      * [View all use cases](https://github.com/solutions/use-case)
+
+    * BY INDUSTRY
+      * [Healthcare](https://github.com/solutions/industry/healthcare)
+      * [Financial services](https://github.com/solutions/industry/financial-services)
+      * [Manufacturing](https://github.com/solutions/industry/manufacturing)
+      * [Government](https://github.com/solutions/industry/government)
+      * [View all industries](https://github.com/solutions/industry)
+
+[View all solutions](https://github.com/solutions)
+
+  * Resources
+
+    * EXPLORE BY TOPIC
+      * [AI](https://github.com/resources/articles?topic=ai)
+      * [Software Development](https://github.com/resources/articles?topic=software-development)
+      * [DevOps](https://github.com/resources/articles?topic=devops)
+      * [Security](https://github.com/resources/articles?topic=security)
+      * [View all topics](https://github.com/resources/articles)
+
+    * EXPLORE BY TYPE
+      * [Customer stories](https://github.com/customer-stories)
+      * [Events & webinars](https://github.com/resources/events)
+      * [Ebooks & reports](https://github.com/resources/whitepapers)
+      * [Business insights](https://github.com/solutions/executive-insights)
+      * [GitHub Skills](https://skills.github.com)
+
+    * SUPPORT & SERVICES
+      * [Documentation](https://docs.github.com)
+      * [Customer support](https://support.github.com)
+      * [Community forum](https://github.com/orgs/community/discussions)
+      * [Trust center](https://github.com/trust-center)
+      * [Partners](https://github.com/partners)
+
+[View all resources](https://github.com/resources)
+
+  * Open Source
+
+    * COMMUNITY
+      * [GitHub SponsorsFund open source developers](https://github.com/open-source/sponsors)
+
+    * PROGRAMS
+      * [Security Lab](https://securitylab.github.com)
+      * [Maintainer Community](https://maintainers.github.com)
+      * [GitHub Stars](https://stars.github.com)
+      * [Archive Program](https://archiveprogram.github.com)
+
+    * REPOSITORIES
+      * [Topics](https://github.com/topics)
+      * [Trending](https://github.com/trending)
+      * [Collections](https://github.com/collections)
+
+  * Enterprise
+
+    * ENTERPRISE SOLUTIONS
+      * [Enterprise platformAI-powered developer platform](https://github.com/enterprise)
+
+    * AVAILABLE ADD-ONS
+      * [GitHub Advanced SecurityEnterprise-grade security features](https://github.com/security/advanced-security)
+      * [Copilot for BusinessEnterprise-grade AI features](https://github.com/features/copilot/copilot-business)
+      * [Premium SupportEnterprise-grade 24/7 support](https://github.com/enterprise/premium-support)
+
+  * [Pricing](https://github.com/pricing)
+
+
+
+Search`/`
+
+[Sign in](/login?return_to=https%3A%2F%2Fgithub.com%2Fdew64025-stack%2F-%2Fblob%2Fmain%2F2026-10-13-campus-one-stop-platform-design.md)
+
+[Sign up](/signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Fblob%2Fshow&source=header-repo&source_repo=dew64025-stack%2F-)
+
+Appearance settings
+
+You signed in with another tab or window. [Reload]() to refresh your session. You signed out in another tab or window. [Reload]() to refresh your session. You switched accounts on another tab or window. [Reload]() to refresh your session. Dismiss alert
+
+{{ message }}
+
+  1. [dew64025-stack](/dew64025-stack)
+  2. [-](/dew64025-stack/-)
+
+
+
+## Repository navigation
+
+  *   * [Code](/dew64025-stack/-)
+  * [Issues](/dew64025-stack/-/issues)
+  * [Pull requests](/dew64025-stack/-/pulls)
+  * [Actions](/dew64025-stack/-/actions)
+  * [Projects](/dew64025-stack/-/projects)
+  * [Security and quality](/dew64025-stack/-/security)
+  * [Insights](/dew64025-stack/-/pulse)
+
+
+
+More items
+
+[](/dew64025-stack/-)
+
+## FilesExpand file tree
+
+main
+
+## Breadcrumbs
+
+  1. [-](/dew64025-stack/-/tree/main)
+
+
+
+/
+
+# 2026-10-13-campus-one-stop-platform-design.md
+
+Copy path
+
+Blame
+
+More file actions
+
+Blame
+
+More file actions
+
+## Latest commit
+
+ 
+
+## History
+
+[History](/dew64025-stack/-/commits/main/2026-10-13-campus-one-stop-platform-design.md)
+
+[](/dew64025-stack/-/commits/main/2026-10-13-campus-one-stop-platform-design.md)History
+
+684 lines (508 loc) · 31.1 KB
+
+main
+
+## Breadcrumbs
+
+  1. [-](/dew64025-stack/-/tree/main)
+
+
+
+/
+
+# 2026-10-13-campus-one-stop-platform-design.md
+
+Copy path
+
+Top
+
+## File metadata and controls
+
+  * Preview
+
+  * Code
+
+  * Blame
+
+
+
+
+684 lines (508 loc) · 31.1 KB
+
+[Raw](https://github.com/dew64025-stack/-/raw/refs/heads/main/2026-10-13-campus-one-stop-platform-design.md)
+
+Copy raw file
+
+Download raw file
+
+Outline
+
+Edit and raw actions
+
+# 校园一站式智能服务小程序项目规划书
+
+> 工作名称：材智通——AI 校园成长、治理与互助协同平台  
+>  文档日期：2026-10-13  
+>  文档性质：正式产品设计与上线规划  
+>  发布策略：全部承诺功能完成并通过验收后统一上线  
+>  首发范围：单校启用，底层预留多校隔离能力
+
+## 1\. 项目摘要
+
+本项目建设一个以微信小程序为学生端、Vue Web 为管理端、Java Spring Boot 为服务端的一站式校园平台。产品将机会发现、材料准备、校园办事、资源预约、互助交易、匿名关系社区和个人成长档案统一在五个一级入口中：**首页、机会、服务、互助、我的** 。
+
+项目解决的核心问题不是“缺少某个工具”，而是校园服务分散、重复填写资料、通知难理解、办理进度不可见、跨平台身份与材料不能复用。系统通过统一身份、学生画像、材料保险箱、待办、消息、信用和审计能力，把原本互不相连的场景组成完整闭环。
+
+首版没有学校官方接口，图书馆、教室、报修和校园问题数据由管理后台维护，完整经过正式 API、数据库和业务规则，但必须持续标注“演示数据”或“模拟预约”。后续通过校园数据适配层接入学校系统，不修改小程序的核心调用方式。
+
+现阶段不开发原生 Android 或 iOS App。微信小程序足以覆盖登录、手机号授权、文件上传、定位、订阅提醒、表单、地图、消息和预约等现有需求。只有未来出现持续后台定位、蓝牙硬件深度连接、大文件离线处理或学校明确要求独立应用时，才重新评估原生 App。
+
+## 2\. 建设目标与非目标
+
+### 2.1 建设目标
+
+  1. 用五个稳定入口覆盖学生高频的机会、办事、预约和互助需求。
+  2. 用 AI 辅助解析通知、匹配资格和检查材料，同时保留原文证据与人工确认。
+  3. 建立从发布、审核、办理到评价、申诉的完整业务闭环。
+  4. 保护手机号、学号、材料和匿名身份等敏感信息。
+  5. 支持单校正式运行，并在数据层、权限层和配置层预留多校能力。
+  6. 提供可复现的比赛演示环境，也提供符合公开上线要求的生产环境方案。
+
+
+
+### 2.2 首版非目标
+
+  * 不提供二手交易付款、押金、担保、退款或资金仲裁。
+  * 不冒充学校官方投诉、报修、教室或图书馆预约渠道。
+  * 不允许 AI 自动发布通知、批准申请、判定学生最终资格或封禁用户。
+  * 不提供无法追溯责任人的“平台完全匿名”。
+  * 不在首版拆分微服务，也不引入 Kafka 等与当前规模不匹配的重型基础设施。
+  * 不自动把匿名社区内容写入学生成长档案。
+
+
+
+## 3\. 产品定位与市场借鉴
+
+### 3.1 产品定位
+
+产品定位为“校园机会、办事服务、资源预约与同学互助的一站式智能平台”。竞争力来自四个共享底座：
+
+  * 身份与个人画像复用；
+  * 材料与办事数据复用；
+  * 待办、截止时间和状态提醒统一；
+  * AI 结果有来源、可复核、可纠错。
+
+
+
+### 3.2 案例借鉴
+
+案例类型 | 可借鉴能力 | 本项目的改进  
+---|---|---  
+高校一站式大厅 | 统一身份、自动填表、即时提醒、进度跟踪 | 延伸到机会、材料、互助和成长档案  
+校园综合服务平台 | 报修、建议、失物、二手和通知聚合 | 增加状态机、地图、审核、评价和数据来源标识  
+竞赛聚合平台 | 赛事检索、画像匹配、截止提醒 | 增加原文证据、人工审核、材料复用和预检  
+图书馆预约系统 | 时段预约、签到、取消、违约约束 | 抽象为统一资源预约模块，兼容图书馆和教室  
+校园社区 | 信息发布、互动和举报 | 前台匿名、后台可追溯，限制隐私泄露与恶意引流  
+  
+参考资料：
+
+  * [华中农业大学一站式服务平台](https://center.hzau.edu.cn/info/1062/2206.htm)
+  * [武汉大学一站式学生事务与发展中心](https://service.whu.edu.cn/zxjs.htm)
+  * [延安大学校园云平台服务案例](https://hqfwjt.yau.edu.cn/info/1004/1706.htm)
+  * [淮北师范大学“淮师心声”平台](https://www.chnu.edu.cn/tzgg/content_126283)
+  * [赛氪](https://www.saikr.com/)、[赛赋](https://www.saifu.asia/)、[AI 赛场](https://aisaichang.cn/)
+  * [北京大学相关图书馆座位管理研究](https://ccj.pku.edu.cn/Article/DownLoad?id=292863877&type=ArticleFile)
+  * [中国青年报关于校园应用分散问题的调查](https://news.cyol.com/gb/articles/2025-12/08/content_lbzzGGsWog.html)
+
+
+
+## 4\. 用户与权限模型
+
+### 4.1 用户角色
+
+角色 | 主要权限  
+---|---  
+游客 | 浏览公开机会、热点和公开互助信息  
+已登录用户 | 收藏、建立待办、维护基础资料  
+已认证学生 | 发布、预约、报修、评论、组队、使用匿名社区  
+内容审核员 | 审核帖子、评论、举报与申诉，默认不可查看手机号  
+业务处理员 | 处理报修和校园问题，不可查询匿名社区真实身份  
+资源管理员 | 管理教室、座位、开放时间、占用日历和模拟预约  
+校园管理员 | 管理本校账号、通知、业务配置和统计  
+平台管理员 | 管理校园租户、系统配置和安全审计  
+安全调查员 | 在授权调查中查询匿名身份映射，操作必须审计  
+  
+### 4.2 身份流程
+
+  1. 用户通过 `wx.login` 登录。
+  2. 用户在需要发布、预约或沟通时主动授权手机号。
+  3. 后端通过学号名单完成自动匹配，失败时进入人工审核。
+  4. 认证结果、手机号授权和隐私同意均可追溯版本。
+  5. 浏览公开内容不得强制绑定手机号。
+
+
+
+### 4.3 权限原则
+
+  * 所有核心数据都携带 `campus_id`，数据访问默认附加校园条件。
+  * 所有写操作同时校验角色、数据所有权、业务状态和版本号。
+  * 前端隐藏按钮不构成权限控制，最终权限判断必须在服务端完成。
+  * 匿名身份映射与社区正文分库存储或至少分表、分权限管理。
+  * 查看敏感信息必须记录操作人、时间、原因、对象和结果。
+
+
+
+## 5\. 信息架构与完整功能
+
+### 5.1 首页
+
+  * AI 校园助手：查询通知、办事流程、材料要求和平台服务。
+  * 今日截止事项：机会截止、材料待补、预约和借用归还提醒。
+  * 个性化机会推荐：基于用户主动填写的学院、年级、技能和兴趣。
+  * 校园热点问题：聚合公开问题、关注量和处理进度。
+  * 附近互助信息：基于用户主动授权的位置或手动选择的校园区域。
+  * 全局搜索：搜索机会、服务、资源和公开互助内容。
+
+
+
+首页只负责聚合，不建立与业务模块重复的数据源。
+
+### 5.2 机会
+
+  * 奖学金、竞赛、科研、实习、志愿活动分类与筛选。
+  * 通知原文、来源、更新时间和发布主体展示。
+  * AI 通知解析与字段级原文证据。
+  * AI 资格匹配及“符合、可能符合、不符合”的可解释结论。
+  * 材料清单、材料保险箱、版本管理和完整性预检。
+  * 收藏、待办、截止提醒和用户自行提交记录。
+  * 竞赛组队、角色缺口、技能标签和申请审核。
+
+
+
+机会状态：
+```
+ 
+    草稿 → AI解析中 → 待人工审核 → 已发布 → 已截止 → 已归档
+                     ↘ 解析失败/退回修改
+    
+
+```
+
+材料状态：
+```
+ 
+    未准备 → 已上传 → 预检中 → 需要修改/基本完整 → 用户标记已自行提交
+    
+
+```
+
+平台不代表主办方接收材料，“已自行提交”只是用户待办记录。
+
+### 5.3 服务
+
+#### 校园问题与报修
+
+  * 宿舍和设施报修：位置、分类、描述、图片、紧急程度。
+  * 校园问题广场：地图标点、关注、补充证据、投票、状态订阅。
+  * 食堂与快递点拥堵：管理员数据和学生反馈并存，展示更新时间与可信度。
+  * 工单处理记录、转办、关闭原因和满意度评价。
+
+
+
+状态机：
+```
+ 
+    待审核 → 待受理 → 处理中 → 待评价 → 已完成
+       ↓         ↓         ↓
+    不予公开   已驳回     无法处理/转办
+    
+
+```
+
+未接入学校系统时，状态统一显示为“平台待受理”“平台处理中”等，不能声称学校已经受理。个人纠纷、骚扰、暴力和含隐私的内容强制转入管理员处理，不进入公开广场。
+
+#### 图书馆与教室预约
+
+  * 楼栋、楼层、资源、容量、设备、开放时间和预约规则。
+  * 日期与时段空闲查询、冲突检查、预约、取消、签到和历史。
+  * 爽约、逾期取消和信用事件记录。
+  * 首版完整使用后台维护的演示数据和模拟确认。
+
+
+
+状态机：
+```
+ 
+    可预约 → 待确认 → 已确认 → 已签到 → 已完成
+                 ↓         ↓
+               已拒绝    已取消/爽约
+    
+
+```
+
+### 5.4 互助
+
+#### 通用互助能力
+
+  * 失物招领：丢失/拾得、时间地点、特征、疑似匹配、核验、归还。
+  * 校园二手：品类、价格、成色、图片、交接区域、预留和完成。
+  * 教材循环：课程、教材版本、适用专业和循环状态。
+  * 技能交换：可提供技能、期望交换内容和可用时间。
+  * 物品借用：借用时间、预计归还、交接确认和逾期提醒。
+  * 组队与同伴匹配：目标、技能、角色、时间和申请审核。
+  * 站内消息：会话、未读、举报、屏蔽和安全提示。
+
+
+
+通用状态：
+```
+ 
+    草稿 → 待审核 → 已发布 → 沟通中/已预留 → 已完成
+              ↓                     ↓
+            已驳回                已取消
+    
+
+```
+
+平台只负责信息撮合和站内沟通，不处理付款、押金和退款。系统限制公开手机号、二维码和诱导站外交易内容。
+
+#### 匿名关系与情感社区
+
+  * 匿名发帖、评论、收藏、举报、屏蔽和申诉。
+  * 每篇帖子生成独立随机身份，其他用户不能串联作者历史。
+  * 后台身份映射仅供授权安全调查使用。
+  * 高风险内容进入专门处理队列，不公开扩散。
+
+
+
+状态机：
+```
+ 
+    待机器审核 → 已发布 → 被举报/限制展示 → 人工复核
+                      ↓                    ↓
+                    正常保留          删除/恢复/封禁/申诉
+    
+
+```
+
+### 5.5 我的
+
+  * 微信登录、手机号绑定、学号验证、学生身份和个人画像。
+  * 成长档案：用户主动确认的竞赛、科研、志愿和互助经历。
+  * 材料保险箱：文件、版本、有效期、标签和使用记录。
+  * 收藏、待办、提醒、浏览历史。
+  * 我的发布、组队、预约、工单、评价和信用记录。
+  * 授权记录、隐私设置、个人数据导出、注销和删除申请。
+
+
+
+匿名社区内容不得进入成长档案。信用只能记录可解释的业务事件，禁止由 AI 给用户生成笼统的人格分。
+
+## 6\. 总体技术架构
+
+### 6.1 技术选型
+
+层次 | 技术  
+---|---  
+微信端 | 微信原生小程序 + TypeScript  
+管理端 | Vue 3 + TypeScript + Vite + Element Plus  
+服务端 | Java 21 LTS + Spring Boot 4.1.x + Spring MVC  
+安全 | Spring Security + 服务端不透明会话令牌  
+数据访问 | Spring Data JPA，复杂报表按需使用 JDBC  
+数据迁移 | Flyway  
+主数据库 | MySQL  
+缓存与锁 | Redis  
+文件 | MinIO 或兼容 S3 的对象存储  
+反向代理 | Nginx  
+构建部署 | Maven + Docker Compose  
+API 文档 | OpenAPI 3  
+  
+当前规划基于 Spring Boot 4.1.x；实施时固定到该版本线最新安全补丁，升级必须经过回归测试。Spring Boot 官方当前稳定版本线和 Java 要求见[官方系统要求](https://docs.spring.io/spring-boot/system-requirements.html)。
+
+### 6.2 部署结构
+```
+ 
+    微信小程序             Vue管理后台
+         \                  /
+              HTTPS / Nginx
+                     ↓
+           Spring Boot 实例 × 2
+              ↓       ↓       ↓
+           MySQL    Redis    MinIO
+                     ↓
+          AI模型 / 微信 / 学校接口
+    
+
+```
+
+开发环境可以使用本地 Spring Boot 连接另一台电脑上的 MySQL，但 MySQL 必须限制来源 IP。生产环境需要公网 HTTPS 域名；小程序不能直接访问数据库。
+
+### 6.3 后端业务模块
+
+  1. `identity`：微信身份、手机号、学生认证、画像与授权。
+  2. `campus`：校园租户、区域、组织和配置。
+  3. `opportunity`：通知、机会、资格规则、收藏与提醒。
+  4. `material`：文件版本、清单、预检与使用记录。
+  5. `team`：竞赛和普通组队、角色与申请。
+  6. `workorder`：报修、问题地图、状态流转与评价。
+  7. `resource`：教室、座位、时段、占用、预约与签到。
+  8. `mutualaid`：失物、二手、教材、技能和借用。
+  9. `community`：匿名帖子、评论、举报、复核与申诉。
+  10. `messaging`：站内消息、订阅提醒和通知偏好。
+  11. `credit`：可解释的信用事件和纠错。
+  12. `moderation`：规则、机器审核、人工队列和处罚。
+  13. `ai`：模型适配、提示模板、解析任务和评测。
+  14. `integration`：微信与学校系统适配器。
+  15. `admin`：管理后台 API、统计和安全审计。
+
+
+
+各模块通过明确的应用服务接口交互，禁止跨模块直接修改数据表。首版为模块化单体，只有出现独立扩容、独立团队或明确隔离需求时才拆分服务。
+
+## 7\. 数据设计
+
+### 7.1 通用字段
+
+核心业务表统一包含：
+
+  * `id`：全局唯一标识；
+  * `campus_id`：校园隔离键；
+  * `status`：业务状态；
+  * `version`：乐观锁版本；
+  * `created_by`、`updated_by`；
+  * `created_at`、`updated_at`；
+  * `deleted_at`：需要软删除的业务数据；
+  * `source_type`：演示、人工或官方数据来源。
+
+
+
+### 7.2 主要表组
+
+领域 | 主要数据  
+---|---  
+身份 | 用户、微信身份、手机号密文、学生认证、画像、角色、授权  
+机会 | 通知原文、AI解析、机会、资格规则、收藏、提醒  
+材料 | 文件元数据、版本、清单、预检任务、预检结果  
+服务 | 工单、公开问题、地图位置、状态记录、评价  
+预约 | 资源、时段、占用日历、预约、签到、违约  
+互助 | 发布、失物匹配、借用、组队、申请、评价  
+社区 | 匿名帖子、评论、举报、处罚、申诉、身份映射  
+消息 | 会话、消息、站内通知、订阅授权、发送记录  
+治理 | 审核任务、信用事件、管理员操作和安全审计  
+集成 | 外部系统、外部编号、同步游标、原始摘要和同步错误  
+  
+文件本体不写入 MySQL，只保存对象键、散列值、大小、类型、所有者、加密状态和扫描结果。
+
+## 8\. API 设计与调用流程
+
+### 8.1 接口约定
+
+  * API 前缀统一为 `/api/v1`。
+  * JSON 字段采用统一命名规则。
+  * 列表使用游标分页，不依赖数据量增大后性能不稳定的深分页。
+  * 写接口携带 `Idempotency-Key`，避免重复点击产生重复数据。
+  * 并发修改携带版本号，冲突返回 HTTP 409。
+  * 响应包含 `requestId`，错误包含稳定错误码和用户可读提示。
+  * 文件上传与普通 JSON 接口分离。
+
+
+
+示例响应：
+```
+ 
+    {
+      "success": true,
+      "data": {},
+      "requestId": "01J...",
+      "timestamp": "2026-10-13T10:00:00+08:00"
+    }
+
+```
+
+### 8.2 登录与手机号绑定
+
+  1. 小程序调用 `wx.login` 获得一次性 `code`。
+  2. 小程序调用 `POST /api/v1/auth/wechat/login`。
+  3. 后端与微信服务交换身份，不向前端暴露 AppSecret。
+  4. 后端签发短期访问令牌和可撤销刷新令牌。
+  5. 用户主动点击手机号授权后，将一次性凭证发送到 `POST /api/v1/auth/phone/bind`。
+  6. 后端向微信换取手机号并加密保存。
+
+
+
+### 8.3 主要接口组
+```
+ 
+    POST /api/v1/auth/wechat/login
+    POST /api/v1/auth/token/refresh
+    POST /api/v1/auth/phone/bind
+    POST /api/v1/student-verifications
+    
+    GET  /api/v1/home/overview
+    POST /api/v1/ai/assistant/messages
+    
+    GET  /api/v1/opportunities
+    GET  /api/v1/opportunities/{id}
+    POST /api/v1/opportunities/{id}/eligibility-checks
+    POST /api/v1/materials/upload-intents
+    POST /api/v1/materials/{id}/prechecks
+    
+    POST /api/v1/work-orders
+    GET  /api/v1/work-orders/{id}
+    GET  /api/v1/campus-issues/map
+    POST /api/v1/campus-issues/{id}/follows
+    
+    GET  /api/v1/resources/{id}/availability
+    POST /api/v1/reservations
+    POST /api/v1/reservations/{id}/cancel
+    POST /api/v1/reservations/{id}/check-in
+    
+    GET  /api/v1/mutual-aid/posts
+    POST /api/v1/mutual-aid/posts
+    POST /api/v1/team-applications
+    GET  /api/v1/conversations
+    
+    GET  /api/v1/community/posts
+    POST /api/v1/community/posts
+    POST /api/v1/reports
+    POST /api/v1/appeals
+    
+    GET  /api/v1/me/dashboard
+    GET  /api/v1/me/authorizations
+    POST /api/v1/me/data-exports
+    POST /api/v1/me/account-deletion
+    
+
+```
+
+### 8.4 实时与提醒
+
+  * 站内消息优先使用 WebSocket，连接不可用时回退到增量轮询。
+  * 截止、工单、预约和借用提醒写入统一消息中心。
+  * 微信订阅消息只能在用户主动授权后发送，并记录模板、授权场景和发送结果。
+  * 消息发送失败不回滚业务事务，由可靠任务重试并设置最大次数。
+
+
+
+## 9\. 学校接口与模拟数据适配
+
+### 9.1 标准提供器
+```
+ 
+    NoticeProvider       通知来源
+    LibraryProvider      图书馆资源与预约
+    ClassroomProvider    教室占用与预约
+    RepairProvider       报修工单
+    CrowdProvider        食堂和快递点拥堵
+    
+
+```
+
+每类提供器有三种实现：
+
+  * `DemoProvider`：比赛演示，数据由后台维护；
+  * `ManualProvider`：运营人员维护的真实平台数据；
+  * `OfficialProvider`：学校 API、统一身份认证或数据中台。
+
+
+
+每所学校独立配置提供器。业务层只接收统一领域对象，不读取外部接口的原始字段。
+
+### 9.2 数据来源字段
+
+所有外部数据返回：
+
+  * `sourceType`；
+  * `sourceName`；
+  * `updatedAt`；
+  * `isStale`；
+  * `officialReference`；
+  * `externalId`。
+
+
+
+官方接口失败时，系统显示不可用或过期状态，禁止静默切换为模拟数据。
+
+### 9.3 同步策略
+
+  * 保存外部编号和最后同步时间，支持增量拉取。
+  * 对外部原始数据计算摘要，用于发现内容变化和避免重复导入。
+  * 同步任务可重试，但同一外部编号必须保持幂等。
+  * 外部字段映射错误进入人工处理队列。
+  * 对外部接口设置超时、熔断和并发限制，避免拖垮主业务。
+
+
+
+## 10\. AI 方案
+
+### 10.1 通知解析
+```
+ 
+    上传文件/录入来源
+    → 文件扫描和文字提取
+    → 按固定Schema调用模型
+    → JSON结构校验
+    → 规则校验和置信度计算
+    → 管理员逐字段复核
+    → 发布机会和材料清单
+    
+
+```
+
+抽取字段包括名称、主办方、适用对象、条件、时间节点、奖项、材料、联系方式和原文依据。每个字段必须保存原文定位与置信度，不能只保存模型结论。
+
+### 10.2 资格匹配
+
+  * “符合”：已知条件全部满足；
+  * “可能符合”：个人资料不足或规则存在歧义；
+  * “不符合”：展示具体冲突条件。
+
+
+
+匹配结果是准备建议，不替代主办方或学校审核。页面始终显示“以官方通知和最终审核为准”。
+
+### 10.3 材料预检
+
+检查必交材料、格式、大小、页数、命名、日期、签章、版本有效期和跨材料信息冲突。结果分为“通过基础检查、需要确认、存在缺项”。字段错误在填写或上传后尽早提示，不能拖到最后一步一次性告知。
+
+### 10.4 AI 校园助手
+
+  * 优先从已审核通知、平台帮助和学校公开资料中检索答案。
+  * 回答展示来源、更新时间和 AI 标识。
+  * 无可靠来源时明确表示不知道，不编造校园政策。
+  * AI 不具备发布、封禁、审批、预约确认和修改用户资料的权限。
+
+
+
+### 10.5 AI 安全
+
+  * 外部网页和文件内容只作为数据，不能覆盖系统指令。
+  * URL 导入限制协议和目标地址，防止 SSRF 访问内网。
+  * 向模型发送数据前移除非必要手机号、学号和身份信息。
+  * 保存模型、提示模板、输入摘要、输出、耗时和人工修改记录。
+  * 生产环境优先调用依法提供服务的国内模型，并完成相应备案评估。
+
+
+
+## 11\. 安全、隐私与内容治理
+
+### 11.1 应用安全
+
+  * AppSecret、AI 密钥、数据库密码通过服务端密钥配置管理，不进入源码。
+  * 所有外部输入执行长度、类型、范围和业务状态校验。
+  * 数据访问使用参数化查询，管理后台进行输出编码和 CSRF 防护。
+  * 登录、发帖、评论、预约、上传和 AI 调用分别限流。
+  * 高风险操作要求重新认证或二次确认。
+  * 依赖持续进行漏洞扫描，严重漏洞修复后才能发布。
+
+
+
+### 11.2 文件安全
+
+  * 校验文件扩展名、MIME 类型和文件头，限制大小与页数。
+  * 文件先进入隔离区，完成病毒扫描后才可供业务访问。
+  * 图片移除非必要 EXIF 信息。
+  * 下载使用短期签名地址，禁止永久公开链接。
+  * 文件删除使用可重试队列，数据库记录与对象存储最终一致。
+
+
+
+### 11.3 个人信息保护
+
+  * 手机号、学号、材料地址和匿名身份映射加密保存。
+  * 日志、告警和统计中使用脱敏标识。
+  * 定位只在附近功能被主动使用时申请，拒绝后支持手动选择区域。
+  * 材料交给 AI 前单独说明目的、服务商和保存规则。
+  * 用户可查阅、更正、导出和删除个人数据。
+  * 默认运行日志保留 180 天、安全审计保留 1 年、备份滚动保留 90 天；法律义务要求更长保留时，停止其他处理并向用户说明。
+  * 注销申请设置安全冷静期，期满后删除或匿名化非必要数据。
+
+
+
+个人信息处理遵循目的明确和最小必要原则。参考[常见类型移动互联网应用程序必要个人信息范围规定](https://www.miit.gov.cn/xwdt/gxdt/sjdt/art/2021/art_8f40f74c048b4e1faa6256dd8b1c1ba7.html)与[个人信息保护法](https://www.miit.gov.cn/jgsj/zfs/fl/art/2022/art_515a4b20c12f430eab54bb4f56d89f56.html)。
+
+### 11.4 内容治理
+
+  * 发布内容经过规则过滤、机器审核和必要的人工复核。
+  * 支持举报、处理反馈、处罚、申诉和恢复。
+  * 处罚分为提醒、限流、下架、禁言和封禁。
+  * 严重举报的身份追溯由安全调查员发起，并留下不可删除的审计记录。
+  * 自伤、暴力威胁和人身安全风险内容不公开扩散，展示安全提示和适当求助入口。
+
+
+
+### 11.5 AI 与备案合规
+
+AI 输出显著标识“AI 生成”或“AI 辅助”，并提供反馈入口。面向公众的 AI 功能上线前评估算法备案、安全评估和生成合成内容标识义务。参考：[生成式人工智能服务管理暂行办法](https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm)、[人工智能生成合成内容标识办法](https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm)。
+
+### 11.6 产品命名与上线手续
+
+  * 准备合法运营主体、域名、HTTPS、ICP备案和小程序备案。
+  * 配置用户协议、隐私政策、第三方 SDK 清单、权限用途、举报和注销入口。
+  * 根据功能选择微信小程序服务类目并提交相应资质。
+  * 若运营主体为自然人，服务名称避免出现“投诉”“维权”等受限制词语；产品入口使用“校园问题反馈”或“问题广场”，明确不是学校官方投诉渠道。参考[工信部门备案指南](https://hunca.miit.gov.cn/bsfw/bszn/art/2024/art_7ef0d8bd3b0d433ba4b9b277f883f74d.html)。
+  * 工信部 APP 备案范围包含小程序，正式提供服务前完成备案。参考[APP 备案解读](https://www.miit.gov.cn/jgsj/xgj/hlwgl/art/2023/art_564bf0759d7e41d5b4aa8ce4996b9e84.html)。
+
+
+
+## 12\. 异常处理与可靠性
+
+场景 | 系统行为  
+---|---  
+网络中断 | 保存草稿，恢复后继续；幂等键防止重复提交  
+数据已变化 | 返回冲突和最新版本，不覆盖他人修改  
+预约冲突 | 返回冲突时段和可选时间，不创建重复预约  
+AI 解析失败 | 保留原文件，转人工录入，不发布半成品  
+文件上传失败 | 标记具体失败文件，允许单文件重试  
+内容待审核 | 明确显示审核中，不伪装为发布成功  
+数据源异常 | 显示最近更新时间和不可用状态，不生成虚假实时数据  
+权限不足 | 区分未登录、未认证、无权限和账号受限  
+服务端异常 | 返回 `requestId`，不向用户暴露堆栈和数据库信息  
+  
+预约使用事务、唯一约束和 Redis 短锁共同防止重复占用；数据库唯一约束是最终保护，不以 Redis 作为唯一正确性来源。
+
+## 13\. 性能、监控与容灾
+
+### 13.1 容量目标
+
+  * 3 万注册用户、3000 日活、300 并发用户；
+  * 普通查询接口 P95 不超过 500 毫秒；
+  * 普通写入接口 P95 不超过 800 毫秒；
+  * AI 任务提交 3 秒内返回任务编号，实际处理异步完成；
+  * 300 人同时预约同一资源时不得产生重复成功记录；
+  * 月度可用性目标 99.9%；
+  * 恢复点目标 RPO 不超过 1 小时，恢复时间目标 RTO 不超过 4 小时。
+
+
+
+### 13.2 监控
+
+监控接口耗时、错误率、登录失败、数据库连接池、Redis、磁盘、对象存储、AI耗时、任务积压、审核队列和消息发送。备份失败、服务不可用、错误率激增、预约异常和审核积压必须触发管理员告警。
+
+### 13.3 备份与发布
+
+  * 数据库每小时增量备份、每日完整备份；对象存储启用版本或同步备份。
+  * 定期从备份恢复到隔离环境，验证数据库与文件一致性。
+  * 发布前备份并运行 Flyway 迁移。
+  * 两个后端实例滚动升级，通过健康检查后再切换流量。
+  * 破坏性表结构变化分两次版本完成，确保应用可回滚。
+
+
+
+## 14\. 测试与验收
+
+### 14.1 测试层次
+
+  * 单元测试：资格规则、信用规则、状态机、脱敏和权限判断。
+  * 集成测试：MySQL、Redis、文件、事务、登录与审核。
+  * API 契约测试：小程序、管理端和学校适配器字段一致性。
+  * 端到端测试：注册、发布、审核、预约、报修、组队、举报和注销。
+  * AI 黄金测试集：不同通知格式、歧义条件、扫描件和错误文件。
+  * 安全测试：越权、伪造身份、恶意文件、注入、刷接口、SSRF 和匿名身份泄露。
+  * 压力测试：首页、机会检索、地图和预约冲突。
+  * 恢复测试：从备份恢复完整业务并核对附件。
+
+
+
+### 14.2 上线门槛
+
+以下条件必须全部通过：
+
+  1. 五个一级入口和承诺功能均可完整走通。
+  2. 微信登录、手机号绑定、学生认证和权限隔离可用。
+  3. 模拟预约完整稳定并在全流程显示演示标记。
+  4. 内容审核、举报、处罚、申诉和审计形成闭环。
+  5. 不存在已知高危越权、敏感信息泄露或可利用上传漏洞。
+  6. 核心接口达到性能目标，预约并发测试不超卖。
+  7. 隐私、协议、备案、注销和数据删除入口齐全。
+  8. 数据库和文件备份能够实际恢复。
+  9. AI 错误不能直接发布、审批、封禁或修改关键数据。
+  10. 小程序、管理后台、部署说明、管理员手册和演示手册全部交付。
+
+
+
+任何核心项失败，版本只能标记为内部演示版，不得标记为正式上线版。
+
+## 15\. 开发阶段与里程碑
+
+最终一次性公开上线，但内部按以下阶段验收：
+
+### 阶段 0：产品与工程基线
+
+  * 固化原型、设计系统、数据字典、API 规范和权限矩阵。
+  * 建立小程序、Spring Boot、管理后台、数据库迁移和测试骨架。
+
+
+
+### 阶段 1：平台基础
+
+  * 微信登录、手机号绑定、学生认证和校园隔离。
+  * 文件、消息、审核、审计、权限和运营配置。
+
+
+
+### 阶段 2：机会与材料
+
+  * 通知、AI 解析、资格匹配、材料保险箱、预检、提醒和竞赛组队。
+  * 完成项目最核心的创新闭环。
+
+
+
+### 阶段 3：服务与预约
+
+  * 报修、问题广场、地图、拥堵和评价。
+  * 图书馆、教室、占用日历、模拟预约、签到和信用事件。
+
+
+
+### 阶段 4：互助与社区
+
+  * 失物、二手、教材、技能、借用、组队和站内消息。
+  * 匿名关系社区、举报、复核、处罚和申诉。
+
+
+
+### 阶段 5：首页与个人中心整合
+
+  * AI 校园助手、推荐、今日截止、热点和附近信息。
+  * 成长档案、待办、历史、信用、隐私和数据权利。
+
+
+
+### 阶段 6：质量加固与上线
+
+  * 全链路、安全、压力和恢复测试。
+  * 备案材料、协议、演示数据、答辩脚本和部署手册。
+  * 全部验收通过后生成正式发布版本。
+
+
+
+一名开发者主导时预计 6～9 个月；3～5 人稳定团队预计 4～6 个月。实际排期需在实施计划中根据人员投入拆成周级任务。
+
+## 16\. 交付物
+
+  * 微信原生小程序完整源码；
+  * Spring Boot 后端完整源码；
+  * Vue 管理后台完整源码；
+  * MySQL 建库和 Flyway 迁移脚本；
+  * OpenAPI 文档与错误码文档；
+  * 模拟数据生成与后台管理功能；
+  * Docker Compose 部署配置；
+  * Windows 一键启动脚本和 Linux 部署脚本；
+  * 测试用例、测试报告、压力报告与安全检查报告；
+  * 数据备份和恢复手册；
+  * 用户、管理员和比赛演示手册；
+  * 用户协议、隐私政策、举报与注销规则草案；
+  * 架构图、数据库设计、答辩说明和演示数据。
+
+
+
+## 17\. 主要风险与应对
+
+风险 | 影响 | 应对  
+---|---|---  
+无学校官方接口 | 无法完成真实资源锁定和官方工单流转 | 明确演示标识，使用适配层，获得授权后切换提供器  
+功能范围过大 | 周期失控、模块质量不均 | 按阶段内部验收，统一上线不等于并行乱做  
+匿名社区治理压力 | 违法内容、欺凌、隐私泄露 | 发布审核、举报申诉、限流、可追溯身份和专职复核  
+AI 解析错误 | 错误资格判断、材料遗漏 | 原文证据、置信度、固定 Schema、人工发布门禁  
+远程 MySQL 暴露 | 数据泄露和入侵 | 内网/VPN、IP 白名单、最小权限、加密连接和备份  
+比赛数据被误认为真实 | 信任与合规风险 | 页面持续标注演示数据，环境隔离，禁止生产静默回退  
+单人维护压力 | 故障恢复和内容运营困难 | 自动化测试、监控、手册、可恢复备份和模块化边界  
+  
+## 18\. 已确认的产品决策
+
+  1. 五个一级入口固定为首页、机会、服务、互助、我的。
+  2. 单校首发，底层保留多校数据隔离。
+  3. 微信登录、手机号绑定、学号名单匹配和人工复核结合。
+  4. 校园二手与借用不接支付，只做信息撮合和线下交接。
+  5. 关系与情感功能采用匿名社区，前台匿名、后台可追溯。
+  6. 校园问题采用公开问题广场，敏感内容强制转人工处理。
+  7. 模拟数据由管理后台维护，前端始终调用正式 API。
+  8. 所有承诺功能完成并通过验收后统一上线。
+  9. 图书馆和教室首版保留完整模拟预约，并明确标注。
+  10. 后端采用 Java Spring Boot，不采用 Node.js 正式后端。
+  11. 当前不开发 Android 或 iOS 原生 App。
+
+
+
+## 19\. 下一步
+
+本设计通过评审后，下一份文档应是按阶段、模块、依赖和测试拆解的实施计划。实施计划先完成工程基线与身份权限，再按“机会材料 → 服务预约 → 互助社区 → 首页整合 → 上线加固”的顺序执行，避免多个高风险模块同时开工。
+
+## Footer
+
+[ ](https://github.com) (C) 2026 GitHub, Inc. 
+
+### Footer navigation
+
+  * [Terms](https://docs.github.com/site-policy/github-terms/github-terms-of-service)
+  * [Privacy](https://docs.github.com/site-policy/privacy-policies/github-privacy-statement)
+  * [Security](https://github.com/security)
+  * [Status](https://www.githubstatus.com/)
+  * [Community](https://github.community/)
+  * [Docs](https://docs.github.com/)
+  * [Contact](https://support.github.com?tags=dotcom-footer)
+  * Manage cookies 
+  * Do not share my personal information 
+
+
+
+You can’t perform that action at this time.

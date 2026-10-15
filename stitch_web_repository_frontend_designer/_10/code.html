@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base {html, body {width: 100vw; margin: 0; padding: 0; min-height: 100vh;} body {overscroll-behavior: none;} .pb-safe {padding-bottom: env(safe-area-inset-bottom, 0px);} .pt-safe {padding-top: env(safe-area-inset-top, 0px);} main > :first-child {margin-top: 0 !important;} main > :last-child {margin-bottom: 0 !important;}} ::-webkit-scrollbar {display: none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { 'colors': { 'on-error-container': '#93000a', 'surface-container': '#e7eeff', 'on-secondary-container': '#237150', 'primary-fixed': '#c9e6ff', 'tertiary': '#5c1600', 'tertiary-container': '#7f2708', 'on-surface': '#121c2c', 'on-secondary-fixed': '#002113', 'inverse-primary': '#a1cced', 'on-primary-fixed-variant': '#1d4b67', 'on-secondary-fixed-variant': '#005235', 'inverse-surface': '#273141', 'on-tertiary-fixed-variant': '#812909', 'secondary-container': '#a5f3c9', 'on-tertiary-container': '#ff9878', 'primary-container': '#1b4965', 'on-primary': '#ffffff', 'on-tertiary-fixed': '#3a0a00', 'on-primary-fixed': '#001e2f', 'error': '#ba1a1a', 'surface-dim': '#d0daf0', 'tertiary-fixed-dim': '#ffb59f', 'surface-container-high': '#dee8ff', 'outline-variant': '#c1c7ce', 'on-background': '#121c2c', 'surface-tint': '#386380', 'tertiary-fixed': '#ffdbd0', 'inverse-on-surface': '#ebf1ff', 'on-surface-variant': '#41474d', 'surface-container-low': '#f0f3ff', 'on-primary-container': '#8eb8d8', 'surface-variant': '#d9e3f9', 'on-secondary': '#ffffff', 'surface-container-highest': '#d9e3f9', 'primary-fixed-dim': '#a1cced', 'secondary-fixed-dim': '#8ad6ae', 'on-error': '#ffffff', 'background': '#f9f9ff', 'outline': '#72787e', 'on-tertiary': '#ffffff', 'error-container': '#ffdad6', 'primary': '#00324b', 'surface-container-lowest': '#ffffff', 'surface': '#f9f9ff', 'surface-bright': '#f9f9ff', 'secondary': '#1a6b4a', 'secondary-fixed': '#a5f3c9' }, 'borderRadius': { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, 'spacing': { 'space-md': '0.75rem', 'space-sm': '0.5rem', 'space-xs': '0.25rem', 'gutter': '0.75rem', 'space-lg': '1rem', 'space-xl': '1.5rem', 'margin': '1rem' }, 'fontFamily': { 'body-sm': ['Plus Jakarta Sans'], 'headline-sm': ['Plus Jakarta Sans'], 'headline-xl': ['Plus Jakarta Sans'], 'caption': ['Plus Jakarta Sans'], 'body-md': ['Plus Jakarta Sans'], 'headline-lg': ['Plus Jakarta Sans'], 'body-lg': ['Plus Jakarta Sans'], 'label-md': ['Plus Jakarta Sans'], 'label-sm': ['Plus Jakarta Sans'] }, 'fontSize': { 'body-sm': ['12px', { 'lineHeight': '16px', 'fontWeight': '400' }], 'headline-sm': ['17px', { 'lineHeight': '24px', 'fontWeight': '600' }], 'headline-xl': ['24px', { 'lineHeight': '32px', 'letterSpacing': '-0.01em', 'fontWeight': '700' }], 'caption': ['10px', { 'lineHeight': '12px', 'fontWeight': '500' }], 'body-md': ['14px', { 'lineHeight': '20px', 'fontWeight': '400' }], 'headline-lg': ['20px', { 'lineHeight': '28px', 'fontWeight': '600' }], 'body-lg': ['15px', { 'lineHeight': '22px', 'fontWeight': '400' }], 'label-md': ['13px', { 'lineHeight': '18px', 'fontWeight': '600' }], 'label-sm': ['11px', { 'lineHeight': '14px', 'fontWeight': '500' }] } } } };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin flex items-center justify-between relative"><div class="flex items-center gap-space-xs z-10"><button aria-label="返回" class="w-11 h-11 -ml-space-xs flex items-center justify-center text-on-surface hover:text-primary transition-colors" onclick="history.back()"><span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span></button><button aria-label="关闭" class="w-11 h-11 -ml-space-sm flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[22px]">close</span></button></div><div class="absolute inset-0 flex items-center justify-center pointer-events-none px-24"><h1 class="font-headline-sm text-headline-sm text-on-surface truncate text-center">Reservation Confirm</h1></div><div class="flex items-center gap-space-sm z-10"><div class="h-8 px-space-sm rounded-full bg-surface-container-high/70 flex items-center gap-space-xs shadow-inner"><button aria-label="更多选项" class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button><div class="w-px h-3.5 bg-outline-variant/60"></div><button aria-label="小程序胶囊" class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary"><span class="material-symbols-outlined text-[16px]">adjust</span></button></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex flex-col relative w-full pt-14 pb-safe bg-surface min-h-screen"><div class="flex flex-col w-full pb-24">
+<!-- Top Progress Step Indicator (Step 3/4) -->
+<div class="px-margin pt-space-md pb-space-sm flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary-container text-on-primary font-caption text-caption">3</span>
+<span class="font-label-md text-label-md text-primary">步骤 3/4 · 确认与契约签署</span>
+</div>
+<span class="font-caption text-caption px-space-xs py-0.5 rounded-full bg-surface-container text-on-surface-variant">演示沙盒 Sandbox</span>
+</div>
+<!-- 1. Sandbox Legal Disclaimer Banner -->
+<section class="px-margin mb-space-md">
+<div class="rounded-xl p-space-md bg-tertiary-fixed text-on-tertiary-fixed shadow-sm relative overflow-hidden">
+<div class="flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-[20px] text-tertiary mt-0.5 flex-shrink-0" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-space-xs mb-1">
+<h2 class="font-label-md text-label-md font-semibold text-tertiary tracking-tight">模拟预约演练声明</h2>
+<span class="font-caption text-caption px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary font-medium">Demo Provider</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-tertiary-fixed-variant leading-relaxed">
+            本项目为校园平台演示沙盒模拟，预约记录由本地模拟池管理，不占用学校官方真实门禁闸机配额。生成的动态核销码仅供全流程研习体验。
+          </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Visual Anchor Banner: Study Environment -->
+<section class="px-margin mb-space-md">
+<div class="relative w-full h-28 rounded-xl overflow-hidden shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A modern, serene university library reading space bathed in warm natural light, wooden private study desks beside wide clear windows overlooking campus greenery, architectural blueprint lines subtly superimposed, clean institutional aesthetic, deep blue and soft cool tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVNKy9iqA8KQH9mB6ifHIPswRf3EWO6MkdmST9tww2Is0gi6E2R7NynQrqa8IigB14Yeq3L19XpWXbReNf3LQGh4v7I6cYN7Roj16yDJ2QP-UyIuyqTNCgIvbXFMZXabWuAMP3iEdvHmk29YOMvJYN75XzgVxiZAlakXKd12eXdybdieBEvwhgBNUi8fCACJXCI-zocUq-b7RWRvTFUUTBP1yHlsYvmRy35zXRxi510isA2_xG6Aji">
+<div class="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/40 to-transparent flex flex-col justify-end p-space-md">
+<span class="font-caption text-caption text-on-primary-container tracking-wider uppercase">Institutional Venue Space</span>
+<h3 class="font-headline-sm text-headline-sm text-on-primary font-semibold">逸夫图书馆 · 三楼南区自修室</h3>
+</div>
+</div>
+</section>
+<!-- 2. Reservation Summary Card -->
+<section class="px-margin mb-space-md">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<!-- Header row with live qualification chip -->
+<div class="flex items-center justify-between pb-space-sm bg-surface-container-low -mx-space-lg -mt-space-lg px-space-lg pt-space-md rounded-t-xl">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-primary">event_seat</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold">已选席位与配额核定</span>
+</div>
+<span class="font-caption text-caption px-space-sm py-0.5 rounded-full bg-secondary-container text-on-secondary-container flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-[12px]">verified</span>资格有效
+        </span>
+</div>
+<!-- Key Value Grid -->
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col">
+<span class="font-caption text-caption text-on-surface-variant mb-0.5">席位编号</span>
+<span class="font-headline-sm text-headline-sm text-primary font-bold">3F-A08</span>
+<div class="flex flex-wrap gap-1 mt-1">
+<span class="font-caption text-[10px] px-1.5 py-0.2 rounded bg-surface-container text-on-surface-variant">靠窗独享</span>
+<span class="font-caption text-[10px] px-1.5 py-0.2 rounded bg-surface-container text-on-surface-variant">独立电源</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div>
+<span class="font-caption text-caption text-on-surface-variant mb-0.5">预约时长</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-sm text-headline-sm text-secondary font-bold">4.0</span>
+<span class="font-caption text-caption text-on-surface-variant">小时 (免消耗)</span>
+</div>
+</div>
+<span class="font-caption text-caption text-on-surface-variant truncate">2026-10-15 周三</span>
+</div>
+</div>
+<!-- Specific Time Schedule Row -->
+<div class="flex items-center justify-between py-space-xs px-space-sm rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+<span class="font-body-sm text-body-sm text-on-surface font-medium">14:00 - 18:00</span>
+</div>
+<span class="font-caption text-caption px-2 py-0.5 rounded-full bg-surface text-on-surface-variant">入馆缓冲 ±20分钟</span>
+</div>
+<!-- Applicant Identity & Credit Profile -->
+<div class="rounded-lg p-space-sm bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-md font-bold flex-shrink-0 shadow-sm">
+            林
+          </div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md font-semibold text-on-surface truncate">林学长</span>
+<span class="font-caption text-[10px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant flex-shrink-0">已认证</span>
+</div>
+<span class="font-caption text-caption text-on-surface-variant truncate">材料科学与工程学院 · 2024****08</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0 pl-2">
+<span class="font-caption text-caption text-on-surface-variant">守信积分</span>
+<div class="flex items-center gap-1">
+<span class="font-label-md text-label-md text-secondary font-bold">100</span>
+<span class="font-caption text-caption text-on-surface-variant">/100</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 3. Campus Resource Compliance Covenant -->
+<section class="px-margin mb-space-md">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex items-center gap-space-xs mb-space-md">
+<span class="material-symbols-outlined text-[20px] text-primary">gavel</span>
+<h3 class="font-label-md text-label-md font-semibold text-on-surface">校园公共资源履约契约须知</h3>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant ml-auto">§9.2 准则</span>
+</div>
+<!-- Contract Clauses List -->
+<div class="space-y-space-sm">
+<!-- Clause 1 -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center font-caption text-caption flex-shrink-0 mt-0.5">1</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-label-sm text-label-sm text-on-surface font-semibold">时限到达与蓝牙核销</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              须在开场前后 20分钟内 (<span class="font-medium text-primary">13:40 - 14:20</span>) 到达南区指定座席完成低功耗蓝牙 (BLE) 扫码签到。
+            </p>
+</div>
+</div>
+<!-- Clause 2 -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center font-caption text-caption flex-shrink-0 mt-0.5">2</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-label-sm text-label-sm text-on-surface font-semibold">无损提前释放</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              若行程发生变更，须在 <span class="font-medium text-primary">13:30 前</span> 在小程序主动点击 [释放座位]，配额全额无损返还公共池。
+            </p>
+</div>
+</div>
+<!-- Clause 3 -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-tertiary-fixed text-on-tertiary-fixed">
+<div class="w-5 h-5 rounded-full bg-error text-on-error flex items-center justify-center font-caption text-caption flex-shrink-0 mt-0.5">!</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-label-sm text-label-sm text-on-tertiary-fixed font-semibold">违约与信用惩戒机制</h4>
+<p class="font-body-sm text-body-sm text-on-tertiary-fixed-variant mt-0.5">
+              逾期未签到且未提前释放将判定为爽约。系统自动扣除信用分 <span class="font-bold text-error">5分</span>，30日内累计爽约3次将暂停预约权限14天。
+            </p>
+</div>
+</div>
+<!-- Clause 4 -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container-low">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center font-caption text-caption flex-shrink-0 mt-0.5">3</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-label-sm text-label-sm text-on-surface font-semibold">自习中途离座保留</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              午餐或如厕可激活“暂离保留 30分钟”，倒计时结束前未返回重新扫码，席位将自动流转至待释放队列。
+            </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Interactive Subscription & Agreement Checkbox -->
+<section class="px-margin mb-space-lg flex flex-col gap-space-sm">
+<!-- WeChat Service Template Notification Switch Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">notifications_active</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">接收服务号即时通知</span>
+<span class="font-caption text-caption text-on-surface-variant">入馆前15分钟提醒、超时自动释放预警</span>
+</div>
+</div>
+<!-- Toggle Component -->
+<button aria-checked="true" class="w-11 h-6 bg-secondary rounded-full relative p-0.5 transition-colors duration-200 ease-in-out focus:outline-none" id="notifyToggle" role="switch">
+<div class="w-5 h-5 bg-on-secondary rounded-full transform translate-x-5 transition-transform duration-200 ease-in-out shadow-sm" id="notifyThumb"></div>
+</button>
+</div>
+<!-- Mandatory Agreement Check -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-start gap-space-sm">
+<button aria-checked="true" class="w-5 h-5 mt-0.5 rounded bg-primary text-on-primary flex items-center justify-center flex-shrink-0 shadow-sm transition-colors" id="agreeCheckbox" role="checkbox">
+<span class="material-symbols-outlined text-[16px] font-bold" id="agreeIcon">check</span>
+</button>
+<div class="text-body-sm font-body-sm text-on-surface leading-snug">
+        我已充分阅读并承诺恪守
+        <span class="text-primary font-medium underline underline-offset-2">《校园公共资源文明预约与守约管理规范》</span>
+        及相关退改条款。
+      </div>
+</div>
+</section>
+<!-- Visual Delight Micro-Card: Academic Atmosphere Badge -->
+<section class="px-margin mb-space-md">
+<div class="p-space-sm rounded-lg bg-surface-container-high/60 flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+<span class="font-caption text-caption">后端接口接入契约：v1.1 §9.2 POST /reservations</span>
+</div>
+<span class="font-caption text-caption text-primary font-semibold">TLS 1.3 链路保护</span>
+</div>
+</section>
+<!-- 5. Fixed Bottom Primary Action Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md px-margin py-space-sm shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-safe">
+<div class="flex items-center justify-between gap-space-md max-w-md mx-auto w-full">
+<div class="flex flex-col">
+<span class="font-caption text-caption text-on-surface-variant">当前应缴履约配额</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-sm text-headline-sm font-bold text-secondary">0</span>
+<span class="font-caption text-caption text-secondary font-medium">元 (公益资源)</span>
+</div>
+</div>
+<button class="flex-1 h-11 px-space-md rounded-lg bg-primary hover:bg-primary-container active:scale-[0.99] text-on-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-space-xs shadow-md transition-all" id="submitBtn" style="background-color: rgb(58, 114, 148);">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>立即提交模拟预约</span>
+</button>
+</div>
+</div>
+<!-- Toast Notification Modal for Micro-delight Feedback (Hidden by default) -->
+<div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transform -translate-y-2 transition-all duration-300" id="feedbackToast">
+<div class="bg-primary text-on-primary px-space-md py-space-sm rounded-full shadow-xl flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-secondary-container">task_alt</span>
+<span class="font-label-sm text-label-sm font-medium" id="toastMsg">模拟凭证已生成，前往下一步</span>
+</div>
+</div>
+</div>
+<script>
+  (function initReservationConfirmation() {
+    const notifyToggle = document.getElementById('notifyToggle');
+    const notifyThumb = document.getElementById('notifyThumb');
+    const agreeCheckbox = document.getElementById('agreeCheckbox');
+    const agreeIcon = document.getElementById('agreeIcon');
+    const submitBtn = document.getElementById('submitBtn');
+    const feedbackToast = document.getElementById('feedbackToast');
+    const toastMsg = document.getElementById('toastMsg');
+
+    let isNotified = true;
+    let isAgreed = true;
+
+    // Toggle service notification
+    notifyToggle.addEventListener('click', () => {
+      isNotified = !isNotified;
+      notifyToggle.setAttribute('aria-checked', isNotified.toString());
+      if (isNotified) {
+        notifyToggle.classList.remove('bg-outline-variant');
+        notifyToggle.classList.add('bg-secondary');
+        notifyThumb.classList.remove('translate-x-0.5');
+        notifyThumb.classList.add('translate-x-5');
+      } else {
+        notifyToggle.classList.remove('bg-secondary');
+        notifyToggle.classList.add('bg-outline-variant');
+        notifyThumb.classList.remove('translate-x-5');
+        notifyThumb.classList.add('translate-x-0.5');
+      }
+    });
+
+    // Checkbox agreement toggle
+    agreeCheckbox.addEventListener('click', () => {
+      isAgreed = !isAgreed;
+      agreeCheckbox.setAttribute('aria-checked', isAgreed.toString());
+      if (isAgreed) {
+        agreeCheckbox.classList.remove('bg-surface-container', 'text-transparent');
+        agreeCheckbox.classList.add('bg-primary', 'text-on-primary');
+        agreeIcon.classList.remove('opacity-0');
+        submitBtn.removeAttribute('disabled');
+        submitBtn.classList.remove('opacity-50', 'pointer-events-none');
+      } else {
+        agreeCheckbox.classList.remove('bg-primary', 'text-on-primary');
+        agreeCheckbox.classList.add('bg-surface-container', 'text-transparent');
+        agreeIcon.classList.add('opacity-0');
+        submitBtn.setAttribute('disabled', 'true');
+        submitBtn.classList.add('opacity-50', 'pointer-events-none');
+      }
+    });
+
+    // Submit handler simulate POST /reservations
+    submitBtn.addEventListener('click', () => {
+      if (!isAgreed) return;
+
+      submitBtn.classList.add('opacity-75');
+      submitBtn.innerHTML = `
+        <span class="animate-spin inline-block w-4 h-4 rounded-full border-2 border-on-primary border-t-transparent"></span>
+        <span>签署入库中...</span>
+      `;
+
+      setTimeout(() => {
+        submitBtn.innerHTML = `
+          <span class="material-symbols-outlined text-[18px]">done_all</span>
+          <span>模拟凭证已签发</span>
+        `;
+        submitBtn.classList.remove('bg-primary');
+        submitBtn.classList.add('bg-secondary');
+
+        // Show feedback toast
+        toastMsg.textContent = "预约成功！已录入本地模拟池 (ID: RES-89240)";
+        feedbackToast.classList.remove('opacity-0', '-translate-y-2');
+        feedbackToast.classList.add('opacity-100', 'translate-y-0');
+
+        setTimeout(() => {
+          feedbackToast.classList.remove('opacity-100', 'translate-y-0');
+          feedbackToast.classList.add('opacity-0', '-translate-y-2');
+        }, 2400);
+      }, 700);
+    });
+  })();
+</script></main>
+
+</body></html>
