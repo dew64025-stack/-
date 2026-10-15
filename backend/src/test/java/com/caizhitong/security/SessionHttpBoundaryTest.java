@@ -33,6 +33,7 @@ class SessionHttpBoundaryTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS mutual_aid_posts(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,category VARCHAR(32),title VARCHAR(256),content VARCHAR(2048),detail_json VARCHAR(4000),images_json VARCHAR(4000),price DECIMAL(10,2),exchange_area VARCHAR(128),status VARCHAR(32),source_type VARCHAR(16),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS mutual_aid_ratings(id BIGINT PRIMARY KEY,post_id BIGINT,rater_id BIGINT,score INT,comment VARCHAR(512),created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS penalties(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_type VARCHAR(32),reason VARCHAR(512),expires_at TIMESTAMP,status VARCHAR(32),created_by BIGINT,created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS campus_issues(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,title VARCHAR(256),category VARCHAR(32),description VARCHAR(1024),status VARCHAR(32),follow_count INT DEFAULT 0,vote_count INT DEFAULT 0,source_type VARCHAR(16),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP,visibility VARCHAR(16) DEFAULT 'private')");
     }
     String bearer(long user, SessionKind kind) { return "Bearer " + sessions.issue(user, 1, kind).accessToken(); }
     org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder adminCsrf(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,boolean valid)throws Exception{
@@ -43,7 +44,7 @@ class SessionHttpBoundaryTest {
     @Test void onlyDocumentedPublicGetsReach404AndOtherMethodsRemainClosed() throws Exception {
         mvc.perform(get("/api/v1/campuses")).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
         mvc.perform(get("/api/v1/opportunities/10001")).andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/campus-issues/10001")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/campus-issues/10001?campusCode=one")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/mutual-aid/posts/10001?campusCode=one")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/mutual-aid/posts/10001/ratings?campusCode=one")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/mutual-aid/posts/10001/ratings/private")).andExpect(status().isUnauthorized());
