@@ -77,7 +77,7 @@ public class AdminNoticeService {
         if (status != null && !NOTICE_STATUSES.contains(status)) throw invalid();
         if (q != null && (q.isBlank() || q.length() > 100)) throw invalid();
         String scopeToken = "admin-notices:" + actor.campusId() + ":"
-                + java.util.HexFormat.of().formatHex(crypto.searchHash("admin-notices-list", mapper.writeValueAsString(List.of(status, q))));
+                + java.util.HexFormat.of().formatHex(crypto.searchHash("admin-notices-list", mapper.writeValueAsString(java.util.Arrays.asList(status, q))));
         long before = Long.MAX_VALUE;
         if (cursor != null) {
             CursorPayload keys = cursors.decode(cursor, scopeToken);
@@ -119,7 +119,13 @@ public class AdminNoticeService {
         Long attachmentId = input.attachmentId() == null ? null : id(input.attachmentId());
         if ((content == null || content.isBlank()) && (rawUrl == null || rawUrl.isBlank()) && attachmentId == null)
             throw new BusinessException(400, "VALIDATION_FAILED", "至少需要一种通知原文来源");
-        if (rawUrl != null) reader.validate(rawUrl);
+        if (rawUrl != null) {
+            try {
+                reader.validate(rawUrl);
+            } catch (SafeUrlReader.FetchFailure e) {
+                throw new BusinessException(400, "VALIDATION_FAILED", "原文链接不合法");
+            }
+        }
         if (attachmentId != null) files.owner(actor, attachmentId, "notice_document", true, false);
         LocalDateTime now = LocalDateTime.now(clock);
         long notice = ids.nextId();
@@ -167,7 +173,7 @@ public class AdminNoticeService {
                     view.put("value", f.get("field_value"));
                     view.put("evidenceLocation", f.get("evidence_location"));
                     view.put("confidence", f.get("confidence"));
-                    view.put("humanConfirmed", Boolean.TRUE.equals(((Number) f.get("human_confirmed")).intValue() == 1));
+                    view.put("humanConfirmed", Boolean.TRUE.equals(f.get("human_confirmed")));
                     view.put("humanValue", f.get("human_value"));
                     return view;
                 }).toList();

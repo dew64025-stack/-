@@ -57,8 +57,11 @@ public class GlobalExceptionHandler {
         return response(404, error("NOT_FOUND", "未找到请求的资源", false), request);
     }
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> unexpected(Exception error, HttpServletRequest request) {
+        log.warn("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), error);
         return response(500, error("INTERNAL_ERROR", "服务暂时不可用，请稍后重试", true), request);
     }
 

@@ -58,7 +58,8 @@ public final class EligibilityEngine {
             }
             case "contains" -> {
                 if ("string".equals(kind) && !(value.isTextual() && value.asString().length() <= 128)) throw invalid("contains 规则取值不合法");
-                if ("array".equals(kind) && !(value.isArray() && bounded(value) && allTextual(value))) throw invalid("contains 规则取值不合法");
+                if ("array".equals(kind) && !(value.isArray() && bounded(value) && allTextual(value))
+                        && !(value.isTextual() && !value.asString().isBlank() && value.asString().length() <= 128)) throw invalid("contains 规则取值不合法");
             }
             case "range" -> {
                 if (!"grade".equals(field) || !value.isObject() || !value.has("min") || !value.has("max")

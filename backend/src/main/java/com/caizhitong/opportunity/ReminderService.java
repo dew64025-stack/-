@@ -82,7 +82,7 @@ public class ReminderService {
         int size = PageLimits.resolve(limit);
         if (status != null && !STATUSES.contains(status)) throw invalid();
         String scopeToken = "reminders:" + actor.campusId() + ":" + actor.userId() + ":"
-                + java.util.HexFormat.of().formatHex(crypto.searchHash("reminders-list", mapper.writeValueAsString(List.of(status))));
+                + java.util.HexFormat.of().formatHex(crypto.searchHash("reminders-list", mapper.writeValueAsString(java.util.Arrays.asList(status))));
         long before = Long.MAX_VALUE;
         if (cursor != null) {
             CursorPayload keys = cursors.decode(cursor, scopeToken);

@@ -93,7 +93,8 @@ public class PrecheckService {
             Map<String, Object> snapshot = new LinkedHashMap<>();
             snapshot.put("checklistItemId", ((Number) item.get("id")).toString());
             snapshot.put("itemName", item.get("item_name"));
-            snapshot.put("required", Boolean.TRUE.equals(((Number) item.get("required")).intValue() == 1));
+            Object requiredRaw = item.get("required");
+            snapshot.put("required", requiredRaw instanceof Boolean b ? b : ((Number) requiredRaw).intValue() == 1);
             Long versionId = item.get("material_version_id") == null ? null : ((Number) item.get("material_version_id")).longValue();
             snapshot.put("materialVersionId", versionId == null ? null : versionId.toString());
             if (versionId != null) {
@@ -132,23 +133,24 @@ public class PrecheckService {
         Actor actor = current.require();
         long checklist = checklists.owned(checklistId, actor);
         int currentVersion = jdbc.queryForObject("SELECT version FROM material_checklists WHERE id=?", Integer.class, checklist);
-        var tasks = jdbc.queryForList("SELECT id,status,checklist_version,updated_at FROM precheck_tasks WHERE checklist_id=? ORDER BY created_at DESC,id DESC LIMIT 1", checklist);
+        var tasks = jdbc.query("SELECT id,status,checklist_version,updated_at FROM precheck_tasks WHERE checklist_id=? ORDER BY created_at DESC,id DESC LIMIT 1",
+                (r, i) -> new Object[] { r.getLong("id"), r.getString("status"), r.getInt("checklist_version"),
+                        r.getObject("updated_at", LocalDateTime.class) }, checklist);
         if (tasks.isEmpty()) throw new BusinessException(404, "NOT_FOUND", "暂无预检记录");
-        var task = tasks.getFirst();
-        long taskId = ((Number) task.get("id")).longValue();
+        Object[] task = tasks.getFirst();
+        long taskId = (Long) task[0];
         List<ResultItem> results = new ArrayList<>();
-        if ("succeeded".equals(task.get("status"))) {
+        if ("succeeded".equals(task[1])) {
             for (var result : jdbc.queryForList("SELECT checklist_item_id,item_key,level,message,evidence_json FROM precheck_results WHERE precheck_task_id=? ORDER BY id", taskId)) {
                 results.add(new ResultItem(((Number) result.get("checklist_item_id")).toString(), (String) result.get("item_key"),
                         (String) result.get("level"), (String) result.get("message"),
                         result.get("evidence_json") == null ? null : mapper.readTree((String) result.get("evidence_json"))));
             }
         }
-        boolean stale = ((Number) task.get("checklist_version")).intValue() != currentVersion;
-        Instant checkedAt = "succeeded".equals(task.get("status")) && task.get("updated_at") != null
-                ? ((LocalDateTime) task.get("updated_at")).toInstant(ZoneOffset.UTC) : null;
-        return new PrecheckTaskView(Long.toString(taskId), (String) task.get("status"),
-                ((Number) task.get("checklist_version")).intValue(), stale, List.copyOf(results), checkedAt);
+        boolean stale = ((Integer) task[2]) != currentVersion;
+        Instant checkedAt = "succeeded".equals(task[1]) && task[3] != null
+                ? ((LocalDateTime) task[3]).toInstant(ZoneOffset.UTC) : null;
+        return new PrecheckTaskView(Long.toString(taskId), (String) task[1], (Integer) task[2], stale, List.copyOf(results), checkedAt);
     }
 
     private Long consentId(JsonNode input, Actor actor) {

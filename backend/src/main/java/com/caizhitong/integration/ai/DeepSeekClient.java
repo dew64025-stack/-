@@ -37,12 +37,20 @@ public class DeepSeekClient {
 
     private final String apiKey;
     private final String model;
+    private final URI endpoint;
     private final HttpClient http;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public DeepSeekClient(@Value("${DEEPSEEK_API_KEY:}") String apiKey,
                           @Value("${DEEPSEEK_MODEL:" + DEFAULT_MODEL + "}") String model) {
+        this(apiKey, model, ENDPOINT);
+    }
+
+    /** 测试注入：仅配置期替换端点；请求路径不接受任何 baseUrl。 */
+    DeepSeekClient(String apiKey, String model, URI endpoint) {
         this.apiKey = apiKey;
         this.model = (model == null || model.isBlank()) ? DEFAULT_MODEL : model;
+        this.endpoint = endpoint;
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(2))
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -54,7 +62,7 @@ public class DeepSeekClient {
         if (apiKey == null || apiKey.isBlank())
             throw new AiCallException("AI_KEY_MISSING", false, "AI 密钥未配置");
         String body = requestBody(system, user, maxTokens);
-        HttpRequest request = HttpRequest.newBuilder(ENDPOINT)
+        HttpRequest request = HttpRequest.newBuilder(endpoint)
                 .timeout(Duration.ofSeconds(60))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + apiKey)

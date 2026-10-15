@@ -32,30 +32,29 @@ public class JobReadService {
     public OpportunityViews.AsyncJob read(String jobId) {
         long value = id(jobId);
         Actor actor = current.require();
-        var rows = jdbc.queryForList(
+        var rows = jdbc.query(
                 "SELECT id,job_type,status,result_json,error,created_at,updated_at,campus_id,owner_user_id,access_domain FROM async_jobs WHERE id=?",
+                (r, i) -> new Object[] { r.getLong("id"), r.getString("job_type"), r.getString("status"), r.getString("result_json"),
+                        r.getString("error"), r.getObject("created_at", LocalDateTime.class), r.getObject("updated_at", LocalDateTime.class),
+                        r.getObject("campus_id", Long.class), r.getObject("owner_user_id", Long.class), r.getString("access_domain") },
                 value);
         if (rows.isEmpty()) throw missing();
-        Map<String, Object> row = rows.getFirst();
-        if (row.get("campus_id") == null || row.get("owner_user_id") == null || row.get("access_domain") == null) throw missing();
-        long campus = ((Number) row.get("campus_id")).longValue();
-        long owner = ((Number) row.get("owner_user_id")).longValue();
-        String domain = (String) row.get("access_domain");
+        Object[] row = rows.getFirst();
+        if (row[7] == null || row[8] == null || row[9] == null) throw missing();
+        long campus = (Long) row[7];
+        long owner = (Long) row[8];
+        String domain = (String) row[9];
         boolean allowed = switch (domain) {
             case "student" -> actor.kind() == SessionKind.STUDENT && actor.userId() == owner && actor.campusId() == campus;
             case "admin" -> actor.kind() == SessionKind.ADMIN && actor.campusId() == campus;
             default -> false;
         };
         if (!allowed) throw missing();
-        String result = (String) row.get("result_json");
-        return new OpportunityViews.AsyncJob(Long.toString(value), (String) row.get("job_type"), (String) row.get("status"),
-                result == null ? null : mapper.readTree(result), (String) row.get("error"),
-                toInstant(row.get("created_at")), toInstant(row.get("updated_at")));
-    }
-
-    private java.time.Instant toInstant(Object value) {
-        if (value == null) return null;
-        return ((LocalDateTime) value).toInstant(ZoneOffset.UTC);
+        String result = (String) row[3];
+        return new OpportunityViews.AsyncJob(Long.toString((Long) row[0]), (String) row[1], (String) row[2],
+                result == null ? null : mapper.readTree(result), (String) row[4],
+                row[5] == null ? null : ((LocalDateTime) row[5]).toInstant(ZoneOffset.UTC),
+                row[6] == null ? null : ((LocalDateTime) row[6]).toInstant(ZoneOffset.UTC));
     }
 
     private BusinessException missing() { return new BusinessException(404, "NOT_FOUND", "未找到该任务"); }

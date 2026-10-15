@@ -60,7 +60,7 @@ public class OpportunityService {
         Instant to = deadlineTo == null ? null : OpportunityInputs.rfc3339(deadlineTo);
         if (from != null && to != null && from.isAfter(to)) throw invalid();
         String scopeToken = "opportunities:" + campus + ":"
-                + java.util.HexFormat.of().formatHex(crypto.searchHash("opportunity-list", mapper.writeValueAsString(List.of(q, category, deadlineFrom, deadlineTo))));
+                + java.util.HexFormat.of().formatHex(crypto.searchHash("opportunity-list", mapper.writeValueAsString(java.util.Arrays.asList(q, category, deadlineFrom, deadlineTo))));
         CursorPayload keys = cursor == null ? null : cursors.decode(cursor, scopeToken);
         if (keys != null && !keys.sortKeys().keySet().equals(Set.of("deadline", "id"))) throw invalid();
         String cursorDeadline = keys == null ? null : keys.sortKeys().get("deadline");
@@ -81,7 +81,7 @@ public class OpportunityService {
             if (keys != null) { sql.append(" AND deadline IS NULL AND id>?"); args.add(cursorId); }
         } else {
             if (!"null".equals(cursorDeadline)) {
-                sql.append(" AND (deadline>? OR (deadline=? AND id>?))");
+                sql.append(" AND (deadline IS NULL OR deadline>? OR (deadline=? AND id>?))");
                 args.add(LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.parseLong(cursorDeadline)), ZoneOffset.UTC));
                 args.add(LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.parseLong(cursorDeadline)), ZoneOffset.UTC));
                 args.add(cursorId);

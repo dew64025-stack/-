@@ -86,11 +86,10 @@ public class MaterialPrecheckWorker implements Runnable {
         }
         var file = files.getFirst();
         byte[] magic = magic((byte[]) file.get("object_key_encrypted"));
-        List<MaterialPrecheckRules.Finding> findings = new java.util.ArrayList<>(MaterialPrecheckRules.check(
+        List<MaterialPrecheckRules.Finding> findings = MaterialPrecheckRules.check(
                 (String) file.get("file_name"), (String) file.get("mime_type"), ((Number) file.get("size_bytes")).longValue(),
                 file.get("expires_at") == null ? null : ((LocalDateTime) file.get("expires_at")).toInstant(ZoneOffset.UTC),
-                (String) file.get("scan_status"), magic, clock.instant()));
-        if (magic == null) findings.add(new MaterialPrecheckRules.Finding("content", "confirm", "无法读取文件内容，请人工确认", Map.of()));
+                (String) file.get("scan_status"), magic, clock.instant());
         return summary(materialId, versionId, MaterialPrecheckRules.basicComplete(findings), findings);
     }
 

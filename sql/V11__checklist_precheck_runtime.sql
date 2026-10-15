@@ -11,7 +11,7 @@ SET NAMES utf8mb4;
 -- 1. 整清单预检任务：多实例领取安全 + 有限重试 + 202 收据关联
 ALTER TABLE precheck_tasks
   ADD COLUMN async_job_id BIGINT UNSIGNED NULL,
-  ADD COLUMN claim_token CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  ADD COLUMN claim_token CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
   ADD COLUMN picked_at DATETIME(3) NULL,
   ADD COLUMN next_retry_at DATETIME(3) NULL,
   ADD COLUMN retry_count INT UNSIGNED NOT NULL DEFAULT 0,

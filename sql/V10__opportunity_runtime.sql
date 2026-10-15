@@ -18,7 +18,7 @@ ALTER TABLE notices
 -- 2. AI 解析任务：worker 租约/fencing、复核闭环、模型与提示模板版本、耗时、202 收据关联
 ALTER TABLE ai_parse_tasks
   ADD COLUMN async_job_id BIGINT UNSIGNED NULL,
-  ADD COLUMN claim_token CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  ADD COLUMN claim_token CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
   ADD COLUMN picked_at DATETIME(3) NULL,
   ADD COLUMN next_retry_at DATETIME(3) NULL,
   ADD COLUMN retry_count INT UNSIGNED NOT NULL DEFAULT 0,

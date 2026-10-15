@@ -115,7 +115,7 @@ public class ChecklistService {
             int usage = jdbc.queryForObject("SELECT COUNT(*) FROM material_usage_records WHERE file_id=? AND used_in_type='checklist_item' AND used_in_id=?",
                     Integer.class, fileId, item);
             if (usage == 0) {
-                jdbc.update("INSERT INTO material_usage_records(id,file_id,used_in_type,used_in_id,created_at) VALUES(?,'checklist_item',?,?)",
+                jdbc.update("INSERT INTO material_usage_records(id,file_id,used_in_type,used_in_id,created_at) VALUES(?,?,'checklist_item',?,?)",
                         ids.nextId(), fileId, item, now);
             }
         }
@@ -143,8 +143,10 @@ public class ChecklistService {
         var row = jdbc.queryForList("SELECT opportunity_id,status,version FROM material_checklists WHERE id=?", checklist).getFirst();
         List<Item> items = new ArrayList<>();
         for (var item : jdbc.queryForList("SELECT id,item_name,required,material_version_id,status FROM material_checklist_items WHERE checklist_id=? ORDER BY id", checklist)) {
+            Object requiredRaw = item.get("required");
+            boolean required = requiredRaw instanceof Boolean b ? b : ((Number) requiredRaw).intValue() == 1;
             items.add(new Item(((Number) item.get("id")).toString(), (String) item.get("item_name"),
-                    Boolean.TRUE.equals(((Number) item.get("required")).intValue() == 1),
+                    required,
                     item.get("material_version_id") == null ? null : item.get("material_version_id").toString(),
                     (String) item.get("status")));
         }

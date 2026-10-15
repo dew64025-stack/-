@@ -66,7 +66,7 @@ public class AdminOpportunityService {
         if (status != null && !OPPORTUNITY_STATUSES.contains(status)) throw invalid();
         OpportunityInputs.category(category);
         String scopeToken = "admin-opportunities:" + actor.campusId() + ":"
-                + java.util.HexFormat.of().formatHex(crypto.searchHash("admin-opportunities-list", mapper.writeValueAsString(List.of(status, category))));
+                + java.util.HexFormat.of().formatHex(crypto.searchHash("admin-opportunities-list", mapper.writeValueAsString(java.util.Arrays.asList(status, category))));
         long before = Long.MAX_VALUE;
         if (cursor != null) {
             CursorPayload keys = cursors.decode(cursor, scopeToken);
@@ -222,7 +222,20 @@ public class AdminOpportunityService {
     }
 
     private Map<String, Object> lock(long opportunity, long campus, int expectedVersion) {
-        var rows = jdbc.queryForList("SELECT * FROM opportunities WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE", opportunity, campus);
+        var rows = jdbc.query(
+                "SELECT status,title,organizer,summary,deadline,rules_version,notice_id,version FROM opportunities WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE",
+                (r, i) -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("status", r.getString("status"));
+                    row.put("title", r.getString("title"));
+                    row.put("organizer", r.getString("organizer"));
+                    row.put("summary", r.getString("summary"));
+                    row.put("deadline", r.getObject("deadline", LocalDateTime.class));
+                    row.put("rules_version", r.getInt("rules_version"));
+                    row.put("notice_id", r.getObject("notice_id", Long.class));
+                    row.put("version", r.getInt("version"));
+                    return row;
+                }, opportunity, campus);
         if (rows.isEmpty()) throw new BusinessException(404, "NOT_FOUND", "未找到该机会");
         if (((Number) rows.getFirst().get("version")).intValue() != expectedVersion)
             throw new BusinessException(409, "VERSION_CONFLICT", "信息已更新，请刷新后重试");

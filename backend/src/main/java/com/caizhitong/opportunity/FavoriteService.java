@@ -76,7 +76,7 @@ public class FavoriteService {
         int size = PageLimits.resolve(limit);
         if (targetType != null && !OpportunityInputs.FAVORITE_TARGETS.contains(targetType)) throw invalid();
         String scopeToken = "favorites:" + actor.campusId() + ":" + actor.userId() + ":"
-                + java.util.HexFormat.of().formatHex(crypto.searchHash("favorites-list", mapper.writeValueAsString(List.of(targetType))));
+                + java.util.HexFormat.of().formatHex(crypto.searchHash("favorites-list", mapper.writeValueAsString(java.util.Arrays.asList(targetType))));
         long before = Long.MAX_VALUE;
         if (cursor != null) {
             CursorPayload keys = cursors.decode(cursor, scopeToken);

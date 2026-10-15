@@ -109,10 +109,6 @@ public class ChecklistPrecheckWorker implements Runnable {
                     (String) row.get("file_name"), (String) row.get("mime_type"), ((Number) row.get("size_bytes")).longValue(),
                     row.get("expires_at") == null ? null : ((LocalDateTime) row.get("expires_at")).toInstant(ZoneOffset.UTC),
                     (String) row.get("scan_status"), magic, now);
-            if (magic == null) {
-                findings = new ArrayList<>(findings);
-                findings.add(new MaterialPrecheckRules.Finding("content", "confirm", "无法读取文件内容，请人工确认", Map.of()));
-            }
             String level = MaterialPrecheckRules.basicComplete(findings) ? "passed" : findings.stream().anyMatch(f -> "missing".equals(f.level())) ? "missing" : "confirm";
             if (!"passed".equals(level)) basicComplete = false;
             results.add(new Result(findings, itemId, "material", level));

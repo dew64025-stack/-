@@ -118,6 +118,11 @@ public class SafeUrlReader {
     /** 创建时的 URL 结构 + 地址校验（worker 访问前会再次校验）。 */
     public void validate(String url) { validateTarget(url); }
 
+    /** 重定向目标逐跳复验：按新 URL 完整校验（禁止降级/内网/非 443）。 */
+    Target validateRedirect(String base, String location) {
+        return validateTarget(resolve(base, location));
+    }
+
     /** URL 结构 + 全部地址解析校验；返回固定目标（已验证 IP + 原主机）。 */
     private Target validateTarget(String url) {
         URI uri;
@@ -152,7 +157,7 @@ public class SafeUrlReader {
                 return;
             }
             if (bytes[0] == (byte) 0xFE && (bytes[1] & 0xC0) == 0x80) throw block();          // fe80::/10 link-local
-            if ((bytes[0] & 0xFE) == (byte) 0xFC) throw block();                              // fc00::/7 ULA
+            if ((bytes[0] & 0xFE) == 0xFC) throw block();                                     // fc00::/7 ULA
             boolean zero = true;
             for (byte b : bytes) if (b != 0) { zero = false; break; }
             if (zero) throw block();                                                           // ::

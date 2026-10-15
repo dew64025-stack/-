@@ -35,8 +35,8 @@ public class SubmissionService {
         if (submittedAt == null) throw com.caizhitong.identity.IdentityInputs.invalid();
         Actor actor = current.requireStudent();
         LocalDateTime now = LocalDateTime.now(clock);
-        var existing = jdbc.queryForList("SELECT id,submitted_at FROM user_opportunity_submissions WHERE user_id=? AND opportunity_id=? FOR UPDATE",
-                Long.class, actor.userId(), opportunity);
+        var existing = jdbc.query("SELECT id,submitted_at FROM user_opportunity_submissions WHERE user_id=? AND opportunity_id=? FOR UPDATE",
+                (r, i) -> r.getLong("id"), actor.userId(), opportunity);
         LocalDateTime submitted = OpportunityService.utc(submittedAt);
         if (existing.isEmpty()) {
             long record = ids.nextId();
