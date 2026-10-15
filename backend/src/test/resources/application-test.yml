@@ -20,6 +20,8 @@ spring:
 app:
   files:
     scheduling-enabled: false
+  opportunity:
+    scheduling-enabled: false
   identity:
     roster-scheduling-enabled: false
   ids:

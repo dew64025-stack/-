@@ -12,8 +12,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public final class BearerSessionFilter extends OncePerRequestFilter {
-    private final SessionTokenService sessions; private final SessionKind kind; private final FilterErrors errors;
-    public BearerSessionFilter(SessionTokenService sessions, SessionKind kind, FilterErrors errors) { this.sessions = sessions; this.kind = kind; this.errors = errors; }
+    private final SessionTokenService sessions; private final SessionKind[] kinds; private final FilterErrors errors;
+    public BearerSessionFilter(SessionTokenService sessions, SessionKind kind, FilterErrors errors) { this(sessions, new SessionKind[]{kind}, errors); }
+    /** Task 5（负责人A）：/jobs 收据同一路径需要同时接受学生与管理员会话，按声明顺序尝试匹配。 */
+    public BearerSessionFilter(SessionTokenService sessions, SessionKind[] kinds, FilterErrors errors) { this.sessions = sessions; this.kinds = kinds; this.errors = errors; }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         return RoutePolicy.independentCredential(request.getMethod(),request.getRequestURI());
     }
@@ -22,7 +24,12 @@ public final class BearerSessionFilter extends OncePerRequestFilter {
         if (authorization != null && authorization.regionMatches(true, 0, "Bearer", 0, 6)) {
             try {
                 if (Collections.list(request.getHeaders("Authorization")).size() != 1 || !authorization.matches("(?i)Bearer [A-Za-z0-9_-]{43}")) throw unauthenticated();
-                Actor actor = sessions.authenticate(authorization.substring(7), kind).orElseThrow(BearerSessionFilter::unauthenticated);
+                Actor actor = null;
+                for (SessionKind candidate : kinds) {
+                    var found = sessions.authenticate(authorization.substring(7), candidate);
+                    if (found.isPresent()) { actor = found.get(); break; }
+                }
+                if (actor == null) throw unauthenticated();
                 var authentication = UsernamePasswordAuthenticationToken.authenticated(actor, null,
                         actor.permissions().stream().map(SimpleGrantedAuthority::new).toList());
                 var context = SecurityContextHolder.createEmptyContext(); context.setAuthentication(authentication); SecurityContextHolder.setContext(context);

@@ -36,6 +36,7 @@ CREATE USER 'caizhitong_investigator'@'<ip>' IDENTIFIED BY '<password>';
 
 ```sql
 GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
+      CREATE TEMPORARY TABLES,
       SELECT, INSERT, UPDATE, DELETE
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
@@ -62,6 +63,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_profiles TO 'caizhitong_
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.roles TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_roles TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.authorizations TO 'caizhitong_app'@'<ip>';
+-- V8: runtime can read credentials and advance replay state; controlled bootstrap owns INSERT.
+GRANT SELECT, UPDATE (last_totp_step) ON caizhitong.admin_credentials TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.student_roster TO 'caizhitong_app'@'<ip>';
 
 -- 机会与材料
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.notices TO 'caizhitong_app'@'<ip>';
@@ -71,6 +75,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunities TO 'caizhitong_
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_eligibility_rules TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_eligibility_checks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_material_items TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_rule_snapshots TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.favorites TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reminders TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_opportunity_submissions TO 'caizhitong_app'@'<ip>';
@@ -157,6 +162,13 @@ sql/V3__service_and_reservation.sql     服务与预约（13 表）
 sql/V4__mutual_aid_and_community.sql    互助与社区（12 表）
 sql/V5__messaging_governance_integration.sql  消息/治理/集成（16 表）
 sql/V6__supplementary_models.sql        补充模型（4 表）
+sql/V7__runtime_coordination.sql        运行时协调（幂等记录等）
+sql/V8__identity_runtime.sql            身份运行时约束
+sql/V9__files_and_jobs.sql              安全文件与任务
+sql/V10__opportunity_runtime.sql        机会运行时（负责人A：解析租约/复核、提交唯一约束、规则快照）
+sql/V11__checklist_precheck_runtime.sql 清单预检运行时（负责人A：任务租约、AI 授权依据）
+sql/V14__mutual_aid_ratings.sql         互助评价（负责人C）
+sql/V15__community_governance_runtime.sql 社区治理运行时（负责人C）
 ```
 
 **演示种子目录** `demo/`（仅演示环境执行，生产 Flyway 不加载）：
@@ -240,6 +252,16 @@ spring:
 `FLYWAY_USER` 为 `caizhitong_migrator`，`FLYWAY_PASSWORD` 为其密码；账号密码均通过外部密钥配置注入，不写入源码。若部署流程手动执行迁移，则可省略 Flyway 账号配置。
 
 ## 七、连接方式
+
+### V7 运行协调表增量授权
+
+执行 `sql/V7__runtime_coordination.sql` 后，只为业务账号追加该表授权：
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.api_idempotency_records TO 'caizhitong_app'@'<ip>';
+```
+
+幂等记录和业务写入使用同一业务数据源、同一事务。记录保存24小时，结果采用服务端加密，不能缓存登录令牌；过期记录可由受控清理任务删除。Redis只协调会话与限流，不承担业务正确性的最终保证。
 
 **命令行**：
 

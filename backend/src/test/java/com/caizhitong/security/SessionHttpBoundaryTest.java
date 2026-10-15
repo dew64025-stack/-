@@ -34,6 +34,14 @@ class SessionHttpBoundaryTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS mutual_aid_ratings(id BIGINT PRIMARY KEY,post_id BIGINT,rater_id BIGINT,score INT,comment VARCHAR(512),created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS penalties(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_type VARCHAR(32),reason VARCHAR(512),expires_at TIMESTAMP,status VARCHAR(32),created_by BIGINT,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS campus_issues(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,title VARCHAR(256),category VARCHAR(32),description VARCHAR(1024),status VARCHAR(32),follow_count INT DEFAULT 0,vote_count INT DEFAULT 0,source_type VARCHAR(16),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP,visibility VARCHAR(16) DEFAULT 'private')");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS opportunities(id BIGINT PRIMARY KEY,campus_id BIGINT,notice_id BIGINT,title VARCHAR(256),category VARCHAR(32),organizer VARCHAR(128),summary VARCHAR(1000),deadline TIMESTAMP,status VARCHAR(32),source_type VARCHAR(16),source_name VARCHAR(128),external_id VARCHAR(128),official_reference VARCHAR(512),is_stale BOOLEAN DEFAULT FALSE,rules_version INT DEFAULT 0,version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS notices(id BIGINT PRIMARY KEY,campus_id BIGINT,title VARCHAR(256),content VARCHAR(1000),raw_url VARCHAR(1024),publisher VARCHAR(128),published_at TIMESTAMP,source_type VARCHAR(16),source_name VARCHAR(128),external_id VARCHAR(128),official_reference VARCHAR(512),is_stale BOOLEAN DEFAULT FALSE,status VARCHAR(32),version INT DEFAULT 0,attachment_id BIGINT,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS opportunity_eligibility_rules(id BIGINT PRIMARY KEY,opportunity_id BIGINT,field_key VARCHAR(64),operator VARCHAR(16),value_json VARCHAR(1000),severity VARCHAR(16),sort_order INT DEFAULT 0,created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS opportunity_material_items(id BIGINT PRIMARY KEY,opportunity_id BIGINT,name VARCHAR(128),description VARCHAR(512),required BOOLEAN DEFAULT TRUE,sort_order INT DEFAULT 0,created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS teams(id BIGINT PRIMARY KEY,opportunity_id BIGINT)");
+        jdbc.execute("DELETE FROM opportunities");
+        jdbc.execute("DELETE FROM notices");
+        jdbc.execute("DELETE FROM teams");
     }
     String bearer(long user, SessionKind kind) { return "Bearer " + sessions.issue(user, 1, kind).accessToken(); }
     org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder adminCsrf(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,boolean valid)throws Exception{
