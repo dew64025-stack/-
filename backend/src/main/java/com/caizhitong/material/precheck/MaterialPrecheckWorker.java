@@ -2,12 +2,9 @@ package com.caizhitong.material.precheck;
 
 import com.caizhitong.common.SensitiveDataCrypto;
 import com.caizhitong.integration.storage.ObjectStorage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,18 +75,22 @@ public class MaterialPrecheckWorker implements Runnable {
         long versionId = Long.parseLong(payload.path("materialVersionId").asString());
         long campus = ((Number) row.get("campus_id")).longValue();
         long owner = ((Number) row.get("owner_user_id")).longValue();
-        var files = jdbc.queryForList("SELECT f.id,f.file_name,f.mime_type,f.size_bytes,f.expires_at,f.scan_status,f.object_key_encrypted FROM material_versions v JOIN material_files f ON f.id=v.file_id WHERE v.id=? AND v.file_id=? AND f.user_id=? AND f.campus_id=? AND f.status='active' AND f.deleted_at IS NULL",
-                versionId, materialId, owner, campus);
-        if (files.isEmpty()) {
+        long consent = Long.parseLong(payload.path("aiConsentId").asString());
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type='ai' AND status='granted'", Integer.class, consent, owner) != 1)
+            throw new IllegalStateException("consent revoked");
+        var file = VersionPrecheckFiles.metadata(jdbc, versionId, owner, campus);
+        if (file == null || ((Number) file.get("file_id")).longValue() != materialId) {
             return summary(materialId, versionId, false, List.of(new MaterialPrecheckRules.Finding("required", "missing",
                     "材料已被移除或不属于本人", Map.of())));
         }
-        var file = files.getFirst();
-        byte[] magic = magic((byte[]) file.get("object_key_encrypted"));
+        var snapshot = payload.path("file");
+        if (!snapshot.path("fileHash").asString().equals(file.get("file_hash"))
+                || !snapshot.path("attachmentId").asString().equals(file.get("attachment_id").toString())) throw new IllegalStateException("version changed");
+        byte[] magic = VersionPrecheckFiles.magic(file, crypto, storage);
         List<MaterialPrecheckRules.Finding> findings = MaterialPrecheckRules.check(
-                (String) file.get("file_name"), (String) file.get("mime_type"), ((Number) file.get("size_bytes")).longValue(),
-                file.get("expires_at") == null ? null : ((LocalDateTime) file.get("expires_at")).toInstant(ZoneOffset.UTC),
-                (String) file.get("scan_status"), magic, clock.instant());
+                snapshot.path("fileName").asString(), snapshot.path("mimeType").asString(), snapshot.path("sizeBytes").asLong(),
+                snapshot.path("expiresAt").isNull() ? null : Instant.parse(snapshot.path("expiresAt").asString()),
+                "clean", magic, clock.instant());
         return summary(materialId, versionId, MaterialPrecheckRules.basicComplete(findings), findings);
     }
 
@@ -101,15 +102,6 @@ public class MaterialPrecheckWorker implements Runnable {
         summary.put("results", findings);
         summary.put("checkedAt", clock.instant().toString());
         return summary;
-    }
-
-    private byte[] magic(byte[] encryptedKey) {
-        if (encryptedKey == null) return null;
-        try (InputStream input = storage.open(crypto.decrypt("file-object-key", encryptedKey))) {
-            return input.readNBytes(16);
-        } catch (IOException | RuntimeException e) {
-            return null;
-        }
     }
 
     private void complete(Claim claim, Map<String, Object> result) {

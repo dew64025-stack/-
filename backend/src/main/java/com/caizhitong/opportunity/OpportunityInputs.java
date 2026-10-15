@@ -74,12 +74,40 @@ public final class OpportunityInputs {
             String name = text(item.get("name"), 128, false);
             String description = item.get("description") == null || item.get("description").isNull() ? null
                     : text(item.get("description"), 512, false);
+            if (item.has("required") && !item.get("required").isBoolean()) throw invalid();
             boolean required = item.get("required") == null || item.get("required").asBoolean();
             int sortOrder = sortOrder(item.get("sortOrder"));
-            items.add(new OpportunityViews.MaterialRequirement(name, description, required, sortOrder));
+            items.add(new OpportunityViews.MaterialRequirement(name, description, required, sortOrder, validationRules(item.get("validationRules"))));
         }
         items.sort(java.util.Comparator.comparingInt(OpportunityViews.MaterialRequirement::sortOrder));
         return List.copyOf(items);
+    }
+
+    /** Small bounded schema, shared by writes and immutable precheck snapshots. */
+    public static JsonNode validationRules(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (!node.isObject()) throw invalid();
+        for (var entry : node.properties()) {
+            switch (entry.getKey()) {
+                case "mimeTypes" -> {
+                    var value = entry.getValue();
+                    if (!value.isArray() || value.isEmpty() || value.size() > 4) throw invalid();
+                    var distinct = new java.util.HashSet<String>();
+                    for (var mime : value) {
+                        if (!mime.isTextual() || !com.caizhitong.material.precheck.MaterialPrecheckRules.ALLOWED_MIME.contains(mime.asString())
+                                || !distinct.add(mime.asString())) throw invalid();
+                    }
+                }
+                case "maxSizeBytes" -> {
+                    var value = entry.getValue();
+                    if (!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong() <= 0
+                            || value.asLong() > com.caizhitong.material.precheck.MaterialPrecheckRules.MAX_SIZE_BYTES) throw invalid();
+                }
+                case "fileNameContains" -> text(entry.getValue(), 128, false);
+                default -> throw invalid();
+            }
+        }
+        return node.deepCopy();
     }
 
     public static int sortOrder(JsonNode node) {

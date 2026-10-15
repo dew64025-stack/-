@@ -55,6 +55,7 @@ class OpportunityHttpTest {
         jdbc.update("INSERT INTO roles(id,code,name) VALUES(7,'campus_admin','校园管理员')");
         jdbc.update("INSERT INTO user_roles(id,user_id,role_id,campus_id) VALUES(1,900,7,1)");
         storage.objects.clear();
+        storage.opened.clear();
         ai.result = null;
         ai.calls = 0;
     }
@@ -362,18 +363,20 @@ class OpportunityHttpTest {
         adminCommand("/admin/notice-parse-tasks/" + taskId + "/review", admin,
                 "{\"fields\":[{\"key\":\"title\",\"value\":\"竞赛通知\"},{\"key\":\"category\",\"value\":\"competition\"}],\"decision\":\"approve\",\"reason\":\"x\"}", "review-dup")
                 .andExpect(status().isConflict());
-        // draft 关联通知有确认依据 → 可发布
-        adminCommand("/admin/opportunities/" + draftId + "/publish", admin, "{\"version\":0,\"reason\":\"已人工确认\"}", "publish-once")
+        // 确认的适用对象必须由管理员显式补录为结构化条件。
+        adminCommand("/admin/opportunities/" + draftId + "/update", admin,
+                "{\"version\":0,\"eligibilityRules\":[{\"field\":\"college\",\"operator\":\"eq\",\"value\":\"信息学院\",\"severity\":\"hard\"}]}", "review-structured-rule").andExpect(status().isOk());
+        adminCommand("/admin/opportunities/" + draftId + "/publish", admin, "{\"version\":1,\"reason\":\"已人工确认\"}", "publish-once")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("published"));
         Assertions.assertEquals("published", jdbc.queryForObject("SELECT status FROM notices WHERE id=?", String.class, Long.parseLong(noticeId)));
         Assertions.assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='opportunity.publish'", Integer.class));
         // 已发布不能直接改
-        adminCommand("/admin/opportunities/" + draftId + "/update", admin, "{\"title\":\"改标题\",\"version\":1}", "update-published")
+        adminCommand("/admin/opportunities/" + draftId + "/update", admin, "{\"title\":\"改标题\",\"version\":2}", "update-published")
                 .andExpect(status().isConflict());
         // 撤回后可改
-        adminCommand("/admin/opportunities/" + draftId + "/unpublish", admin, "{\"version\":1,\"reason\":\"撤下\"}", "unpublish-once")
+        adminCommand("/admin/opportunities/" + draftId + "/unpublish", admin, "{\"version\":2,\"reason\":\"撤下\"}", "unpublish-once")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("archived"));
-        adminCommand("/admin/opportunities/" + draftId + "/update", admin, "{\"title\":\"改标题\",\"version\":2}", "update-after-unpub")
+        adminCommand("/admin/opportunities/" + draftId + "/update", admin, "{\"title\":\"改标题\",\"version\":3}", "update-after-unpub")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.title").value("改标题"));
     }
 
@@ -482,8 +485,7 @@ class OpportunityHttpTest {
         jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,description,required,sort_order,created_at) VALUES(2,91,'证书',NULL,FALSE,1,CURRENT_TIMESTAMP)");
         String bearer = bearer(101, SessionKind.STUDENT);
         // 本人材料:file 501 + version 601
-        jdbc.update("INSERT INTO material_files(id,user_id,campus_id,file_hash,size_bytes,mime_type,file_name,scan_status,status,version,created_at,updated_at) VALUES(501,101,1,'" + "a".repeat(64) + "',3,'application/pdf','f.pdf','clean','active',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-        jdbc.update("INSERT INTO material_versions(id,file_id,version_no,attachment_id,created_at) VALUES(601,501,1,NULL,CURRENT_TIMESTAMP)");
+        immutableMaterial();
         // 创建清单:按机会材料要求复制条目
         var checklist = new tools.jackson.databind.json.JsonMapper().readTree(
                 mvc.perform(put("/api/v1/opportunities/91/checklist").header("Authorization", bearer).header("Idempotency-Key", "cl-create")
@@ -521,11 +523,7 @@ class OpportunityHttpTest {
     void singleMaterialPrecheckRunsAsyncAndChecklistPrecheckFlagsMissingAndStale() throws Exception {
         student(101);
         publishedOpportunity(95, "published", null);
-        jdbc.update("INSERT INTO material_files(id,user_id,campus_id,file_hash,size_bytes,mime_type,file_name,expires_at,scan_status,status,version,object_key_encrypted,created_at,updated_at) VALUES(501,101,1,'" + "a".repeat(64) + "',3,'application/pdf','f.pdf',NULL,'clean','active',0,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-                crypto.encrypt("file-object-key", "clean/501"));
-        jdbc.update("INSERT INTO material_versions(id,file_id,version_no,attachment_id,created_at) VALUES(601,501,1,NULL,CURRENT_TIMESTAMP)");
-        storage.objects.put("clean/501", "%PDF-1.4 fake".getBytes());
-        jdbc.update("INSERT INTO authorizations(id,user_id,type,status,granted_at,created_at) VALUES(1,101,'ai','granted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        immutableMaterial();
         String bearer = bearer(101, SessionKind.STUDENT);
         // 缺 AI 授权 → 403
         jdbc.update("UPDATE authorizations SET status='revoked'");
@@ -619,6 +617,278 @@ class OpportunityHttpTest {
 
     // ---------- 测试替身 ----------
 
+    @Test
+    void queuedHistoricalVersionReadsItsOwnPdfAfterAppend() throws Exception {
+        student(101);
+        immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        var job = data(command("/materials/501/prechecks", token,
+                "{\"materialVersionId\":\"601\",\"version\":0,\"aiConsentId\":\"1\"}", "immutable-single")
+                .andExpect(status().isAccepted()));
+        appendSecondPdf();
+        context.getBean("materialPrecheckWorker", Runnable.class).run();
+        var singleResult = data(mvc.perform(get("/api/v1/jobs/" + job.path("id").asString()).header("Authorization", token))
+                .andExpect(status().isOk())).path("result");
+        Assertions.assertEquals("601", singleResult.path("materialVersionId").asString());
+        Assertions.assertEquals(List.of("clean/v1"), storage.opened);
+        Assertions.assertEquals("v1.pdf", singleResult.path("results").get(2).path("evidence").path("fileName").asString());
+    }
+
+    @Test
+    void oldMissingChecklistWorkDoesNotOverwriteNewBinding() throws Exception {
+        student(101);
+        immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        var checklist = createChecklist(token, 97);
+        String base = "/checklists/" + checklist.path("id").asString();
+        command(base + "/prechecks", token, "{\"version\":0,\"aiConsentId\":\"1\"}", "stale-queued").andExpect(status().isAccepted());
+        command(base + "/items/" + checklist.path("items").get(0).path("id").asString() + "/update", token,
+                "{\"version\":0,\"materialVersionId\":\"601\"}", "stale-bind").andExpect(status().isOk());
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals("uploaded", data(mvc.perform(get("/api/v1" + base).header("Authorization", token)))
+                .path("items").get(0).path("status").asString());
+        Assertions.assertTrue(data(mvc.perform(get("/api/v1" + base + "/prechecks/latest").header("Authorization", token)))
+                .path("stale").asBoolean());
+    }
+
+    @Test
+    void checklistSnapshotAndWorkerKeepSelectedVersionAfterAppend() throws Exception {
+        student(101);
+        immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        var checklist = createChecklist(token, 98);
+        String base = "/checklists/" + checklist.path("id").asString();
+        command(base + "/items/" + checklist.path("items").get(0).path("id").asString() + "/update", token,
+                "{\"version\":0,\"materialVersionId\":\"601\"}", "snapshot-bind").andExpect(status().isOk());
+        appendSecondPdf();
+        command(base + "/prechecks", token, "{\"version\":1,\"aiConsentId\":\"1\"}", "snapshot-queue").andExpect(status().isAccepted());
+        var snapshot = new tools.jackson.databind.json.JsonMapper().readTree(jdbc.queryForObject("SELECT input_snapshot FROM precheck_tasks", String.class));
+        Assertions.assertEquals("v1.pdf", snapshot.path("items").get(0).path("fileName").asString());
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals(List.of("clean/v1"), storage.opened);
+    }
+
+    @Test
+    void revokedConsentAndUncleanSelectedAttachmentNeverReachStorage() throws Exception {
+        student(101);
+        immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        command("/materials/501/prechecks", token, "{\"version\":0,\"materialVersionId\":\"601\",\"aiConsentId\":\"1\"}", "revoke-queued")
+                .andExpect(status().isAccepted());
+        jdbc.update("UPDATE authorizations SET status='revoked' WHERE id=1");
+        context.getBean("materialPrecheckWorker", Runnable.class).run();
+        Assertions.assertTrue(storage.opened.isEmpty());
+        jdbc.update("UPDATE authorizations SET status='granted' WHERE id=1");
+        jdbc.update("UPDATE file_attachments SET scan_status='infected' WHERE id=701");
+        command("/materials/501/prechecks", token, "{\"version\":0,\"materialVersionId\":\"601\",\"aiConsentId\":\"1\"}", "infected-queue")
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void finalParseLeaseExpiryRestoresOnlyLatestNoticeAndAllowsRetry() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        var notice = data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"fixture\"}", "lease-notice"));
+        long noticeId = Long.parseLong(notice.path("id").asString());
+        adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":0}", "lease-parse").andExpect(status().isAccepted());
+        jdbc.update("UPDATE ai_parse_tasks SET status='processing',retry_count=3,picked_at='2026-10-15 05:50:00',claim_token='crashed'");
+        context.getBean("noticeParseWorker", Runnable.class).run();
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM ai_parse_tasks", String.class));
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE job_type='notice_parse'", String.class));
+        Assertions.assertEquals("pending", jdbc.queryForObject("SELECT status FROM notices", String.class));
+        adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":1}", "lease-retry").andExpect(status().isAccepted());
+        jdbc.update("UPDATE ai_parse_tasks SET status='processing',retry_count=3,picked_at='2026-10-15 05:50:00' WHERE status='failed'");
+        jdbc.update("UPDATE ai_parse_tasks SET next_retry_at='2026-10-15 07:00:00' WHERE status='pending'");
+        context.getBean("noticeParseWorker", Runnable.class).run();
+        Assertions.assertEquals("parsing", jdbc.queryForObject("SELECT status FROM notices", String.class));
+    }
+
+    @Test
+    void actualMissingKeyAdapterErrorKeepsItsPublicCode() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        String id = data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"fixture\"}", "key-notice")).path("id").asString();
+        adminCommand("/admin/notices/" + id + "/parse", admin, "{\"version\":0}", "key-parse").andExpect(status().isAccepted());
+        new com.caizhitong.ai.notice.NoticeParseWorker(jdbc, context.getBean(com.caizhitong.common.SnowflakeIds.class),
+                context.getBean(Clock.class), context.getBean(tools.jackson.databind.json.JsonMapper.class),
+                new DeepSeekClient("", "deepseek-flash"), context.getBean(com.caizhitong.integration.notice.SafeUrlReader.class),
+                context.getBean(com.caizhitong.material.files.AttachmentService.class), context.getBean(ActorLoader.class),
+                context.getBean(org.springframework.transaction.PlatformTransactionManager.class)).run();
+        Assertions.assertEquals("AI_KEY_MISSING", jdbc.queryForObject("SELECT error FROM async_jobs WHERE job_type='notice_parse'", String.class));
+    }
+
+    @Test
+    void invalidDraftAndMissingVersionsReturn400WithoutWrites() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        for (String body : List.of("{\"title\":\"N\"}", "{\"title\":\"N\",\"category\":null}",
+                "{\"title\":\"N\",\"category\":\"research\",\"materialRequirements\":[{\"name\":\"PDF\",\"required\":\"false\"}]}",
+                "{\"title\":\"N\",\"category\":\"research\",\"materialRequirements\":{}}"))
+            adminCommand("/admin/opportunities", admin, body, "invalid-draft-" + body.length()).andExpect(status().isBadRequest());
+        Assertions.assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM opportunities", Integer.class));
+        publishedOpportunity(93, "draft", null);
+        adminCommand("/admin/opportunities/93/publish", admin, "{\"reason\":\"reviewed\"}", "missing-publish-v").andExpect(status().isBadRequest());
+        String notice = data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"fixture\"}", "missing-version-notice")).path("id").asString();
+        adminCommand("/admin/notices/" + notice + "/parse", admin, "{}", "missing-parse-v").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void confirmedFreeTextBlocksEmptyDraftUntilHumanStructuredEditing() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        long notice = Long.parseLong(data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"fixture\"}", "confirmed-text-notice")).path("id").asString());
+        jdbc.update("UPDATE notices SET status='reviewing' WHERE id=?", notice);
+        jdbc.update("INSERT INTO ai_parse_tasks(id,notice_id,status,created_at,updated_at) VALUES(1,?,'succeeded',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", notice);
+        String draft = data(adminCommand("/admin/notice-parse-tasks/1/review", admin,
+                "{\"fields\":[{\"key\":\"title\",\"value\":\"N\"},{\"key\":\"category\",\"value\":\"research\"},{\"key\":\"conditions\",\"value\":\"信息学院学生\"},{\"key\":\"materials\",\"value\":\"成绩单和申请书\"}],\"decision\":\"approve\",\"reason\":\"人工确认\"}", "confirmed-text-review")).path("opportunityDraftId").asString();
+        var fields = data(mvc.perform(get("/api/v1/admin/notice-parse-tasks/1").header("Authorization", admin))).path("fields");
+        Assertions.assertTrue(fields.toString().contains("成绩单和申请书"));
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":0,\"reason\":\"reviewed\"}", "empty-confirmed-publish").andExpect(status().isUnprocessableEntity());
+        adminCommand("/admin/opportunities/" + draft + "/update", admin,
+                "{\"version\":0,\"eligibilityRules\":[{\"field\":\"college\",\"operator\":\"eq\",\"value\":\"信息学院\",\"severity\":\"hard\"}],\"materialRequirements\":[{\"name\":\"成绩单\",\"required\":true},{\"name\":\"申请书\",\"required\":true}]}", "structured-confirmed-edit").andExpect(status().isOk());
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":1,\"reason\":\"逐项补录\"}", "structured-confirmed-publish").andExpect(status().isOk());
+    }
+
+    @Test
+    void humanCanExplicitlyResolveUniversalAudienceAndNoExtraMaterialsWithEmptyArrays() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        long notice = Long.parseLong(data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"全体学生，无须额外材料\"}", "empty-resolution-notice")).path("id").asString());
+        jdbc.update("UPDATE notices SET status='reviewing' WHERE id=?", notice);
+        jdbc.update("INSERT INTO ai_parse_tasks(id,notice_id,status,created_at,updated_at) VALUES(1,?,'succeeded',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", notice);
+        String draft = data(adminCommand("/admin/notice-parse-tasks/1/review", admin,
+                "{\"fields\":[{\"key\":\"title\",\"value\":\"N\"},{\"key\":\"category\",\"value\":\"research\"},{\"key\":\"targetAudience\",\"value\":\"全体学生\"},{\"key\":\"materials\",\"value\":\"无须额外材料\"}],\"decision\":\"approve\",\"reason\":\"人工确认\"}", "empty-resolution-review")).path("opportunityDraftId").asString();
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":0,\"reason\":\"尚未处理\"}", "empty-resolution-blocked").andExpect(status().isUnprocessableEntity());
+        adminCommand("/admin/opportunities/" + draft + "/update", admin, "{\"version\":0,\"eligibilityRules\":[],\"materialRequirements\":[]}", "empty-resolution-edit").andExpect(status().isOk());
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":1,\"reason\":\"原文明确无附加条件和材料，已人工核对\"}", "empty-resolution-publish").andExpect(status().isOk());
+        Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM opportunity_rule_snapshots", Integer.class));
+    }
+
+    tools.jackson.databind.JsonNode data(ResultActions action) throws Exception {
+        return new tools.jackson.databind.json.JsonMapper().readTree(action.andReturn().getResponse().getContentAsString()).path("data");
+    }
+
+    @Test
+    void validationRulesPersistIntoChecklistAndPrecheckAndAreAppliedToSelectedVersion() throws Exception {
+        student(101);
+        immutableMaterial();
+        String admin = bearer(900, SessionKind.ADMIN);
+        String requirement = "{\"name\":\"指定PDF\",\"required\":true,\"validationRules\":{\"mimeTypes\":[\"application/pdf\"],\"maxSizeBytes\":1,\"fileNameContains\":\"成绩单\"}}";
+        String opportunity = data(adminCommand("/admin/opportunities", admin,
+                "{\"title\":\"规则测试\",\"category\":\"research\",\"materialRequirements\":[" + requirement + "]}", "rules-draft")).path("id").asString();
+        adminCommand("/admin/opportunities/" + opportunity + "/publish", admin, "{\"version\":0,\"reason\":\"已核对\"}", "rules-publish").andExpect(status().isOk());
+        var requirements = data(mvc.perform(get("/api/v1/opportunities/" + opportunity + "?campusCode=one"))).path("materialRequirements");
+        Assertions.assertEquals(1, requirements.get(0).path("validationRules").path("maxSizeBytes").asInt());
+        String token = bearer(101, SessionKind.STUDENT);
+        var checklist = data(mvc.perform(put("/api/v1/opportunities/" + opportunity + "/checklist").header("Authorization", token)
+                .header("Idempotency-Key", "rules-checklist").contentType("application/json").content("{}")).andExpect(status().isOk()));
+        String base = "/checklists/" + checklist.path("id").asString();
+        command(base + "/items/" + checklist.path("items").get(0).path("id").asString() + "/update", token,
+                "{\"version\":0,\"materialVersionId\":\"601\"}", "rules-bind").andExpect(status().isOk());
+        command(base + "/prechecks", token, "{\"version\":1,\"aiConsentId\":\"1\"}", "rules-queue").andExpect(status().isAccepted());
+        var snapshot = new tools.jackson.databind.json.JsonMapper().readTree(jdbc.queryForObject("SELECT input_snapshot FROM precheck_tasks", String.class));
+        Assertions.assertEquals("成绩单", snapshot.path("items").get(0).path("validationRules").path("fileNameContains").asString());
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        var results = data(mvc.perform(get("/api/v1" + base + "/prechecks/latest").header("Authorization", token))).path("results");
+        Assertions.assertTrue(results.toString().contains("missing"));
+        Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM precheck_results WHERE level='missing'", Integer.class));
+        Assertions.assertTrue(jdbc.queryForObject("SELECT material_requirements_json FROM opportunity_rule_snapshots", String.class).contains("fileNameContains"));
+    }
+
+    @Test
+    void invalidValidationRulesAreRejectedInsteadOfIgnored() throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        int index = 0;
+        for (String rules : List.of("{\"unknown\":true}", "{\"mimeTypes\":[\"text/plain\"]}", "{\"mimeTypes\":\"application/pdf\"}",
+                "{\"maxSizeBytes\":0}", "{\"maxSizeBytes\":20971521}", "{\"maxSizeBytes\":\"2\"}", "{\"fileNameContains\":\"\"}", "[]")) {
+            adminCommand("/admin/opportunities", admin, "{\"title\":\"N\",\"category\":\"research\",\"materialRequirements\":[{\"name\":\"PDF\",\"required\":true,\"validationRules\":" + rules + "}]}", "invalid-rules-" + index++)
+                    .andExpect(status().isBadRequest());
+        }
+        Assertions.assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM opportunities", Integer.class));
+    }
+
+    @Test
+    void olderTaskCannotOverwriteLaterCompletedTaskForSameChecklistVersion() throws Exception {
+        student(101); immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        var checklist = createChecklist(token, 99);
+        String base = "/checklists/" + checklist.path("id").asString();
+        command(base + "/items/" + checklist.path("items").get(0).path("id").asString() + "/update", token,
+                "{\"version\":0,\"materialVersionId\":\"601\"}", "ordering-bind").andExpect(status().isOk());
+        command(base + "/prechecks", token, "{\"version\":1,\"aiConsentId\":\"1\"}", "ordering-first").andExpect(status().isAccepted());
+        command(base + "/prechecks", token, "{\"version\":1,\"aiConsentId\":\"1\"}", "ordering-second").andExpect(status().isAccepted());
+        long older = jdbc.queryForObject("SELECT MIN(id) FROM precheck_tasks", Long.class);
+        jdbc.update("UPDATE precheck_tasks SET status='running',picked_at='2026-10-15 06:00:00' WHERE id=?", older);
+        jdbc.update("UPDATE file_attachments SET scan_status='pending' WHERE id=701");
+        // Actual later work completes while the older lease is still outstanding.
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals("needs_fix", jdbc.queryForObject("SELECT status FROM material_checklist_items", String.class));
+        jdbc.update("UPDATE file_attachments SET scan_status='clean' WHERE id=701");
+        jdbc.update("UPDATE precheck_tasks SET status='pending' WHERE id=?", older);
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals("needs_fix", jdbc.queryForObject("SELECT status FROM material_checklist_items", String.class));
+        Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM precheck_tasks WHERE status='succeeded'", Integer.class));
+    }
+
+    @Test
+    void exhaustedChecklistLeaseRestoresUploadedItemsForRetry() throws Exception {
+        student(101); immutableMaterial();
+        String token = bearer(101, SessionKind.STUDENT);
+        var checklist = createChecklist(token, 100);
+        String base = "/checklists/" + checklist.path("id").asString();
+        command(base + "/items/" + checklist.path("items").get(0).path("id").asString() + "/update", token,
+                "{\"version\":0,\"materialVersionId\":\"601\"}", "failed-restore-bind").andExpect(status().isOk());
+        command(base + "/prechecks", token, "{\"version\":1,\"aiConsentId\":\"1\"}", "failed-restore-queue").andExpect(status().isAccepted());
+        jdbc.update("UPDATE precheck_tasks SET status='running',retry_count=3,picked_at='2026-10-15 05:50:00'");
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals("uploaded", jdbc.queryForObject("SELECT status FROM material_checklist_items", String.class));
+    }
+
+    @Test
+    void nonNullExpiryIsSnapshottedAndProducesConfirmation() throws Exception {
+        student(101); immutableMaterial();
+        jdbc.update("UPDATE material_files SET expires_at='2026-10-14 06:00:00' WHERE id=501");
+        String token = bearer(101, SessionKind.STUDENT);
+        var job = data(command("/materials/501/prechecks", token,
+                "{\"version\":0,\"materialVersionId\":\"601\",\"aiConsentId\":\"1\"}", "non-null-expiry").andExpect(status().isAccepted()));
+        context.getBean("materialPrecheckWorker", Runnable.class).run();
+        var result = data(mvc.perform(get("/api/v1/jobs/" + job.path("id").asString()).header("Authorization", token))).path("result");
+        Assertions.assertEquals("confirm", result.path("results").get(4).path("level").asString());
+        Assertions.assertEquals("2026-10-14T06:00:00Z", result.path("results").get(4).path("evidence").path("expiresAt").asString());
+    }
+
+    tools.jackson.databind.JsonNode createChecklist(String token, long opportunity) throws Exception {
+        publishedOpportunity(opportunity, "published", null);
+        jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,required,sort_order,created_at) VALUES(1,?,'PDF',TRUE,0,CURRENT_TIMESTAMP)", opportunity);
+        return data(mvc.perform(put("/api/v1/opportunities/" + opportunity + "/checklist").header("Authorization", token)
+                .header("Idempotency-Key", "checklist-fixture-" + opportunity).contentType("application/json").content("{}")).andExpect(status().isOk()));
+    }
+
+    void immutableMaterial() throws Exception {
+        pdfAttachment(701, "clean/v1", "v1.pdf", "first PDF");
+        jdbc.update("INSERT INTO material_files(id,user_id,campus_id,current_attachment_id,file_hash,size_bytes,mime_type,file_name,scan_status,status,version,object_key_encrypted,created_at,updated_at) VALUES(501,101,1,701,?,?,'application/pdf','v1.pdf','clean','active',0,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                "a".repeat(64), storage.objects.get("clean/v1").length, crypto.encrypt("file-object-key", "clean/v1"));
+        jdbc.update("INSERT INTO material_versions(id,file_id,version_no,attachment_id,object_key_encrypted,file_hash,created_at) VALUES(601,501,1,701,?,(SELECT content_sha256 FROM file_attachments WHERE id=701),CURRENT_TIMESTAMP)", crypto.encrypt("file-object-key", "clean/v1"));
+        jdbc.update("INSERT INTO authorizations(id,user_id,type,status,granted_at,created_at) VALUES(1,101,'ai','granted',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+    }
+
+    void appendSecondPdf() throws Exception {
+        pdfAttachment(702, "clean/v2", "v2.pdf", "different second PDF");
+        jdbc.update("INSERT INTO material_versions(id,file_id,version_no,attachment_id,object_key_encrypted,file_hash,created_at) VALUES(602,501,2,702,?,(SELECT content_sha256 FROM file_attachments WHERE id=702),CURRENT_TIMESTAMP)", crypto.encrypt("file-object-key", "clean/v2"));
+        jdbc.update("UPDATE material_files SET current_attachment_id=702,object_key_encrypted=?,file_name='v2.pdf',size_bytes=?,version=1 WHERE id=501", crypto.encrypt("file-object-key", "clean/v2"), storage.objects.get("clean/v2").length);
+    }
+
+    void pdfAttachment(long id, String key, String name, String text) throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var doc = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            var page = new org.apache.pdfbox.pdmodel.PDPage();
+            doc.addPage(page);
+            try (var stream = new org.apache.pdfbox.pdmodel.PDPageContentStream(doc, page)) {
+                stream.beginText();
+                stream.setFont(new org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA), 12);
+                stream.showText(text); stream.endText();
+            }
+            doc.save(bytes);
+        }
+        storage.objects.put(key, bytes.toByteArray());
+        jdbc.update("INSERT INTO file_attachments(id,campus_id,owner_user_id,access_domain,purpose,file_name,mime_type,size_bytes,content_sha256,object_key_encrypted,scan_status,state,created_at,updated_at) VALUES(?,1,101,'student','material',?,'application/pdf',?,?,?,'clean','active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", id, name, bytes.size(), HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray())), crypto.encrypt("file-object-key", key));
+    }
+
     static class TestAi extends DeepSeekClient {
         volatile DeepSeekClient.Completion result;
         volatile int calls = 0;
@@ -633,10 +903,12 @@ class OpportunityHttpTest {
 
     static class TestStorage implements ObjectStorage {
         final Map<String, byte[]> objects = new HashMap<>();
+        final List<String> opened = new ArrayList<>();
         public void put(String key, java.io.InputStream stream, String mime) {
             try { objects.put(key, stream.readAllBytes()); } catch (java.io.IOException e) { throw new RuntimeException(e); }
         }
         public java.io.InputStream open(String key) {
+            opened.add(key);
             byte[] bytes = objects.get(key);
             if (bytes == null) throw new IllegalStateException("object missing: " + key);
             return new java.io.ByteArrayInputStream(bytes);

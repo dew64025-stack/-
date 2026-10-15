@@ -19,14 +19,31 @@ public final class MaterialPrecheckRules {
 
     public static List<Finding> check(String fileName, String mimeType, long sizeBytes, Instant expiresAt,
             String scanStatus, byte[] magic, Instant now) {
+        return check(fileName, mimeType, sizeBytes, expiresAt, scanStatus, magic, now, null);
+    }
+
+    public static List<Finding> check(String fileName, String mimeType, long sizeBytes, Instant expiresAt,
+            String scanStatus, byte[] magic, Instant now, tools.jackson.databind.JsonNode rules) {
+        rules = com.caizhitong.opportunity.OpportunityInputs.validationRules(rules);
+        Set<String> allowed = ALLOWED_MIME;
+        long maxSize = MAX_SIZE_BYTES;
+        String nameContains = null;
+        if (rules != null) {
+            if (rules.has("mimeTypes")) {
+                allowed = new java.util.HashSet<>();
+                for (var mime : rules.get("mimeTypes")) allowed.add(mime.asString());
+            }
+            if (rules.has("maxSizeBytes")) maxSize = rules.get("maxSizeBytes").asLong();
+            if (rules.has("fileNameContains")) nameContains = rules.get("fileNameContains").asString();
+        }
         List<Finding> findings = new ArrayList<>();
-        findings.add(mimeType == null || !ALLOWED_MIME.contains(mimeType)
+        findings.add(mimeType == null || !allowed.contains(mimeType)
                 ? new Finding("format", "missing", "文件格式不支持", Map.of("mimeType", String.valueOf(mimeType)))
                 : new Finding("format", "passed", "文件格式符合要求", Map.of("mimeType", mimeType)));
-        findings.add(sizeBytes <= 0 || sizeBytes > MAX_SIZE_BYTES
+        findings.add(sizeBytes <= 0 || sizeBytes > maxSize
                 ? new Finding("size", "missing", "文件大小不符合要求", Map.of("sizeBytes", sizeBytes))
                 : new Finding("size", "passed", "文件大小符合要求", Map.of("sizeBytes", sizeBytes)));
-        findings.add(fileName == null || fileName.isBlank() || fileName.length() > 255
+        findings.add(fileName == null || fileName.isBlank() || fileName.length() > 255 || nameContains != null && !fileName.contains(nameContains)
                 ? new Finding("name", "missing", "文件名不合法", Map.of("fileName", String.valueOf(fileName)))
                 : new Finding("name", "passed", "文件名符合要求", Map.of("fileName", fileName)));
         findings.add(!"clean".equals(scanStatus)

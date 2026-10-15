@@ -62,7 +62,9 @@ public class AdminNoticeService {
     }
 
     public record NoticeInput(String title, String publisher, String content, String rawUrl, String attachmentId) {}
-    public record ParseInput(int version) {}
+    public record ParseInput(JsonNode version) {
+        public ParseInput { com.caizhitong.identity.IdentityInputs.version(version); }
+    }
     public record ReviewInput(List<Map<String, String>> fields, String decision, String reason) {}
     public record ParseTaskView(String id, String status, List<Map<String, Object>> fields, String model, String error) {}
     public record ReviewResult(boolean reviewed, String opportunityDraftId) {}
@@ -139,8 +141,7 @@ public class AdminNoticeService {
     @BusinessWrite(permission = "notice.parse")
     public OpportunityViews.AsyncJob parse(String noticeId, ParseInput input) {
         Actor actor = current.requirePermission("notice.parse");
-        if (input.version() < 0) throw invalid();
-        long notice = lockNotice(noticeId, input.version());
+        long notice = lockNotice(noticeId, version(input.version()));
         String status = jdbc.queryForObject("SELECT status FROM notices WHERE id=?", String.class, notice);
         if (!Set.of("pending", "failed").contains(status)) throw OpportunityInputs.stateConflict("当前通知状态不可发起解析");
         int active = jdbc.queryForObject("SELECT COUNT(*) FROM ai_parse_tasks WHERE notice_id=? AND status IN ('pending','processing')", Integer.class, notice);
@@ -206,8 +207,10 @@ public class AdminNoticeService {
             if (!fields.containsKey("title") || !fields.containsKey("category"))
                 throw new BusinessException(400, "VALIDATION_FAILED", "发布草稿需要确认标题与类别");
             for (Map.Entry<String, String> field : fields.entrySet()) {
-                jdbc.update("UPDATE ai_parse_fields SET human_confirmed=1,human_value=? WHERE parse_task_id=? AND field_key=?",
+                int updated = jdbc.update("UPDATE ai_parse_fields SET human_confirmed=1,human_value=? WHERE parse_task_id=? AND field_key=?",
                         field.getValue(), task, field.getKey());
+                if (updated == 0) jdbc.update("INSERT INTO ai_parse_fields(id,parse_task_id,field_key,field_value,human_confirmed,human_value,created_at) VALUES(?,?,?,NULL,1,?,?)",
+                        ids.nextId(), task, field.getKey(), field.getValue(), now);
             }
             long draft = createDraft(actor, noticeId, (String) row.get("title"), (String) row.get("source_type"), fields, now);
             jdbc.update("UPDATE ai_parse_tasks SET review_decision='approved',reviewed_by=?,review_reason=?,opportunity_draft_id=?,updated_at=? WHERE id=?",

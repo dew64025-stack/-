@@ -3,10 +3,11 @@ package com.caizhitong.integration.ai;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,7 @@ public class DeepSeekClient {
     private final String apiKey;
     private final String model;
     private final URI endpoint;
-    private final HttpClient http;
+    private final OkHttpClient http;
 
     @org.springframework.beans.factory.annotation.Autowired
     public DeepSeekClient(@Value("${DEEPSEEK_API_KEY:}") String apiKey,
@@ -51,9 +52,12 @@ public class DeepSeekClient {
         this.apiKey = apiKey;
         this.model = (model == null || model.isBlank()) ? DEFAULT_MODEL : model;
         this.endpoint = endpoint;
-        this.http = HttpClient.newBuilder()
+        this.http = new OkHttpClient.Builder()
                 .connectTimeout(Duration.ofSeconds(2))
-                .followRedirects(HttpClient.Redirect.NEVER)
+                .callTimeout(Duration.ofSeconds(60))
+                .readTimeout(Duration.ofSeconds(60))
+                .followRedirects(false)
+                .followSslRedirects(false)
                 .build();
     }
 
@@ -62,36 +66,20 @@ public class DeepSeekClient {
         if (apiKey == null || apiKey.isBlank())
             throw new AiCallException("AI_KEY_MISSING", false, "AI 密钥未配置");
         String body = requestBody(system, user, maxTokens);
-        HttpRequest request = HttpRequest.newBuilder(endpoint)
-                .timeout(Duration.ofSeconds(60))
-                .header("Content-Type", "application/json")
+        Request request = new Request.Builder().url(endpoint.toString())
                 .header("Authorization", "Bearer " + apiKey)
-                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .post(RequestBody.create(body, MediaType.get("application/json")))
                 .build();
         long start = System.nanoTime();
-        int status;
-        InputStream stream;
-        try {
-            HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            status = response.statusCode();
-            stream = response.body();
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new AiCallException("AI_TIMEOUT", true, "AI 调用超时");
-        } catch (IOException e) {
-            throw new AiCallException("AI_UPSTREAM", true, "AI 调用失败");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new AiCallException("AI_UPSTREAM", true, "AI 调用失败");
-        }
-        if (status == 401 || status == 402 || status == 422)
-            throw statusError(status, false);
-        if (status == 429 || status >= 500)
-            throw statusError(status, true);
-        if (status != 200)
-            throw statusError(status, false);
         byte[] raw;
-        try (InputStream in = stream) {
-            raw = readCapped(in);
+        try (var response = http.newCall(request).execute()) {
+            int status = response.code();
+            if (status == 401 || status == 402 || status == 422) throw statusError(status, false);
+            if (status == 429 || status >= 500) throw statusError(status, true);
+            if (status != 200) throw statusError(status, false);
+            try (InputStream stream = response.body().byteStream()) { raw = readCapped(stream); }
+        } catch (java.io.InterruptedIOException e) {
+            throw new AiCallException("AI_TIMEOUT", true, "AI 调用超时");
         } catch (IOException e) {
             throw new AiCallException("AI_UPSTREAM", true, "AI 调用失败");
         }

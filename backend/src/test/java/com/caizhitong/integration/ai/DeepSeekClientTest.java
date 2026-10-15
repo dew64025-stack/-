@@ -28,6 +28,7 @@ class DeepSeekClientTest {
     @BeforeAll
     static void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/chat/completions", DeepSeekClientTest::handle);
         server.start();
     }
@@ -51,6 +52,15 @@ class DeepSeekClientTest {
             case "payment" -> { status = 402; body = "{}".getBytes(); }
             case "rate-limited" -> { status = 429; body = "{}".getBytes(); }
             case "server-error" -> { status = 500; body = "{}".getBytes(); }
+            case "slow-body" -> {
+                body = "{\"model\":\"m\",\"choices\":[{\"message\":{\"content\":\"x\"},\"finish_reason\":\"stop\"}]}".getBytes();
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body, 0, 1);
+                exchange.getResponseBody().flush();
+                try { Thread.sleep(65_000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try { exchange.getResponseBody().write(body, 1, body.length - 1); } finally { exchange.close(); }
+                return;
+            }
             case "big" -> {
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, 0);
@@ -119,6 +129,14 @@ class DeepSeekClientTest {
         assertEquals("AI_BAD_RESPONSE", fail("not-stopped").code());
         assertEquals("AI_RESPONSE_TOO_LARGE", fail("big").code());
         assertFalse(fail("big").retryable());
+    }
+
+    @Test
+    void responseBodyMustFinishInsideOverallCallDeadline() {
+        long start = System.nanoTime();
+        var failure = fail("slow-body");
+        assertEquals("AI_TIMEOUT", failure.code());
+        assertTrue(java.time.Duration.ofNanos(System.nanoTime() - start).toSeconds() < 63);
     }
 
     private String code(String route) {

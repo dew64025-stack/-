@@ -126,8 +126,9 @@ public class OpportunityService {
         var rules = jdbc.query("SELECT field_key,operator,value_json,severity,sort_order FROM opportunity_eligibility_rules WHERE opportunity_id=? ORDER BY sort_order,id",
                 (r, i) -> new OpportunityViews.Rule(r.getString("field_key"), r.getString("operator"), mapper.readTree(r.getString("value_json")),
                         r.getString("severity"), r.getInt("sort_order")), idValue);
-        var requirements = jdbc.query("SELECT name,description,required,sort_order FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
-                (r, i) -> new OpportunityViews.MaterialRequirement(r.getString("name"), r.getString("description"), r.getBoolean("required"), r.getInt("sort_order")), idValue);
+        var requirements = jdbc.query("SELECT name,description,required,sort_order,validation_rules_json FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
+                (r, i) -> new OpportunityViews.MaterialRequirement(r.getString("name"), r.getString("description"), r.getBoolean("required"), r.getInt("sort_order"),
+                        r.getString("validation_rules_json") == null ? null : mapper.readTree(r.getString("validation_rules_json"))), idValue);
         long teamCount = jdbc.queryForObject("SELECT COUNT(*) FROM teams WHERE opportunity_id=?", Long.class, idValue);
         boolean isFavorited = current.optional()
                 .map(actor -> jdbc.queryForObject("SELECT COUNT(*) FROM favorites WHERE user_id=? AND target_type='opportunity' AND target_id=?", Integer.class, actor.userId(), idValue) > 0)

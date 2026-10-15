@@ -342,6 +342,8 @@ tags 最多20项，每项1～32字符。预检逐项 results 为 [{checklistItem
 
 单材料预检使用async_jobs记录jobType=material_precheck以及受控输入和结果，检查格式、大小、命名、有效期与基础识别，不宣称机会材料已完整。机会清单预检使用precheck_tasks/results。清单任务中的每次预检保存不可变的inputSnapshot、checklistVersion、rulesVersion和文件版本。替换材料后旧任务仍可查看，但 stale=true，不能覆盖当前状态。删除材料先确认引用和保留义务，再通过可重试任务删除对象；审计和必要历史不能因级联删除丢失。
 
+预检按所选不可变版本的 clean 附件、对象和散列读取，并在处理前重新检查本人/校园与现行 AI 授权；不能使用材料的最新对象替代历史版本。同一清单版本中较旧的任务不能覆盖较新任务的当前状态；最终失败恢复上传/缺失状态，不长期停在 prechecking。
+
 填写字段和上传文件错误由前端即时提示，后端始终重新验证。需要 AI 处理材料时必须先取得专门授权。
 
 ## 8. 报修、问题广场、地图和拥堵
@@ -711,9 +713,14 @@ OpportunityDraft={title,category,organizer?,summary?,deadline?,noticeId?,eligibi
 
 - eligibilityRules=[{field,operator,value,severity,sortOrder}]，operator=eq/ne/in/contains/range，severity=hard/soft。
 - materialRequirements=[{name,description?,required,sortOrder,validationRules?}]。
+- validationRules 可省略或为 null（通用检查）；对象只允许 mimeTypes、maxSizeBytes、fileNameContains。mimeTypes 为 image/jpeg、image/png、application/pdf、application/vnd.openxmlformats-officedocument.wordprocessingml.document 的非空去重子集（最多4项）；maxSizeBytes 为 1～20971520 整数；fileNameContains 为 1～128 字符非空文本，按区分大小写包含检查。未知键、错类型或越界返回400；required 仅接受 JSON 布尔值。规则随材料要求、规则版本快照、创建的清单项和预检输入快照保存并执行。
 - 规则更新形成规则版本，旧资格匹配和预检不得失去原始依据。
 
+创建 category 必填；parse/publish/unpublish 的 version 必填且为非负 JSON 整数。解析字段缺失/null/非字符串/原文外 evidenceLocation 均不作为有效抽取。人工确认的自由文本持续通过复核接口 humanValue 展示；当确认了 materials 或 conditions/targetAudience，发布前须人工显式提交对应 materialRequirements 或 eligibilityRules。真实要求须逐项补录；原文明确无附加要求时可有意提交 []，系统保存各自的人工复核标记、规则快照和审计。approve 仍只创建草稿，发布权限独立。
+
 原文URL导入防SSRF：仅HTTPS，禁止内网、环回和链路本地地址；重定向后再次检查；限制正文大小和时间。AI输出按固定Schema校验，管理员逐字段确认后才能发布。仅在演示提供器中写入 demo 标识，人工输入不能伪装成 official 来源。
+
+URL 正文先处理长度/分块传输，再解 gzip/deflate，压缩字节与解压正文各限2MiB；截断或非法帧失败。TLS 握手前设置读取超时，重定向共享15秒读取期限；保留 DNS 地址固定及原主机证书校验。解析最终租约耗尽时，任务/收据失败，最新通知恢复 pending，旧代不重置新代。DeepSeek 整次调用（包括正文）限60秒，响应1MiB，缺密钥错误码为 AI_KEY_MISSING。
 
 ### 16.4 工单、校园问题与资源
 

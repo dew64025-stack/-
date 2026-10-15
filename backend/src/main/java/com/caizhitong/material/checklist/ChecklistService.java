@@ -58,10 +58,10 @@ public class ChecklistService {
         try {
             jdbc.update("INSERT INTO material_checklists(id,user_id,opportunity_id,status,version,created_at,updated_at) VALUES(?,?,?,'draft',0,?,?)",
                     checklist, actor.userId(), opportunity, now, now);
-            for (var requirement : jdbc.query("SELECT name,description,required FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
-                    (r, i) -> new Object[] { r.getString("name"), r.getString("description"), r.getBoolean("required") }, opportunity)) {
-                jdbc.update("INSERT INTO material_checklist_items(id,checklist_id,item_name,required,material_version_id,status,created_at,updated_at) VALUES(?,?,?,?,NULL,'missing',?,?)",
-                        ids.nextId(), checklist, requirement[0], requirement[2], now, now);
+            for (var requirement : jdbc.query("SELECT name,description,required,validation_rules_json FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
+                    (r, i) -> new Object[] { r.getString("name"), r.getString("description"), r.getBoolean("required"), r.getString("validation_rules_json") }, opportunity)) {
+                jdbc.update("INSERT INTO material_checklist_items(id,checklist_id,item_name,required,material_version_id,status,validation_rules_json,created_at,updated_at) VALUES(?,?,?,?,NULL,'missing',?,?,?)",
+                        ids.nextId(), checklist, requirement[0], requirement[2], requirement[3], now, now);
             }
         } catch (DuplicateKeyException e) {
             var created = jdbc.queryForList("SELECT id FROM material_checklists WHERE user_id=? AND opportunity_id=?",
@@ -101,12 +101,9 @@ public class ChecklistService {
             }
         } else {
             long versionId = id(materialVersionId);
-            var bound = jdbc.queryForList("SELECT v.file_id,f.scan_status FROM material_versions v JOIN material_files f ON f.id=v.file_id WHERE v.id=? AND f.user_id=? AND f.campus_id=? AND f.status='active' AND f.deleted_at IS NULL",
-                    versionId, actor.userId(), actor.campusId());
-            if (bound.isEmpty()) throw new BusinessException(422, "MATERIAL_NOT_READY", "材料版本不可用");
-            if (!"clean".equals(bound.getFirst().get("scan_status")))
-                throw new BusinessException(422, "MATERIAL_NOT_READY", "材料尚未通过安全检查");
-            long fileId = ((Number) bound.getFirst().get("file_id")).longValue();
+            var bound = com.caizhitong.material.precheck.VersionPrecheckFiles.metadata(jdbc, versionId, actor.userId(), actor.campusId());
+            if (bound == null) throw new BusinessException(422, "MATERIAL_NOT_READY", "材料版本不可用或尚未通过安全检查");
+            long fileId = ((Number) bound.get("file_id")).longValue();
             if (oldVersion != null && !oldVersion.equals(versionId)) {
                 Long oldFile = jdbc.queryForObject("SELECT file_id FROM material_versions WHERE id=?", Long.class, oldVersion);
                 jdbc.update("DELETE FROM material_usage_records WHERE file_id=? AND used_in_type='checklist_item' AND used_in_id=?", oldFile, item);

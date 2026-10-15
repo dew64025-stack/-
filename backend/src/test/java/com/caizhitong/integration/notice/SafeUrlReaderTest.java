@@ -15,6 +15,99 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SafeUrlReaderTest {
     private final SafeUrlReader reader = new SafeUrlReader();
 
+    @Test
+    void identityGzipChunkedChunkedGzipAndDeflatePreserveEntireOriginal() throws Exception {
+        String original = "notice fixture ".repeat(200);
+        byte[] plain = original.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(original, body(plain, List.of("Content-Length: " + plain.length), null));
+        byte[] gzip = compress(plain, true);
+        assertEquals(original, body(gzip, List.of("Content-Length: " + gzip.length), "gzip"));
+        assertEquals(original, body(chunked(plain), List.of("Transfer-Encoding: chunked"), null));
+        assertEquals(original, body(chunked(gzip), List.of("Transfer-Encoding: chunked"), "gzip"));
+        byte[] deflate = compress(plain, false);
+        assertEquals(original, body(deflate, List.of("Content-Length: " + deflate.length), "deflate"));
+    }
+
+    @Test
+    void truncatedAndMalformedFramingCannotBecomeSuccessfulImports() throws Exception {
+        for (byte[] wire : List.of("8\r\nshort".getBytes(), "zz\r\ndata\r\n0\r\n\r\n".getBytes(),
+                "4\r\ndataXX0\r\n\r\n".getBytes(), "4\r\ndata\r\n".getBytes()))
+            assertThrows(Exception.class, () -> body(wire, List.of("Transfer-Encoding: chunked"), null));
+        assertThrows(Exception.class, () -> body("short".getBytes(), List.of("Content-Length: 100"), null));
+        assertThrows(Exception.class, () -> body("x".getBytes(), List.of("Content-Length: -1"), null));
+    }
+
+    @Test
+    void compressedAndExpandedBodiesBothHaveBoundsAndDeadline() throws Exception {
+        assertThrows(Exception.class, () -> body(new byte[SafeUrlReader.MAX_BODY_BYTES + 1], List.of(), null));
+        byte[] bomb = compress(new byte[SafeUrlReader.MAX_BODY_BYTES + 1], true);
+        assertThrows(Exception.class, () -> body(bomb, List.of("Content-Length: " + bomb.length), "gzip"));
+        assertThrows(Exception.class, () -> body(new byte[0], List.of(), null, System.nanoTime() - 1));
+    }
+
+    private byte[] compress(byte[] bytes, boolean gzip) throws Exception {
+        var output = new java.io.ByteArrayOutputStream();
+        try (var stream = gzip ? new java.util.zip.GZIPOutputStream(output) : new java.util.zip.DeflaterOutputStream(output)) {
+            stream.write(bytes);
+        }
+        return output.toByteArray();
+    }
+
+    private byte[] chunked(byte[] bytes) throws Exception {
+        var output = new java.io.ByteArrayOutputStream();
+        output.write((Integer.toHexString(bytes.length) + "\r\n").getBytes());
+        output.write(bytes);
+        output.write("\r\n0\r\nX-Fixture: done\r\n\r\n".getBytes());
+        return output.toByteArray();
+    }
+
+    private String body(byte[] wire, List<String> headers, String encoding) throws Exception {
+        return body(wire, headers, encoding, System.nanoTime() + 15_000_000_000L);
+    }
+
+    private String body(byte[] wire, List<String> headers, String encoding, long deadline) throws Exception {
+        var socket = org.mockito.Mockito.mock(javax.net.ssl.SSLSocket.class);
+        org.mockito.Mockito.when(socket.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(wire));
+        Class<?> blockClass = Class.forName(SafeUrlReader.class.getName() + "$HeaderBlock");
+        var constructor = blockClass.getDeclaredConstructor(String.class, List.class);
+        constructor.setAccessible(true);
+        Object block = constructor.newInstance("HTTP/1.1 200 OK", headers);
+        var read = SafeUrlReader.class.getDeclaredMethod("readBody", javax.net.ssl.SSLSocket.class, blockClass, String.class, long.class);
+        read.setAccessible(true);
+        try {
+            return new String((byte[]) read.invoke(reader, socket, block, encoding, deadline), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            if (failure.getCause() instanceof Exception cause) throw cause;
+            throw failure;
+        }
+    }
+
+    @Test
+    void tlsHandshakeAlreadyHasFiniteReadTimeout() throws Exception {
+        var socket = org.mockito.Mockito.mock(javax.net.ssl.SSLSocket.class);
+        var timeout = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(call -> { timeout.set(call.getArgument(0)); return null; }).when(socket).setSoTimeout(org.mockito.Mockito.anyInt());
+        org.mockito.Mockito.doAnswer(call -> {
+            if (timeout.get() > 0 && timeout.get() <= 15000) throw new java.net.SocketTimeoutException("fixture handshake timed out");
+            throw new AssertionError("TLS handshake began without bounded read timeout");
+        }).when(socket).startHandshake();
+        var factory = org.mockito.Mockito.mock(javax.net.ssl.SSLSocketFactory.class);
+        org.mockito.Mockito.when(factory.createSocket()).thenReturn(socket);
+        var ssl = org.mockito.Mockito.mock(javax.net.ssl.SSLContext.class);
+        org.mockito.Mockito.when(ssl.getSocketFactory()).thenReturn(factory);
+        org.mockito.Mockito.when(ssl.getDefaultSSLParameters()).thenReturn(new javax.net.ssl.SSLParameters());
+        var bounded = new SafeUrlReader(ssl, null);
+        Class<?> targetClass = Class.forName(SafeUrlReader.class.getName() + "$Target");
+        var constructor = targetClass.getDeclaredConstructor(String.class, String.class, java.net.InetAddress.class, String.class);
+        constructor.setAccessible(true);
+        Object target = constructor.newInstance("https://example.edu/", "example.edu", java.net.InetAddress.getByAddress(new byte[]{8,8,8,8}), "/");
+        var connect = SafeUrlReader.class.getDeclaredMethod("connect", targetClass, long.class);
+        connect.setAccessible(true);
+        var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
+                () -> connect.invoke(bounded, target, System.nanoTime() + 15_000_000_000L));
+        assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
+    }
+
     private SafeUrlReader.FetchFailure blocked(String url) {
         return assertThrows(SafeUrlReader.FetchFailure.class, () -> reader.validate(url));
     }

@@ -60,18 +60,14 @@ public class SafeUrlReader {
 
     public Fetched fetch(String url) {
         if (url == null || url.length() > 1024) throw new FetchFailure("URL_INVALID", false, "原文链接不合法");
+        long deadline = System.nanoTime() + 15_000_000_000L;
         Target target = validateTarget(url);
-        String body = fetch(target, 0);
+        String body = fetch(target, 0, deadline);
         return new Fetched(body, null);
     }
 
-    private String fetch(Target target, int hops) {
-        long deadline = System.nanoTime() + 15_000_000_000L;
-        return fetch(target, hops, deadline);
-    }
-
     private String fetch(Target target, int hops, long deadline) {
-        try (SSLSocket socket = connect(target)) {
+        try (SSLSocket socket = connect(target, deadline)) {
             write(socket, "GET " + target.path() + " HTTP/1.1\r\n"
                     + "Host: " + target.host() + "\r\n"
                     + "Connection: close\r\n"
@@ -190,7 +186,7 @@ public class SafeUrlReader {
         return true;
     }
 
-    private SSLSocket connect(Target target) throws IOException {
+    private SSLSocket connect(Target target, long deadline) throws IOException {
         SSLContext context;
         try { context = sslContext != null ? sslContext : SSLContext.getDefault(); }
         catch (Exception e) { throw new FetchFailure("TLS_FAILED", true, "安全连接不可用"); }
@@ -199,12 +195,19 @@ public class SafeUrlReader {
         SSLParameters parameters = context.getDefaultSSLParameters();
         parameters.setServerNames(List.of(new SNIHostName(target.host())));
         socket.setSSLParameters(parameters);
-        socket.connect(new InetSocketAddress(target.address(), 443), 2000);
-        socket.startHandshake();
-        javax.net.ssl.HostnameVerifier verifier = hostnameVerifier != null ? hostnameVerifier : HttpsURLConnection.getDefaultHostnameVerifier();
-        if (!verifier.verify(target.host(), socket.getSession()))
-            throw new FetchFailure("TLS_HOST", false, "原文链接证书与主机不匹配");
-        return socket;
+        try {
+            socket.connect(new InetSocketAddress(target.address(), 443), Math.min(2000, remainingMillis(deadline)));
+            socket.setSoTimeout(remainingMillis(deadline));
+            socket.startHandshake();
+            javax.net.ssl.HostnameVerifier verifier = hostnameVerifier != null ? hostnameVerifier : HttpsURLConnection.getDefaultHostnameVerifier();
+            if (!verifier.verify(target.host(), socket.getSession()))
+                throw new FetchFailure("TLS_HOST", false, "原文链接证书与主机不匹配");
+            remainingMillis(deadline);
+            return socket;
+        } catch (IOException | RuntimeException failure) {
+            try { socket.close(); } catch (IOException ignored) { }
+            throw failure;
+        }
     }
 
     private HeaderBlock readHeaders(SSLSocket socket, long deadline) throws IOException {
@@ -229,47 +232,99 @@ public class SafeUrlReader {
 
     private byte[] readBody(SSLSocket socket, HeaderBlock headers, String encoding, long deadline) throws IOException {
         InputStream input = socket.getInputStream();
-        if (encoding != null && encoding.contains("gzip")) input = new GZIPInputStream(input);
-        else if (encoding != null && encoding.contains("deflate")) input = new InflaterInputStream(input);
-        ByteArrayOutputStream body = new ByteArrayOutputStream();
-        Long contentLength = headers.headers.stream()
-                .filter(line -> line.toLowerCase().startsWith("content-length:"))
-                .map(line -> { try { return Long.parseLong(line.substring("content-length:".length()).trim()); } catch (RuntimeException e) { return null; } })
-                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
-        boolean chunked = headers.headers.stream().anyMatch(line -> line.toLowerCase().startsWith("transfer-encoding:")
-                && line.toLowerCase().contains("chunked"));
-        long remaining = contentLength != null ? Math.min(contentLength, MAX_BODY_BYTES + 1L) : MAX_BODY_BYTES + 1L;
-        if (chunked) {
+        String length = header(headers, "content-length");
+        String transfer = header(headers, "transfer-encoding");
+        Long contentLength = null;
+        if (length != null) {
+            if (!length.matches("[0-9]+")) throw protocol();
+            try { contentLength = Long.parseLong(length); } catch (NumberFormatException e) { throw protocol(); }
+            if (contentLength > MAX_BODY_BYTES) throw tooLarge();
+        }
+        if (transfer != null && (!transfer.equalsIgnoreCase("chunked") || length != null)) throw protocol();
+        ByteArrayOutputStream framed = new ByteArrayOutputStream();
+        if (transfer != null) {
             while (true) {
                 String sizeLine = readLine(input, socket, deadline);
-                if (sizeLine == null) break;
-                int size = Integer.parseInt(sizeLine.trim().split(";")[0], 16);
-                if (size == 0) { readLine(input, socket, deadline); break; }
-                for (int i = 0; i < size; i++) {
-                    int read = readOne(input, socket, deadline);
-                    if (read < 0) break;
-                    body.write(read);
-                    if (body.size() > MAX_BODY_BYTES) throw new FetchFailure("BODY_TOO_LARGE", false, "原文链接正文过大");
+                if (sizeLine == null) throw protocol();
+                String hex = sizeLine.split(";", 2)[0];
+                if (!hex.matches("[0-9a-fA-F]{1,8}")) throw protocol();
+                long size = Long.parseLong(hex, 16);
+                if (size > MAX_BODY_BYTES - framed.size()) throw tooLarge();
+                if (size == 0) {
+                    int trailerBytes = 0;
+                    while (true) {
+                        String trailer = readLine(input, socket, deadline);
+                        if (trailer == null) throw protocol();
+                        trailerBytes += trailer.length() + 2;
+                        if (trailerBytes > MAX_HEADER_BYTES) throw protocol();
+                        if (trailer.isEmpty()) break;
+                        if (!trailer.contains(":")) throw protocol();
+                    }
+                    break;
                 }
-                readLine(input, socket, deadline);
+                copy(input, framed, socket, deadline, size);
+                if (readOne(input, socket, deadline) != '\r' || readOne(input, socket, deadline) != '\n') throw protocol();
             }
         } else {
-            while (remaining-- > 0) {
-                int read = readOne(input, socket, deadline);
-                if (read < 0) break;
-                body.write(read);
-                if (body.size() > MAX_BODY_BYTES) throw new FetchFailure("BODY_TOO_LARGE", false, "原文链接正文过大");
-            }
+            copy(input, framed, socket, deadline, contentLength == null ? -1 : contentLength);
         }
-        return body.toByteArray();
+        // Content-Length and chunk framing describe compressed octets, never decoded characters.
+        InputStream decoded = new java.io.ByteArrayInputStream(framed.toByteArray());
+        if (encoding != null && !encoding.equalsIgnoreCase("identity")) {
+            if (encoding.equalsIgnoreCase("gzip")) decoded = new GZIPInputStream(decoded);
+            else if (encoding.equalsIgnoreCase("deflate")) decoded = new InflaterInputStream(decoded);
+            else throw protocol();
+        }
+        try (InputStream content = decoded) {
+            ByteArrayOutputStream body = new ByteArrayOutputStream();
+            copy(content, body, socket, deadline, -1);
+            return body.toByteArray();
+        }
+    }
+
+    private String header(HeaderBlock headers, String name) {
+        var values = headers.headers.stream().filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith(name + ":"))
+                .map(line -> line.substring(name.length() + 1).trim()).toList();
+        if (values.size() > 1) throw protocol();
+        return values.isEmpty() ? null : values.getFirst();
+    }
+
+    private void copy(InputStream input, ByteArrayOutputStream output, SSLSocket socket, long deadline, long expected) throws IOException {
+        byte[] buffer = new byte[8192];
+        long remaining = expected;
+        while (remaining != 0) {
+            socket.setSoTimeout(remainingMillis(deadline));
+            int read = input.read(buffer, 0, remaining < 0 ? buffer.length : (int) Math.min(buffer.length, remaining));
+            remainingMillis(deadline);
+            if (read < 0) {
+                if (remaining > 0) throw protocol();
+                return;
+            }
+            if (output.size() + read > MAX_BODY_BYTES) throw tooLarge();
+            output.write(buffer, 0, read);
+            if (remaining > 0) remaining -= read;
+        }
+    }
+
+    private FetchFailure protocol() { return new FetchFailure("PROTOCOL", false, "原文链接协议响应异常"); }
+    private FetchFailure tooLarge() { return new FetchFailure("BODY_TOO_LARGE", false, "原文链接正文过大"); }
+
+    private int remainingMillis(long deadline) throws java.net.SocketTimeoutException {
+        long remaining = (deadline - System.nanoTime()) / 1_000_000;
+        if (remaining <= 0) throw new java.net.SocketTimeoutException("read deadline exceeded");
+        return (int) Math.min(Integer.MAX_VALUE, remaining);
     }
 
     private String readLine(InputStream input, SSLSocket socket, long deadline) throws IOException {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
         while (line.size() < MAX_HEADER_BYTES) {
             int read = readOne(input, socket, deadline);
-            if (read < 0) return line.size() == 0 ? null : line.toString(StandardCharsets.ISO_8859_1);
-            if (read == '\n') return line.toString(StandardCharsets.ISO_8859_1).replace("\r", "");
+            if (read < 0) { if (line.size() == 0) return null; throw protocol(); }
+            if (read == '\n') {
+                byte[] bytes = line.toByteArray();
+                if (bytes.length == 0 || bytes[bytes.length - 1] != '\r') throw protocol();
+                return new String(bytes, 0, bytes.length - 1, StandardCharsets.ISO_8859_1);
+            }
             line.write(read);
         }
         throw new FetchFailure("HEADER_TOO_LARGE", false, "原文链接响应头过大");
@@ -280,9 +335,7 @@ public class SafeUrlReader {
     }
 
     private int readOne(InputStream input, SSLSocket socket, long deadline) throws IOException {
-        long remaining = (deadline - System.nanoTime()) / 1_000_000;
-        if (remaining <= 0) throw new java.net.SocketTimeoutException("read deadline exceeded");
-        socket.setSoTimeout((int) remaining);
+        socket.setSoTimeout(remainingMillis(deadline));
         return input.read();
     }
 

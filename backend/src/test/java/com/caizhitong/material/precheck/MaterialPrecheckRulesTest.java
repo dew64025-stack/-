@@ -12,6 +12,18 @@ class MaterialPrecheckRulesTest {
     private static final Instant NOW = Instant.parse("2026-10-15T06:00:00Z");
 
     @Test
+    void itemRulesRejectAllowedButWrongMimeAndEnforceNameAndSize() {
+        var rules = new tools.jackson.databind.json.JsonMapper().readTree(
+                "{\"mimeTypes\":[\"application/pdf\"],\"maxSizeBytes\":1024,\"fileNameContains\":\"成绩单\"}");
+        var findings = MaterialPrecheckRules.check("photo.png", "image/png", 2048, null, "clean",
+                new byte[] { (byte) 0x89, 'P', 'N', 'G' }, NOW, rules);
+        assertEquals(List.of("format", "size", "name"), findings.stream().filter(f -> f.level().equals("missing")).map(MaterialPrecheckRules.Finding::itemKey).toList());
+        assertFalse(MaterialPrecheckRules.basicComplete(findings));
+        var valid = MaterialPrecheckRules.check("成绩单.pdf", "application/pdf", 1024, null, "clean", "%PDF".getBytes(), NOW, rules);
+        assertTrue(valid.stream().allMatch(f -> f.level().equals("passed")));
+    }
+
+    @Test
     void cleanPdfPassesAllDimensions() {
         var findings = MaterialPrecheckRules.check("材料.pdf", "application/pdf", 1024, null, "clean",
                 "%PDF-1.4".getBytes(StandardCharsets.UTF_8), NOW);

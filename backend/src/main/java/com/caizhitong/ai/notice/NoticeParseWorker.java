@@ -64,7 +64,7 @@ public class NoticeParseWorker implements Runnable {
         } catch (SourceFailure e) {
             tx.executeWithoutResult(s -> fail(claim, e.code, e.retryable));
         } catch (DeepSeekClient.AiCallException e) {
-            tx.executeWithoutResult(s -> fail(claim, "AI_" + e.code(), e.retryable()));
+            tx.executeWithoutResult(s -> fail(claim, e.code(), e.retryable()));
         } catch (SafeUrlReader.FetchFailure e) {
             tx.executeWithoutResult(s -> fail(claim, "FETCH_" + e.code(), e.retryable()));
         } catch (RuntimeException e) {
@@ -82,6 +82,14 @@ public class NoticeParseWorker implements Runnable {
 
     private Claim claim() {
         LocalDateTime now = now();
+        var expired = jdbc.queryForList("SELECT id,notice_id FROM ai_parse_tasks WHERE status='processing' AND picked_at<? AND retry_count>=3", now.minusMinutes(5));
+        for (var task : expired) {
+            long notice = ((Number) task.get("notice_id")).longValue();
+            jdbc.queryForList("SELECT id FROM notices WHERE id=? FOR UPDATE", notice);
+            if (latest(notice) == ((Number) task.get("id")).longValue())
+                jdbc.update("UPDATE notices SET status='pending',updated_at=? WHERE id=? AND status='parsing' AND EXISTS (SELECT 1 FROM ai_parse_tasks WHERE id=? AND status='processing' AND retry_count>=3 AND picked_at<?)",
+                        now, notice, task.get("id"), now.minusMinutes(5));
+        }
         jdbc.update("UPDATE ai_parse_tasks SET status=CASE WHEN retry_count>=3 THEN 'failed' ELSE 'pending' END,claim_token=NULL,next_retry_at=?,updated_at=?,error='PARSE_LEASE_EXPIRED' WHERE status='processing' AND picked_at<?",
                 now, now, now.minusMinutes(5));
         // 租约恢复同 fail() 一样要终结收据:重试耗尽的恢复任务,其 async_jobs 不能永远停在中途
@@ -190,7 +198,8 @@ public class NoticeParseWorker implements Runnable {
     }
 
     private long latest(long noticeId) {
-        return jdbc.queryForObject("SELECT COALESCE(MAX(id),0) FROM ai_parse_tasks WHERE notice_id=?", Long.class, noticeId);
+        var rows = jdbc.queryForList("SELECT id FROM ai_parse_tasks WHERE notice_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE", Long.class, noticeId);
+        return rows.isEmpty() ? 0 : rows.getFirst();
     }
 
     private boolean owns(Claim claim) {

@@ -3,12 +3,9 @@ package com.caizhitong.material.precheck;
 import com.caizhitong.common.SnowflakeIds;
 import com.caizhitong.common.SensitiveDataCrypto;
 import com.caizhitong.integration.storage.ObjectStorage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +63,7 @@ public class ChecklistPrecheckWorker implements Runnable {
         // 租约恢复同 fail() 一样要终结收据:重试耗尽的恢复任务,其 async_jobs 不能永远停在中途
         jdbc.update("UPDATE async_jobs SET status='failed',error='CHECKLIST_PRECHECK_LEASE_EXPIRED',updated_at=? WHERE status NOT IN ('succeeded','failed') AND id IN (SELECT async_job_id FROM precheck_tasks WHERE status='failed' AND retry_count>=3 AND claim_token IS NULL AND async_job_id IS NOT NULL)",
                 now);
+        for (long failed : jdbc.queryForList("SELECT id FROM precheck_tasks WHERE status='failed' AND retry_count>=3", Long.class)) restoreItems(failed);
         var rows = jdbc.query("SELECT id,retry_count FROM precheck_tasks WHERE status='pending' AND retry_count<3 AND (next_retry_at IS NULL OR next_retry_at<=?) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED",
                 (r, i) -> new Claim(r.getLong(1), UUID.randomUUID().toString(), r.getInt(2) + 1, 3), now);
         if (rows.isEmpty()) return null;
@@ -79,8 +77,14 @@ public class ChecklistPrecheckWorker implements Runnable {
     private record Run(List<Result> results, boolean basicComplete, String summaryJson) {}
 
     private Run process(Claim claim) {
-        var rows = jdbc.queryForList("SELECT checklist_id,input_snapshot FROM precheck_tasks WHERE id=?", claim.task());
+        var rows = jdbc.queryForList("SELECT t.checklist_id,t.input_snapshot,t.user_id,t.ai_consent_id,j.campus_id FROM precheck_tasks t JOIN async_jobs j ON j.id=t.async_job_id WHERE t.id=?", claim.task());
         if (rows.isEmpty()) throw new IllegalStateException("task gone");
+        var task = rows.getFirst();
+        long owner = ((Number) task.get("user_id")).longValue();
+        if (task.get("ai_consent_id") == null || task.get("campus_id") == null
+                || jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type='ai' AND status='granted'", Integer.class, task.get("ai_consent_id"), owner) != 1)
+            throw new IllegalStateException("consent revoked");
+        long campus = ((Number) task.get("campus_id")).longValue();
         String snapshotText = (String) rows.getFirst().get("input_snapshot");
         JsonNode snapshot = mapper.readTree(snapshotText);
         Instant now = clock.instant();
@@ -97,21 +101,20 @@ public class ChecklistPrecheckWorker implements Runnable {
                 }
                 continue;
             }
-            String fileId = item.path("fileId").asString();
-            var file = jdbc.queryForList("SELECT file_name,mime_type,size_bytes,expires_at,scan_status,object_key_encrypted FROM material_files WHERE id=? AND status='active' AND deleted_at IS NULL",
-                    Long.parseLong(fileId));
-            if (file.isEmpty()) {
+            var row = VersionPrecheckFiles.metadata(jdbc, Long.parseLong(item.path("materialVersionId").asString()), owner, campus);
+            if (row == null) {
                 results.add(new Result(List.of(new MaterialPrecheckRules.Finding("required", "missing", "材料已被移除",
                         Map.of("itemName", item.path("itemName").asString("")))), itemId, "required", "missing"));
                 basicComplete = false;
                 continue;
             }
-            var row = file.getFirst();
-            byte[] magic = magic((byte[]) row.get("object_key_encrypted"));
+            if (!item.path("fileHash").asString().equals(row.get("file_hash"))
+                    || !item.path("attachmentId").asString().equals(row.get("attachment_id").toString())) throw new IllegalStateException("version changed");
+            byte[] magic = VersionPrecheckFiles.magic(row, crypto, storage);
             List<MaterialPrecheckRules.Finding> findings = MaterialPrecheckRules.check(
-                    (String) row.get("file_name"), (String) row.get("mime_type"), ((Number) row.get("size_bytes")).longValue(),
-                    row.get("expires_at") == null ? null : ((LocalDateTime) row.get("expires_at")).toInstant(ZoneOffset.UTC),
-                    (String) row.get("scan_status"), magic, now);
+                    item.path("fileName").asString(), item.path("mimeType").asString(), item.path("sizeBytes").asLong(),
+                    item.path("expiresAt").isNull() ? null : Instant.parse(item.path("expiresAt").asString()),
+                    "clean", magic, now, item.get("validationRules"));
             String level = MaterialPrecheckRules.basicComplete(findings) ? "passed" : findings.stream().anyMatch(f -> "missing".equals(f.level())) ? "missing" : "confirm";
             if (!"passed".equals(level)) basicComplete = false;
             results.add(new Result(findings, itemId, "material", level));
@@ -120,17 +123,8 @@ public class ChecklistPrecheckWorker implements Runnable {
         return new Run(results, basicComplete, mapper.writeValueAsString(summary));
     }
 
-    /** 读取对象前 16 字节做文件头识别；对象不存在返回 null（不把存储故障伪装成通过）。 */
-    private byte[] magic(byte[] encryptedKey) {
-        if (encryptedKey == null) return null;
-        try (InputStream input = storage.open(crypto.decrypt("file-object-key", encryptedKey))) {
-            return input.readNBytes(16);
-        } catch (IOException | RuntimeException e) {
-            return null;
-        }
-    }
-
     private void complete(Claim claim, Run run) {
+        boolean current = currentTask(claim.task());
         if (!owns(claim)) return;
         LocalDateTime now = now();
         for (Result result : run.results()) {
@@ -144,12 +138,12 @@ public class ChecklistPrecheckWorker implements Runnable {
                 case "missing", "confirm" -> "needs_fix";
                 default -> "missing";
             };
-            jdbc.update("UPDATE material_checklist_items SET status=?,updated_at=? WHERE id=?", itemStatus, now, result.checklistItemId());
+            if (current) jdbc.update("UPDATE material_checklist_items SET status=?,updated_at=? WHERE id=?", itemStatus, now, result.checklistItemId());
         }
         var task = jdbc.queryForList("SELECT checklist_id FROM precheck_tasks WHERE id=? FOR UPDATE", claim.task());
         if (task.isEmpty()) return;
         long checklistId = ((Number) task.getFirst().get("checklist_id")).longValue();
-        jdbc.update("UPDATE material_checklist_items SET status='missing',updated_at=? WHERE checklist_id=? AND status='prechecking'", now, checklistId);
+        if (current) jdbc.update("UPDATE material_checklist_items SET status=CASE WHEN material_version_id IS NULL THEN 'missing' ELSE 'uploaded' END,updated_at=? WHERE checklist_id=? AND status='prechecking'", now, checklistId);
         jdbc.update("UPDATE precheck_tasks SET status='succeeded',result_json=?,claim_token=NULL,updated_at=? WHERE id=? AND claim_token=?",
                 run.summaryJson(), now, claim.task(), claim.token());
         jdbc.update("UPDATE async_jobs SET status='succeeded',result_json=?,error=NULL,updated_at=? WHERE id IN (SELECT async_job_id FROM precheck_tasks WHERE id=? AND async_job_id IS NOT NULL)",
@@ -157,6 +151,7 @@ public class ChecklistPrecheckWorker implements Runnable {
     }
 
     private void fail(Claim claim) {
+        currentTask(claim.task());
         if (!owns(claim)) return;
         LocalDateTime now = now();
         boolean exhausted = claim.attempt() >= claim.max();
@@ -166,7 +161,23 @@ public class ChecklistPrecheckWorker implements Runnable {
         if (exhausted) {
             jdbc.update("UPDATE async_jobs SET status='failed',error='CHECKLIST_PRECHECK_FAILED',updated_at=? WHERE id IN (SELECT async_job_id FROM precheck_tasks WHERE id=? AND async_job_id IS NOT NULL)",
                     now, claim.task());
+            restoreItems(claim.task());
         }
+    }
+
+    /** Lock the parent first, matching checklist edits; only the latest task for this version may publish item state. */
+    private boolean currentTask(long task) {
+        var rows = jdbc.queryForList("SELECT checklist_id,checklist_version FROM precheck_tasks WHERE id=?", task);
+        if (rows.isEmpty()) return false;
+        long checklist = ((Number) rows.getFirst().get("checklist_id")).longValue();
+        int version = jdbc.queryForObject("SELECT version FROM material_checklists WHERE id=? FOR UPDATE", Integer.class, checklist);
+        var latestRows = jdbc.queryForList("SELECT id FROM precheck_tasks WHERE checklist_id=? AND checklist_version=? ORDER BY id DESC LIMIT 1 FOR UPDATE", Long.class, checklist, version);
+        Long latest = latestRows.isEmpty() ? null : latestRows.getFirst();
+        return version == ((Number) rows.getFirst().get("checklist_version")).intValue() && latest != null && latest == task;
+    }
+
+    private void restoreItems(long task) {
+        if (currentTask(task)) jdbc.update("UPDATE material_checklist_items SET status=CASE WHEN material_version_id IS NULL THEN 'missing' ELSE 'uploaded' END,updated_at=? WHERE status='prechecking' AND checklist_id IN (SELECT checklist_id FROM precheck_tasks WHERE id=?)", now(), task);
     }
 
     private boolean owns(Claim claim) {

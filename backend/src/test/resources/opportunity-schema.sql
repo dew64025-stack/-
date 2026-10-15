@@ -27,3 +27,8 @@ CREATE TABLE precheck_tasks(id BIGINT PRIMARY KEY,checklist_id BIGINT,user_id BI
 CREATE TABLE precheck_results(id BIGINT PRIMARY KEY,precheck_task_id BIGINT,checklist_item_id BIGINT,item_key VARCHAR(64),level VARCHAR(16),message VARCHAR(512),evidence_json VARCHAR(4000),created_at TIMESTAMP);
 -- 机会详情 teamCount 用(组队模块属 C,此处仅最小投影)
 CREATE TABLE teams(id BIGINT PRIMARY KEY,opportunity_id BIGINT);
+ALTER TABLE opportunity_material_items ADD COLUMN validation_rules_json VARCHAR(4096);
+ALTER TABLE material_checklist_items ADD COLUMN validation_rules_json VARCHAR(4096);
+ALTER TABLE opportunities ALTER COLUMN category SET NOT NULL;
+ALTER TABLE opportunities ADD COLUMN eligibility_reviewed BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE opportunities ADD COLUMN materials_reviewed BOOLEAN DEFAULT FALSE NOT NULL;

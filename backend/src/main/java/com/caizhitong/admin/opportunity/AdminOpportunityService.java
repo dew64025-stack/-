@@ -56,7 +56,9 @@ public class AdminOpportunityService {
     public record DraftInput(String title, String category, String organizer, String summary, String deadline,
             String noticeId, JsonNode eligibilityRules, JsonNode materialRequirements) {}
 
-    public record PublishInput(int version, String reason) {}
+    public record PublishInput(JsonNode version, String reason) {
+        public PublishInput { com.caizhitong.identity.IdentityInputs.version(version); }
+    }
 
     public record OpportunityPage(List<OpportunityViews.Opportunity> items, String nextCursor, boolean hasMore) {}
 
@@ -95,24 +97,24 @@ public class AdminOpportunityService {
     public OpportunityViews.Opportunity create(DraftInput input) {
         Actor actor = current.requirePermission("opportunity.write");
         String title = OpportunityInputs.text(mapper.valueToTree(input.title()), 256, false);
-        OpportunityInputs.category(input.category());
+        OpportunityInputs.category(OpportunityInputs.text(mapper.valueToTree(input.category()), 32, false));
         String organizer = input.organizer() == null ? null : OpportunityInputs.text(mapper.valueToTree(input.organizer()), 128, false);
         String summary = input.summary() == null ? null : OpportunityInputs.text(mapper.valueToTree(input.summary()), 100000, false);
         Instant deadline = OpportunityInputs.optionalRfc3339(mapper.valueToTree(input.deadline()));
+        List<EligibilityEngine.Rule> rules = input.eligibilityRules() == null ? List.of() : OpportunityInputs.rules(input.eligibilityRules());
+        List<OpportunityViews.MaterialRequirement> requirements = input.materialRequirements() == null ? List.of()
+                : OpportunityInputs.materialRequirements(input.materialRequirements());
         Long noticeId = input.noticeId() == null ? null : id(input.noticeId());
         if (noticeId != null) {
             int exists = jdbc.queryForObject("SELECT COUNT(*) FROM notices WHERE id=? AND campus_id=? AND deleted_at IS NULL",
                     Integer.class, noticeId, actor.campusId());
             if (exists != 1) throw new BusinessException(404, "NOT_FOUND", "未找到该通知");
         }
-        List<EligibilityEngine.Rule> rules = input.eligibilityRules() == null ? List.of() : OpportunityInputs.rules(input.eligibilityRules());
-        List<OpportunityViews.MaterialRequirement> requirements = input.materialRequirements() == null ? List.of()
-                : OpportunityInputs.materialRequirements(input.materialRequirements());
         LocalDateTime now = LocalDateTime.now(clock);
         long opportunity = ids.nextId();
-        jdbc.update("INSERT INTO opportunities(id,campus_id,notice_id,title,category,organizer,summary,deadline,status,source_type,rules_version,version,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'draft','manual',0,0,?,?,?)",
+        jdbc.update("INSERT INTO opportunities(id,campus_id,notice_id,title,category,organizer,summary,deadline,status,source_type,rules_version,version,eligibility_reviewed,materials_reviewed,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'draft','manual',0,0,?,?,?,?,?)",
                 opportunity, actor.campusId(), noticeId, title, input.category(), organizer, summary, deadline == null ? null : OpportunityService.utc(deadline),
-                actor.userId(), now, now);
+                input.eligibilityRules() != null, input.materialRequirements() != null, actor.userId(), now, now);
         saveRulesAndItems(opportunity, rules, requirements, actor.userId(), now);
         jdbc.update("INSERT INTO opportunity_rule_snapshots(id,opportunity_id,rules_version,rules_json,material_requirements_json,created_by,created_at) VALUES(?,?,0,?,?,?,?)",
                 ids.nextId(), opportunity, mapper.writeValueAsString(rules), mapper.writeValueAsString(requirements), actor.userId(), now);
@@ -126,6 +128,9 @@ public class AdminOpportunityService {
         Actor actor = current.requirePermission("opportunity.write");
         long opportunity = id(opportunityId);
         int expectedVersion = com.caizhitong.identity.IdentityInputs.version(input.get("version"));
+        // Reject malformed rule arrays before any database read/lock.
+        List<EligibilityEngine.Rule> rules = input.has("eligibilityRules") ? OpportunityInputs.rules(input.get("eligibilityRules")) : null;
+        List<OpportunityViews.MaterialRequirement> requirements = input.has("materialRequirements") ? OpportunityInputs.materialRequirements(input.get("materialRequirements")) : null;
         var locked = lock(opportunity, actor.campusId(), expectedVersion);
         String status = (String) locked.get("status");
         if (Set.of("published", "expired").contains(status))
@@ -147,19 +152,16 @@ public class AdminOpportunityService {
             changed = true;
         }
         if (input.has("deadline")) { deadline = OpportunityInputs.optionalRfc3339(input.get("deadline")); changed = true; }
-        List<EligibilityEngine.Rule> rules = null;
-        List<OpportunityViews.MaterialRequirement> requirements = null;
-        if (input.has("eligibilityRules")) { rules = OpportunityInputs.rules(input.get("eligibilityRules")); changed = true; }
-        if (input.has("materialRequirements")) { requirements = OpportunityInputs.materialRequirements(input.get("materialRequirements")); changed = true; }
+        if (rules != null || requirements != null) changed = true;
         if (!changed) throw invalid();
         boolean rulesChanged = rules != null || requirements != null;
         if (rules == null) rules = currentRules(opportunity);
         if (requirements == null) requirements = currentRequirements(opportunity);
         LocalDateTime now = LocalDateTime.now(clock);
-        jdbc.update("UPDATE opportunities SET title=?,organizer=?,summary=?,deadline=?,version=version+1,rules_version=?,updated_by=?,updated_at=? WHERE id=?",
+        jdbc.update("UPDATE opportunities SET title=?,organizer=?,summary=?,deadline=?,version=version+1,rules_version=?,eligibility_reviewed=CASE WHEN ? THEN TRUE ELSE eligibility_reviewed END,materials_reviewed=CASE WHEN ? THEN TRUE ELSE materials_reviewed END,updated_by=?,updated_at=? WHERE id=?",
                 title, organizer, summary, deadline == null ? null : OpportunityService.utc(deadline),
                 rulesChanged ? ((Number) locked.get("rules_version")).intValue() + 1 : locked.get("rules_version"),
-                actor.userId(), now, opportunity);
+                input.has("eligibilityRules"), input.has("materialRequirements"), actor.userId(), now, opportunity);
         if (rulesChanged) {
             jdbc.update("DELETE FROM opportunity_eligibility_rules WHERE opportunity_id=?", opportunity);
             jdbc.update("DELETE FROM opportunity_material_items WHERE opportunity_id=?", opportunity);
@@ -167,6 +169,8 @@ public class AdminOpportunityService {
             int nextRulesVersion = ((Number) locked.get("rules_version")).intValue() + 1;
             jdbc.update("INSERT INTO opportunity_rule_snapshots(id,opportunity_id,rules_version,rules_json,material_requirements_json,created_by,created_at) VALUES(?,?,?,?,?,?,?)",
                     ids.nextId(), opportunity, nextRulesVersion, mapper.writeValueAsString(rules), mapper.writeValueAsString(requirements), actor.userId(), now);
+            audit(actor, "opportunity.structure.review", opportunity, "人工结构化复核", Map.of("rulesVersion", nextRulesVersion,
+                    "eligibilityRulesEdited", input.has("eligibilityRules"), "materialRequirementsEdited", input.has("materialRequirements")));
         }
         return view(opportunity);
     }
@@ -178,15 +182,16 @@ public class AdminOpportunityService {
     }
 
     private List<OpportunityViews.MaterialRequirement> currentRequirements(long opportunity) {
-        return jdbc.query("SELECT name,description,required,sort_order FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
-                (r, i) -> new OpportunityViews.MaterialRequirement(r.getString("name"), r.getString("description"), r.getBoolean("required"), r.getInt("sort_order")), opportunity);
+        return jdbc.query("SELECT name,description,required,sort_order,validation_rules_json FROM opportunity_material_items WHERE opportunity_id=? ORDER BY sort_order,id",
+                (r, i) -> new OpportunityViews.MaterialRequirement(r.getString("name"), r.getString("description"), r.getBoolean("required"), r.getInt("sort_order"),
+                        r.getString("validation_rules_json") == null ? null : mapper.readTree(r.getString("validation_rules_json"))), opportunity);
     }
 
     @BusinessWrite(permission = "opportunity.publish")
     public OpportunityViews.Opportunity publish(String opportunityId, PublishInput input) {
         Actor actor = current.requirePermission("opportunity.publish");
         long opportunity = id(opportunityId);
-        var locked = lock(opportunity, actor.campusId(), input.version());
+        var locked = lock(opportunity, actor.campusId(), com.caizhitong.identity.IdentityInputs.version(input.version()));
         String status = (String) locked.get("status");
         if (!Set.of("draft", "reviewing").contains(status)) throw OpportunityInputs.stateConflict("当前状态不可发布");
         String reason = OpportunityInputs.text(mapper.valueToTree(input.reason()), 512, false);
@@ -195,6 +200,11 @@ public class AdminOpportunityService {
             int confirmed = jdbc.queryForObject("SELECT COUNT(*) FROM ai_parse_tasks t JOIN notices n ON n.id=t.notice_id WHERE n.id=? AND t.review_decision='approved' AND n.deleted_at IS NULL",
                     Integer.class, noticeId);
             if (confirmed == 0) throw new BusinessException(422, "MATERIAL_NOT_READY", "关联通知缺少人工确认依据");
+            var confirmedFields = jdbc.queryForList("SELECT f.field_key FROM ai_parse_fields f JOIN ai_parse_tasks t ON t.id=f.parse_task_id WHERE t.notice_id=? AND t.review_decision='approved' AND f.human_confirmed=TRUE AND f.field_key IN ('materials','conditions','targetAudience') AND f.human_value IS NOT NULL", String.class, noticeId);
+            if (confirmedFields.contains("materials") && !Boolean.TRUE.equals(locked.get("materials_reviewed")))
+                throw new BusinessException(422, "MATERIAL_NOT_READY", "请人工核对材料原文并显式提交结构化材料要求，确认无要求可提交空数组");
+            if ((confirmedFields.contains("conditions") || confirmedFields.contains("targetAudience")) && !Boolean.TRUE.equals(locked.get("eligibility_reviewed")))
+                throw new BusinessException(422, "MATERIAL_NOT_READY", "请人工核对适用对象与条件并显式提交资格规则，确认无附加条件可提交空数组");
         }
         int rulesVersion = ((Number) locked.get("rules_version")).intValue();
         int snapshot = jdbc.queryForObject("SELECT COUNT(*) FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=?",
@@ -211,7 +221,7 @@ public class AdminOpportunityService {
     public OpportunityViews.Opportunity unpublish(String opportunityId, PublishInput input) {
         Actor actor = current.requirePermission("opportunity.publish");
         long opportunity = id(opportunityId);
-        var locked = lock(opportunity, actor.campusId(), input.version());
+        var locked = lock(opportunity, actor.campusId(), com.caizhitong.identity.IdentityInputs.version(input.version()));
         String status = (String) locked.get("status");
         if (!Set.of("published", "expired").contains(status)) throw OpportunityInputs.stateConflict("当前状态不可撤回");
         String reason = OpportunityInputs.text(mapper.valueToTree(input.reason()), 512, false);
@@ -223,7 +233,7 @@ public class AdminOpportunityService {
 
     private Map<String, Object> lock(long opportunity, long campus, int expectedVersion) {
         var rows = jdbc.query(
-                "SELECT status,title,organizer,summary,deadline,rules_version,notice_id,version FROM opportunities WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE",
+                "SELECT status,title,organizer,summary,deadline,rules_version,notice_id,version,eligibility_reviewed,materials_reviewed FROM opportunities WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE",
                 (r, i) -> {
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
                     row.put("status", r.getString("status"));
@@ -234,6 +244,8 @@ public class AdminOpportunityService {
                     row.put("rules_version", r.getInt("rules_version"));
                     row.put("notice_id", r.getObject("notice_id", Long.class));
                     row.put("version", r.getInt("version"));
+                    row.put("eligibility_reviewed", r.getBoolean("eligibility_reviewed"));
+                    row.put("materials_reviewed", r.getBoolean("materials_reviewed"));
                     return row;
                 }, opportunity, campus);
         if (rows.isEmpty()) throw new BusinessException(404, "NOT_FOUND", "未找到该机会");
@@ -249,8 +261,9 @@ public class AdminOpportunityService {
                     ids.nextId(), opportunity, rule.field(), rule.operator(), mapper.writeValueAsString(rule.value()), rule.severity(), rule.sortOrder(), now);
         }
         for (OpportunityViews.MaterialRequirement requirement : requirements) {
-            jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,description,required,sort_order,created_at) VALUES(?,?,?,?,?,?,?)",
-                    ids.nextId(), opportunity, requirement.name(), requirement.description(), requirement.required(), requirement.sortOrder(), now);
+            jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,description,required,sort_order,validation_rules_json,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                    ids.nextId(), opportunity, requirement.name(), requirement.description(), requirement.required(), requirement.sortOrder(),
+                    requirement.validationRules() == null ? null : mapper.writeValueAsString(requirement.validationRules()), now);
         }
     }
 

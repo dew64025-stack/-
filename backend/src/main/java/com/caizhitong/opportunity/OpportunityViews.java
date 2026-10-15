@@ -19,7 +19,7 @@ public final class OpportunityViews {
 
     public record Rule(String field, String operator, JsonNode value, String severity, int sortOrder) {}
 
-    public record MaterialRequirement(String name, String description, boolean required, int sortOrder) {}
+    public record MaterialRequirement(String name, String description, boolean required, int sortOrder, JsonNode validationRules) {}
 
     /** 机会详情：Opportunity 六个来源字段在内的全部基础字段平铺 + 五个详情扩展字段（文档第 6 节）。 */
     public record Detail(String id, String title, String category, String organizer, String summary, Instant deadline,

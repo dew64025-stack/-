@@ -66,11 +66,18 @@ public class PrecheckService {
         long versionId = id(com.caizhitong.identity.IdentityInputs.text(input.get("materialVersionId"), 20, false));
         int bound = jdbc.queryForObject("SELECT COUNT(*) FROM material_versions WHERE id=? AND file_id=?", Integer.class, versionId, material);
         if (bound != 1) throw new BusinessException(404, "NOT_FOUND", "未找到该材料版本");
-        consentId(input, actor);
+        long consent = consentId(input, actor);
+        var selected = VersionPrecheckFiles.metadata(jdbc, versionId, actor.userId(), actor.campusId());
+        if (selected == null) throw new BusinessException(422, "MATERIAL_NOT_READY", "材料版本尚未通过安全检查");
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("materialId", Long.toString(material));
+        payload.put("materialVersionId", Long.toString(versionId));
+        payload.put("aiConsentId", Long.toString(consent));
+        payload.put("file", VersionPrecheckFiles.snapshot(selected, versionId));
         LocalDateTime now = LocalDateTime.now(clock);
         long job = ids.nextId();
         jdbc.update("INSERT INTO async_jobs(id,job_type,payload_json,status,campus_id,owner_user_id,access_domain,retry_count,max_retries,created_at,updated_at) VALUES(?,'material_precheck',?,'pending',?,?,'student',0,3,?,?)",
-                job, mapper.writeValueAsString(Map.of("materialId", Long.toString(material), "materialVersionId", Long.toString(versionId))),
+                job, mapper.writeValueAsString(payload),
                 actor.campusId(), actor.userId(), now, now);
         return new OpportunityViews.AsyncJob(Long.toString(job), "material_precheck", "pending", null, null, clock.instant(), clock.instant());
     }
@@ -89,7 +96,7 @@ public class PrecheckService {
         int rulesVersion = jdbc.queryForObject("SELECT rules_version FROM opportunities WHERE id=?", Integer.class, opportunity);
         LocalDateTime now = LocalDateTime.now(clock);
         List<Map<String, Object>> items = new ArrayList<>();
-        for (var item : jdbc.queryForList("SELECT id,item_name,required,material_version_id FROM material_checklist_items WHERE checklist_id=? ORDER BY id", checklist)) {
+        for (var item : jdbc.queryForList("SELECT id,item_name,required,material_version_id,validation_rules_json FROM material_checklist_items WHERE checklist_id=? ORDER BY id", checklist)) {
             Map<String, Object> snapshot = new LinkedHashMap<>();
             snapshot.put("checklistItemId", ((Number) item.get("id")).toString());
             snapshot.put("itemName", item.get("item_name"));
@@ -97,18 +104,11 @@ public class PrecheckService {
             snapshot.put("required", requiredRaw instanceof Boolean b ? b : ((Number) requiredRaw).intValue() == 1);
             Long versionId = item.get("material_version_id") == null ? null : ((Number) item.get("material_version_id")).longValue();
             snapshot.put("materialVersionId", versionId == null ? null : versionId.toString());
+            snapshot.put("validationRules", item.get("validation_rules_json") == null ? null : mapper.readTree((String) item.get("validation_rules_json")));
             if (versionId != null) {
-                var file = jdbc.queryForList("SELECT f.id,f.file_name,f.mime_type,f.size_bytes,f.expires_at,f.scan_status FROM material_versions v JOIN material_files f ON f.id=v.file_id WHERE v.id=?",
-                        versionId).stream().findFirst();
-                if (file.isPresent()) {
-                    snapshot.put("fileId", ((Number) file.get().get("id")).toString());
-                    snapshot.put("fileName", file.get().get("file_name"));
-                    snapshot.put("mimeType", file.get().get("mime_type"));
-                    snapshot.put("sizeBytes", file.get().get("size_bytes"));
-                    snapshot.put("expiresAt", file.get().get("expires_at") == null ? null
-                            : ((LocalDateTime) file.get().get("expires_at")).toInstant(ZoneOffset.UTC).toString());
-                    snapshot.put("scanStatus", file.get().get("scan_status"));
-                }
+                var file = VersionPrecheckFiles.metadata(jdbc, versionId, actor.userId(), actor.campusId());
+                if (file == null) throw new BusinessException(422, "MATERIAL_NOT_READY", "材料版本尚未通过安全检查");
+                snapshot.putAll(VersionPrecheckFiles.snapshot(file, versionId));
             }
             items.add(snapshot);
         }

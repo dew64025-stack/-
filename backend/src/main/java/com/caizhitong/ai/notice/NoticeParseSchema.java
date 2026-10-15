@@ -73,7 +73,7 @@ public final class NoticeParseSchema {
         if (value.length() > KEYS.get(key)) return null;
         String evidence = item.has("evidenceLocation") && item.get("evidenceLocation").isTextual()
                 ? item.get("evidenceLocation").asString() : null;
-        if (evidence != null && (evidence.isBlank() || evidence.length() > 512 || !sourceText.contains(evidence))) return null;
+        if (evidence == null || evidence.isBlank() || evidence.length() > 512 || sourceText == null || !sourceText.contains(evidence)) return null;
         Double confidence = null;
         if (item.has("confidence") && !item.get("confidence").isNull()) {
             JsonNode confidenceNode = item.get("confidence");
