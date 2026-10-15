@@ -29,6 +29,10 @@ class SessionHttpBoundaryTest {
         jdbc.execute("DELETE FROM campuses");
         jdbc.execute("CREATE TABLE IF NOT EXISTS api_idempotency_records (id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,scope_digest CHAR(64),key_digest CHAR(64),request_digest CHAR(64),response_encrypted BLOB,response_type VARCHAR(255),status VARCHAR(16),created_at TIMESTAMP,expires_at TIMESTAMP,UNIQUE(scope_digest,key_digest))");
         jdbc.execute("DELETE FROM api_idempotency_records");
+        jdbc.execute("INSERT INTO campuses VALUES(1,'大学','one','active',NULL)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS mutual_aid_posts(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,category VARCHAR(32),title VARCHAR(256),content VARCHAR(2048),detail_json VARCHAR(4000),images_json VARCHAR(4000),price DECIMAL(10,2),exchange_area VARCHAR(128),status VARCHAR(32),source_type VARCHAR(16),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS mutual_aid_ratings(id BIGINT PRIMARY KEY,post_id BIGINT,rater_id BIGINT,score INT,comment VARCHAR(512),created_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS penalties(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_type VARCHAR(32),reason VARCHAR(512),expires_at TIMESTAMP,status VARCHAR(32),created_by BIGINT,created_at TIMESTAMP)");
     }
     String bearer(long user, SessionKind kind) { return "Bearer " + sessions.issue(user, 1, kind).accessToken(); }
     org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder adminCsrf(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,boolean valid)throws Exception{
@@ -40,8 +44,8 @@ class SessionHttpBoundaryTest {
         mvc.perform(get("/api/v1/campuses")).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
         mvc.perform(get("/api/v1/opportunities/10001")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/campus-issues/10001")).andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/mutual-aid/posts/10001")).andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/mutual-aid/posts/10001/ratings")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/mutual-aid/posts/10001?campusCode=one")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/mutual-aid/posts/10001/ratings?campusCode=one")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/mutual-aid/posts/10001/ratings/private")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/mutual-aid/posts/10001/ratings")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/campus-issues/10001/evidences")).andExpect(status().isUnauthorized());
@@ -154,7 +158,6 @@ class SessionHttpBoundaryTest {
         }
         @PostMapping("/api/v1/admin/probe") public ApiResponse<Output> csrfProbe(HttpServletRequest r) { current.requirePermission("content.review"); return ApiResponse.ok(new Output(true), RequestIdFilter.requestId(r)); }
         @PostMapping("/api/v1/me/probe") public ApiResponse<Output> write(@RequestBody Input input, HttpServletRequest r) { return ApiResponse.ok(service.write(input), RequestIdFilter.requestId(r)); }
-        @GetMapping("/api/v1/me/penalties") public Output own() { current.requireAuthenticatedIdentity(); return new Output(true); }
         @PostMapping("/api/v1/me/account-deletion") public Output delete() { return service.deleteAccount(); }
     }
     @TestConfiguration static class Fixtures {

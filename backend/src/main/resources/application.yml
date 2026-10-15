@@ -73,6 +73,10 @@ app:
   wechat:
     app-id: ${WECHAT_APP_ID:}
     app-secret: ${WECHAT_APP_SECRET:}
+  opportunity:
+    scheduling-enabled: ${OPPORTUNITY_SCHEDULING_ENABLED:true}
+    poll-ms: ${OPPORTUNITY_POLL_MS:5000}
+    expiry-ms: ${OPPORTUNITY_EXPIRY_MS:60000}
   ids:
     worker-id: ${SNOWFLAKE_WORKER_ID}
   crypto:
