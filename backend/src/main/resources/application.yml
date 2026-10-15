@@ -1,0 +1,80 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+      file-size-threshold: 0
+      resolve-lazily: true
+  application:
+    name: caizhitong
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/caizhitong?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-init-sql: "SET time_zone = '+00:00'"
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    url: ${spring.datasource.url}
+    user: ${FLYWAY_USER}
+    password: ${FLYWAY_PASSWORD}
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
+    init-sqls:
+      - "SET time_zone = '+00:00'"
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USER:}
+      password: ${REDIS_PASSWORD}
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+app:
+  files:
+    clamd:
+      host: ${FILES_CLAMD_HOST:}
+      port: ${FILES_CLAMD_PORT:3310}
+    s3:
+      endpoint: ${FILES_S3_ENDPOINT:}
+      access-key: ${FILES_S3_ACCESS_KEY:}
+      secret-key: ${FILES_S3_SECRET_KEY:}
+      bucket: ${FILES_S3_BUCKET:}
+  wechat:
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
+  ids:
+    worker-id: ${SNOWFLAKE_WORKER_ID}
+  crypto:
+    encryption-key: ${APP_ENCRYPTION_KEY}
+    hmac-key: ${APP_HMAC_KEY}
