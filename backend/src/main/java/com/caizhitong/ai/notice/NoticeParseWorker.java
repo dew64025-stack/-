@@ -82,7 +82,7 @@ public class NoticeParseWorker implements Runnable {
 
     private Claim claim() {
         LocalDateTime now = now();
-        var expired = jdbc.queryForList("SELECT id,notice_id FROM ai_parse_tasks WHERE status='processing' AND picked_at<? AND retry_count>=3", now.minusMinutes(5));
+        var expired = jdbc.queryForList("SELECT id,notice_id FROM ai_parse_tasks WHERE status='processing' AND picked_at<? AND retry_count>=3 ORDER BY notice_id,id", now.minusMinutes(5));
         for (var task : expired) {
             long notice = ((Number) task.get("notice_id")).longValue();
             jdbc.queryForList("SELECT id FROM notices WHERE id=? FOR UPDATE", notice);
@@ -156,11 +156,10 @@ public class NoticeParseWorker implements Runnable {
     }
 
     private void complete(Claim claim, Result result) {
+        Long noticeId = lockNotice(claim);
+        if (noticeId == null) return;
         if (!owns(claim)) return;
         LocalDateTime now = now();
-        var row = jdbc.queryForList("SELECT notice_id FROM ai_parse_tasks WHERE id=? FOR UPDATE", claim.task());
-        if (row.isEmpty()) return;
-        long noticeId = ((Number) row.getFirst().get("notice_id")).longValue();
         for (NoticeParseSchema.ParsedField field : result.fields()) {
             jdbc.update("INSERT INTO ai_parse_fields(id,parse_task_id,field_key,field_value,evidence_location,confidence,human_confirmed,created_at) VALUES(?,?,?,?,?,?,0,?)",
                     ids.nextId(), claim.task(), field.key(), field.value(), field.evidenceLocation(), field.confidence(), now);
@@ -176,11 +175,10 @@ public class NoticeParseWorker implements Runnable {
     }
 
     private void fail(Claim claim, String code, boolean retryable) {
+        Long noticeId = lockNotice(claim);
+        if (noticeId == null) return;
         if (!owns(claim)) return;
         LocalDateTime now = now();
-        var row = jdbc.queryForList("SELECT notice_id FROM ai_parse_tasks WHERE id=? FOR UPDATE", claim.task());
-        if (row.isEmpty()) return;
-        long noticeId = ((Number) row.getFirst().get("notice_id")).longValue();
         boolean exhausted = !retryable || claim.attempt() >= claim.max();
         String status = exhausted ? "failed" : "pending";
         jdbc.update("UPDATE ai_parse_tasks SET status=?,next_retry_at=?,error=?,claim_token=NULL,updated_at=? WHERE id=?",
@@ -200,6 +198,14 @@ public class NoticeParseWorker implements Runnable {
     private long latest(long noticeId) {
         var rows = jdbc.queryForList("SELECT id FROM ai_parse_tasks WHERE notice_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE", Long.class, noticeId);
         return rows.isEmpty() ? 0 : rows.getFirst();
+    }
+
+    /** Same parent-before-task lock order as lease recovery; task ownership is checked only after the parent lock. */
+    private Long lockNotice(Claim claim) {
+        var rows = jdbc.queryForList("SELECT notice_id FROM ai_parse_tasks WHERE id=?", Long.class, claim.task());
+        if (rows.isEmpty()) return null;
+        long notice = rows.getFirst();
+        return jdbc.queryForList("SELECT id FROM notices WHERE id=? FOR UPDATE", notice).isEmpty() ? null : notice;
     }
 
     private boolean owns(Claim claim) {

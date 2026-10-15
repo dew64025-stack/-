@@ -31,6 +31,10 @@ public class SafeUrlReader {
     public static final int MAX_REDIRECTS = 3;
     public static final int MAX_BODY_BYTES = 2 * 1024 * 1024;
     private static final int MAX_HEADER_BYTES = 64 * 1024;
+    private static final java.util.concurrent.ScheduledThreadPoolExecutor HANDSHAKE_DEADLINES =
+            new java.util.concurrent.ScheduledThreadPoolExecutor(1,
+                    task -> Thread.ofPlatform().daemon().name("notice-tls-deadline").unstarted(task));
+    static { HANDSHAKE_DEADLINES.setRemoveOnCancelPolicy(true); }
 
     public static final class FetchFailure extends RuntimeException {
         private final String code;
@@ -107,6 +111,7 @@ public class SafeUrlReader {
         } catch (java.net.SocketTimeoutException e) {
             throw new FetchFailure("TIMEOUT", true, "原文链接读取超时");
         } catch (IOException e) {
+            if (System.nanoTime() >= deadline) throw new FetchFailure("TIMEOUT", true, "原文链接读取超时");
             throw new FetchFailure("UPSTREAM_IO", true, "原文链接读取失败");
         }
     }
@@ -195,6 +200,12 @@ public class SafeUrlReader {
         SSLParameters parameters = context.getDefaultSSLParameters();
         parameters.setServerNames(List.of(new SNIHostName(target.host())));
         socket.setSSLParameters(parameters);
+        var expired = new java.util.concurrent.atomic.AtomicBoolean();
+        // SO_TIMEOUT bounds each read, not a multi-record TLS handshake. Close at the absolute deadline too.
+        var deadlineClose = HANDSHAKE_DEADLINES.schedule(() -> {
+            expired.set(true);
+            try { socket.close(); } catch (IOException ignored) { }
+        }, Math.max(0, deadline - System.nanoTime()), java.util.concurrent.TimeUnit.NANOSECONDS);
         try {
             socket.connect(new InetSocketAddress(target.address(), 443), Math.min(2000, remainingMillis(deadline)));
             socket.setSoTimeout(remainingMillis(deadline));
@@ -206,7 +217,14 @@ public class SafeUrlReader {
             return socket;
         } catch (IOException | RuntimeException failure) {
             try { socket.close(); } catch (IOException ignored) { }
+            if (expired.get() || System.nanoTime() >= deadline) {
+                var timeout = new java.net.SocketTimeoutException("handshake deadline exceeded");
+                timeout.initCause(failure);
+                throw timeout;
+            }
             throw failure;
+        } finally {
+            deadlineClose.cancel(false);
         }
     }
 

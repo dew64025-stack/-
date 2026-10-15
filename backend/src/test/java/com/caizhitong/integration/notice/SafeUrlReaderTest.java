@@ -108,6 +108,40 @@ class SafeUrlReaderTest {
         assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
     }
 
+    @Test
+    void trickledHandshakeIsClosedAtAbsoluteDeadlineAcrossMultipleReads() throws Exception {
+        var socket = org.mockito.Mockito.mock(javax.net.ssl.SSLSocket.class);
+        var closed = new java.util.concurrent.atomic.AtomicBoolean();
+        org.mockito.Mockito.doAnswer(call -> { closed.set(true); return null; }).when(socket).close();
+        org.mockito.Mockito.doAnswer(call -> {
+            // Each fragment arrives well before SO_TIMEOUT, but the whole handshake exceeds the budget.
+            for (int fragment = 0; fragment < 40; fragment++) {
+                if (closed.get()) throw new java.net.SocketException("fixture socket closed");
+                Thread.sleep(25);
+            }
+            return null;
+        }).when(socket).startHandshake();
+        var factory = org.mockito.Mockito.mock(javax.net.ssl.SSLSocketFactory.class);
+        org.mockito.Mockito.when(factory.createSocket()).thenReturn(socket);
+        var ssl = org.mockito.Mockito.mock(javax.net.ssl.SSLContext.class);
+        org.mockito.Mockito.when(ssl.getSocketFactory()).thenReturn(factory);
+        org.mockito.Mockito.when(ssl.getDefaultSSLParameters()).thenReturn(new javax.net.ssl.SSLParameters());
+        var bounded = new SafeUrlReader(ssl, null);
+        Class<?> targetClass = Class.forName(SafeUrlReader.class.getName() + "$Target");
+        var constructor = targetClass.getDeclaredConstructor(String.class, String.class, java.net.InetAddress.class, String.class);
+        constructor.setAccessible(true);
+        Object target = constructor.newInstance("https://example.edu/", "example.edu", java.net.InetAddress.getByAddress(new byte[]{8,8,8,8}), "/");
+        var connect = SafeUrlReader.class.getDeclaredMethod("connect", targetClass, long.class);
+        connect.setAccessible(true);
+        long start = System.nanoTime();
+        var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
+                () -> connect.invoke(bounded, target, start + 150_000_000L));
+        long elapsedMs = java.time.Duration.ofNanos(System.nanoTime() - start).toMillis();
+        assertTrue(elapsedMs < 600, "handshake exceeded absolute deadline: " + elapsedMs + "ms");
+        assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
+        assertTrue(closed.get());
+    }
+
     private SafeUrlReader.FetchFailure blocked(String url) {
         return assertThrows(SafeUrlReader.FetchFailure.class, () -> reader.validate(url));
     }

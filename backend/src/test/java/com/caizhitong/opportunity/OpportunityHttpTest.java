@@ -852,6 +852,72 @@ class OpportunityHttpTest {
         Assertions.assertEquals("2026-10-14T06:00:00Z", result.path("results").get(4).path("evidence").path("expiresAt").asString());
     }
 
+    @Test
+    void parseCompletionWaitsForNoticeWithoutHoldingTaskLock() throws Exception {
+        assertParseWriteWaitsForNoticeFirst(false);
+    }
+
+    @Test
+    void parseFailureWaitsForNoticeWithoutHoldingTaskLock() throws Exception {
+        assertParseWriteWaitsForNoticeFirst(true);
+    }
+
+    void assertParseWriteWaitsForNoticeFirst(boolean fail) throws Exception {
+        String admin = bearer(900, SessionKind.ADMIN);
+        String notice = data(adminCommand("/admin/notices", admin, "{\"title\":\"N\",\"content\":\"fixture\"}", "lock-order-notice")).path("id").asString();
+        adminCommand("/admin/notices/" + notice + "/parse", admin, "{\"version\":0}", "lock-order-parse").andExpect(status().isAccepted());
+        long task = jdbc.queryForObject("SELECT id FROM ai_parse_tasks", Long.class);
+        var attempted = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        // Execute the real JDBC locks; the gates only control which transaction advances first.
+        JdbcTemplate observed = new JdbcTemplate(jdbc.getDataSource()) {
+            @Override public <T> List<T> queryForList(String sql, Class<T> type, Object... args) {
+                var rows = super.queryForList(sql, type, args);
+                if (sql.contains("status='processing' AND claim_token=? FOR UPDATE")) {
+                    attempted.countDown();
+                    try {
+                        if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("test gate timed out");
+                    } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                }
+                return rows;
+            }
+            @Override public List<Map<String, Object>> queryForList(String sql, Object... args) {
+                if (sql.equals("SELECT id FROM notices WHERE id=? FOR UPDATE")) attempted.countDown();
+                return super.queryForList(sql, args);
+            }
+        };
+        ai.result = new DeepSeekClient.Completion("{\"title\":{\"value\":\"N\",\"evidenceLocation\":\"fixture\"}}", "stop", "fixture", 1);
+        var tm = context.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        var worker = new com.caizhitong.ai.notice.NoticeParseWorker(observed, context.getBean(com.caizhitong.common.SnowflakeIds.class),
+                context.getBean(Clock.class), context.getBean(tools.jackson.databind.json.JsonMapper.class), fail ? new DeepSeekClient("", "fixture") : ai,
+                context.getBean(com.caizhitong.integration.notice.SafeUrlReader.class), context.getBean(com.caizhitong.material.files.AttachmentService.class),
+                context.getBean(ActorLoader.class), tm);
+        var taskLockFree = new java.util.concurrent.atomic.AtomicBoolean();
+        var future = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<?>>();
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            new org.springframework.transaction.support.TransactionTemplate(tm).executeWithoutResult(s -> {
+                // Recovery/notice writers hold this same parent row before inspecting the parse task.
+                jdbc.queryForList("SELECT id FROM notices WHERE id=? FOR UPDATE", Long.parseLong(notice));
+                future.set(executor.submit(worker));
+                try {
+                    Assertions.assertTrue(attempted.await(5, java.util.concurrent.TimeUnit.SECONDS), "worker never reached completion/failure lock");
+                    try {
+                        jdbc.queryForList("SELECT id FROM ai_parse_tasks WHERE id=? FOR UPDATE NOWAIT", task);
+                        taskLockFree.set(true);
+                    } catch (org.springframework.dao.CannotAcquireLockException | org.springframework.dao.QueryTimeoutException expectedContention) {
+                        taskLockFree.set(false);
+                    }
+                } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+                finally { release.countDown(); }
+            });
+            future.get().get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } finally { release.countDown(); }
+        Assertions.assertTrue(taskLockFree.get(), "worker held task while waiting for notice, exposing the inverse-lock deadlock");
+        Assertions.assertEquals(fail ? "failed" : "succeeded", jdbc.queryForObject("SELECT status FROM ai_parse_tasks", String.class));
+        Assertions.assertEquals(fail ? "pending" : "reviewing", jdbc.queryForObject("SELECT status FROM notices", String.class));
+        Assertions.assertEquals(fail ? 0 : 1, jdbc.queryForObject("SELECT COUNT(*) FROM ai_parse_fields", Integer.class));
+    }
+
     tools.jackson.databind.JsonNode createChecklist(String token, long opportunity) throws Exception {
         publishedOpportunity(opportunity, "published", null);
         jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,required,sort_order,created_at) VALUES(1,?,'PDF',TRUE,0,CURRENT_TIMESTAMP)", opportunity);
