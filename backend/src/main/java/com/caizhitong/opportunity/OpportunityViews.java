@@ -21,7 +21,10 @@ public final class OpportunityViews {
 
     public record MaterialRequirement(String name, String description, boolean required, int sortOrder) {}
 
-    public record Detail(Opportunity opportunity, Notice notice, List<Rule> eligibilityRules,
+    /** 机会详情：Opportunity 六个来源字段在内的全部基础字段平铺 + 五个详情扩展字段（文档第 6 节）。 */
+    public record Detail(String id, String title, String category, String organizer, String summary, Instant deadline,
+            String status, int version, String sourceType, String sourceName, Instant updatedAt, boolean isStale,
+            String officialReference, String externalId, Notice notice, List<Rule> eligibilityRules,
             List<MaterialRequirement> materialRequirements, long teamCount, boolean isFavorited) {}
 
     public record Page(List<Opportunity> items, String nextCursor, boolean hasMore) {}
@@ -44,6 +47,9 @@ public final class OpportunityViews {
     public record EligibilityResult(String id, String opportunityId, String conclusion, List<EligibilityEngine.Reason> reasons,
             Integer rulesVersion, Integer profileVersion, Instant checkedAt) {}
 
-    public record AsyncJob(String id, String jobType, String status, JsonNode result, String error,
+    /** 错误为 {code,message} 对象（文档第 3 节），不返回裸错误码字符串。 */
+    public record JobError(String code, String message) {}
+
+    public record AsyncJob(String id, String jobType, String status, JsonNode result, JobError error,
             Instant createdAt, Instant updatedAt) {}
 }

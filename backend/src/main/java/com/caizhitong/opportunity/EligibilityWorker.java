@@ -87,11 +87,16 @@ public class EligibilityWorker implements Runnable {
         jdbc.update("INSERT INTO opportunity_eligibility_checks(id,opportunity_id,user_id,conclusion,reason_json,rules_version,profile_snapshot,profile_version,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
                 checkId, opportunityId, owner, verdict.conclusion(), mapper.writeValueAsString(verdict.reasons()), rulesVersion,
                 mapper.writeValueAsString(profile), profileVersion, now);
-        JsonNode result = mapper.readTree(mapper.writeValueAsString(java.util.Map.of(
-                "checkId", Long.toString(checkId), "opportunityId", Long.toString(opportunityId),
-                "conclusion", verdict.conclusion(), "reasons", mapper.readTree(mapper.writeValueAsString(verdict.reasons())),
-                "rulesVersion", rulesVersion, "profileVersion", profileVersion == null ? 0 : profileVersion,
-                "checkedAt", now.toInstant(java.time.ZoneOffset.UTC).toString())));
+        // 结果字段按文档第 6 节：id/opportunityId/conclusion/reasons/rulesVersion/profileVersion?/checkedAt
+        var resultMap = new java.util.LinkedHashMap<String, Object>();
+        resultMap.put("id", Long.toString(checkId));
+        resultMap.put("opportunityId", Long.toString(opportunityId));
+        resultMap.put("conclusion", verdict.conclusion());
+        resultMap.put("reasons", mapper.readTree(mapper.writeValueAsString(verdict.reasons())));
+        resultMap.put("rulesVersion", rulesVersion);
+        resultMap.put("profileVersion", profileVersion);
+        resultMap.put("checkedAt", now.toInstant(java.time.ZoneOffset.UTC).toString());
+        JsonNode result = mapper.readTree(mapper.writeValueAsString(resultMap));
         jdbc.update("UPDATE async_jobs SET status='succeeded',claim_token=NULL,error=NULL,result_json=?,updated_at=? WHERE id=? AND claim_token=?",
                 mapper.writeValueAsString(result), now, claim.job(), claim.token());
     }

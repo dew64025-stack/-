@@ -31,6 +31,23 @@ public class SecurityConfiguration {
                         new AuthorizationDecision(authentication.get().getPrincipal() instanceof com.caizhitong.material.files.UploadClaim)))
                 .build();
     }
+    // Task 5（负责人A）：/jobs/{jobId} 收据按文档第 5 节同时支持学生所有者与同校园管理员。
+    // 与 adminSecurity 同为 @Order(1)：两者 matcher 互不相交（/admin/** 与 /jobs/**），谁先匹配都只会命中一条。
+    @Bean @Order(1) public SecurityFilterChain jobSecurity(HttpSecurity http, JsonSecurityErrors errors,
+            SessionTokenService sessions, JsonMapper mapper, SensitiveDataCrypto crypto) throws Exception {
+        return http.securityMatcher(request -> request.getRequestURI().matches("/api/v1/jobs/[0-9]+"))
+                .csrf(config -> config.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .requestCache(cache -> cache.disable())
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(errors).accessDeniedHandler(errors))
+                .addFilterBefore(new BearerSessionFilter(sessions, new SessionKind[]{SessionKind.STUDENT, SessionKind.ADMIN},
+                        new FilterErrors(mapper)), AnonymousAuthenticationFilter.class)
+                .authorizeHttpRequests(auth -> auth.anyRequest().access((authentication, context) -> {
+                    Object principal = authentication.get().getPrincipal();
+                    return new AuthorizationDecision(principal instanceof Actor actor && "active".equals(actor.status()));
+                }))
+                .build();
+    }
     @Bean @Order(1) public SecurityFilterChain adminSecurity(HttpSecurity http, JsonSecurityErrors errors,
             SessionTokenService sessions, JsonMapper mapper, SensitiveDataCrypto crypto) throws Exception {
         var csrf = new CookieCsrfTokenRepository();

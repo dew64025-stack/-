@@ -108,12 +108,26 @@ class OpportunityHttpTest {
                 .andExpect(jsonPath("$.data.items[0].id").value("12"))
                 .andExpect(jsonPath("$.data.items[1].id").value("11"));
         mvc.perform(get("/api/v1/opportunities/11?campusCode=one")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.opportunity.id").value("11"))
-                .andExpect(jsonPath("$.data.opportunity.sourceType").value("manual"))
+                .andExpect(jsonPath("$.data.id").value("11"))
+                .andExpect(jsonPath("$.data.sourceType").value("manual"))
                 .andExpect(jsonPath("$.data.teamCount").value(0))
                 .andExpect(jsonPath("$.data.isFavorited").value(false));
         mvc.perform(get("/api/v1/opportunities/13?campusCode=one")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/opportunities/14?campusCode=one")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void touristWithoutCampusCodeDefaultsToFirstOpenCampus() throws Exception {
+        publishedOpportunity(15, "published", null);
+        jdbc.update("INSERT INTO campuses VALUES(2,'二校','two','active',NULL)");
+        jdbc.update("INSERT INTO opportunities(id,campus_id,title,category,status,source_type,rules_version,version,created_at,updated_at) VALUES(16,2,'外校机会','scholarship','published','manual',0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        // 文档第 2.8 节:游客省略 campusCode 默认首发开放校园(最早创建)
+        mvc.perform(get("/api/v1/opportunities?limit=10")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value("15"));
+        // 显式指定其他开放校园仍可用
+        mvc.perform(get("/api/v1/opportunities?campusCode=two&limit=10")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value("16"));
     }
 
     @Test
@@ -172,7 +186,9 @@ class OpportunityHttpTest {
                 .andExpect(jsonPath("$.data.profileVersion").value(1))
                 .andExpect(jsonPath("$.data.profileSnapshot").doesNotExist());
         mvc.perform(get("/api/v1/jobs/" + body.path("data").path("id").asString()).header("Authorization", bearer(101, SessionKind.STUDENT)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.result.conclusion").value("eligible"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.result.conclusion").value("eligible"))
+                .andExpect(jsonPath("$.data.result.id").isString())
+                .andExpect(jsonPath("$.data.result.checkedAt").isString());
         mvc.perform(get("/api/v1/jobs/" + body.path("data").path("id").asString()).header("Authorization", bearer(102, SessionKind.STUDENT)))
                 .andExpect(status().isNotFound());
         // 规则快照不随画像/规则修改而变:改画像后旧任务结果不变
@@ -307,7 +323,12 @@ class OpportunityHttpTest {
         var parse = new tools.jackson.databind.json.JsonMapper().readTree(
                 adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":0}", "parse-once")
                         .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.status").value("pending")).andReturn().getResponse().getContentAsString());
-        String taskId = parse.path("data").path("id").asString();
+        // 收据 id 必须是 async_jobs id(文档第 5 节 /jobs/{jobId}),解析任务 id 在任务结果里返回
+        String jobId = parse.path("data").path("id").asString();
+        String taskId = Long.toString(jdbc.queryForObject("SELECT id FROM ai_parse_tasks WHERE notice_id=?", Long.class, Long.parseLong(noticeId)));
+        mvc.perform(get("/api/v1/jobs/" + jobId).header("Authorization", admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobType").value("notice_parse"))
+                .andExpect(jsonPath("$.data.status").value("pending"));
         // 重复解析同一代拒绝
         adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":1}", "parse-again").andExpect(status().isConflict());
         // worker:fake AI 返回固定 Schema 字段
@@ -320,6 +341,10 @@ class OpportunityHttpTest {
         context.getBean("noticeParseWorker", Runnable.class).run();
         Assertions.assertEquals("succeeded", jdbc.queryForObject("SELECT status FROM ai_parse_tasks WHERE id=?", String.class, Long.parseLong(taskId)));
         Assertions.assertEquals("reviewing", jdbc.queryForObject("SELECT status FROM notices WHERE id=?", String.class, Long.parseLong(noticeId)));
+        // 收据完成并可取出解析任务 id
+        mvc.perform(get("/api/v1/jobs/" + jobId).header("Authorization", admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("succeeded"))
+                .andExpect(jsonPath("$.data.result.parseTaskId").value(taskId));
         mvc.perform(get("/api/v1/admin/notice-parse-tasks/" + taskId).header("Authorization", admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.fields.length()").value(4))
                 .andExpect(jsonPath("$.data.fields[0].humanConfirmed").value(false));
@@ -362,17 +387,19 @@ class OpportunityHttpTest {
         var parse = new tools.jackson.databind.json.JsonMapper().readTree(
                 adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":0}", "parse-fail")
                         .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
-        String taskId = parse.path("data").path("id").asString();
+        String taskId = Long.toString(jdbc.queryForObject("SELECT id FROM ai_parse_tasks WHERE notice_id=?", Long.class, Long.parseLong(noticeId)));
         ai.result = new DeepSeekClient.Completion("{\"title\":{\"value\":\"标题\",\"evidenceLocation\":\"原文没有这句话\",\"confidence\":0.9}}", "stop", "deepseek-flash", 1L);
         context.getBean("noticeParseWorker", Runnable.class).run();
         Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM ai_parse_tasks WHERE id=?", String.class, Long.parseLong(taskId)));
         Assertions.assertEquals("pending", jdbc.queryForObject("SELECT status FROM notices WHERE id=?", String.class, Long.parseLong(noticeId)));
+        // 不可重试失败:收据同步 failed,不停在 pending
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=(SELECT async_job_id FROM ai_parse_tasks WHERE id=?)", String.class, Long.parseLong(taskId)));
         // reject 分支:先跑一个成功的解析
         ai.result = new DeepSeekClient.Completion("{\"title\":{\"value\":\"T\",\"evidenceLocation\":\"原文内容足够长\",\"confidence\":0.9}}", "stop", "deepseek-flash", 1L);
         var parse2 = new tools.jackson.databind.json.JsonMapper().readTree(
                 adminCommand("/admin/notices/" + noticeId + "/parse", admin, "{\"version\":1}", "parse-two")
                         .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString());
-        String task2 = parse2.path("data").path("id").asString();
+        String task2 = Long.toString(jdbc.queryForObject("SELECT id FROM ai_parse_tasks WHERE notice_id=? AND status IN ('pending','processing') ORDER BY id DESC LIMIT 1", Long.class, Long.parseLong(noticeId)));
         context.getBean("noticeParseWorker", Runnable.class).run();
         Assertions.assertEquals("reviewing", jdbc.queryForObject("SELECT status FROM notices WHERE id=?", String.class, Long.parseLong(noticeId)));
         adminCommand("/admin/notice-parse-tasks/" + task2 + "/review", admin,
@@ -541,6 +568,39 @@ class OpportunityHttpTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.stale").value(false))
                 .andExpect(jsonPath("$.data.results[0].level").value("passed"));
         Assertions.assertEquals("basic_complete", jdbc.queryForObject("SELECT status FROM material_checklist_items WHERE checklist_id=?", String.class, Long.parseLong(checklistId)));
+    }
+
+    @Test
+    void checklistPrecheckFailureFinalizesJobReceiptInsteadOfHangingPending() throws Exception {
+        student(101);
+        publishedOpportunity(96, "published", null);
+        String bearer = bearer(101, SessionKind.STUDENT);
+        var checklist = new tools.jackson.databind.json.JsonMapper().readTree(
+                mvc.perform(put("/api/v1/opportunities/96/checklist").header("Authorization", bearer).header("Idempotency-Key", "cl-fail96")
+                        .contentType("application/json").content("{}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String checklistId = checklist.path("data").path("id").asString();
+        // 构造坏输入快照 → worker 处理抛错 → 有限重试耗尽后 failed,收据同步 failed 而不是永远 pending
+        jdbc.update("INSERT INTO async_jobs(id,job_type,payload_json,status,campus_id,owner_user_id,access_domain,retry_count,max_retries,created_at,updated_at) VALUES(801,'checklist_precheck','{}','pending',1,101,'student',0,3,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO precheck_tasks(id,checklist_id,user_id,async_job_id,status,checklist_version,rules_version,input_digest,input_snapshot,model_config_version,retry_count,created_at,updated_at) VALUES(1,?,101,801,'pending',0,0,'x','{\"items\":[{\"checklistItemId\":\"not-a-number\"}]}','material-precheck:v1',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                Long.parseLong(checklistId));
+        for (int i = 0; i < 3; i++) {
+            context.getBean("checklistPrecheckWorker", Runnable.class).run();
+            jdbc.update("UPDATE precheck_tasks SET next_retry_at=NULL WHERE id=1");
+        }
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM precheck_tasks WHERE id=1", String.class));
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=801", String.class));
+        mvc.perform(get("/api/v1/jobs/801").header("Authorization", bearer))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("failed"))
+                .andExpect(jsonPath("$.data.error.code").value("CHECKLIST_PRECHECK_FAILED"))
+                .andExpect(jsonPath("$.data.error.message").isString());
+        // 租约恢复路径:处理中超时且重试耗尽 → 收据同样同步 failed,不停在 pending
+        jdbc.update("INSERT INTO async_jobs(id,job_type,payload_json,status,campus_id,owner_user_id,access_domain,retry_count,max_retries,created_at,updated_at) VALUES(802,'checklist_precheck','{}','running',1,101,'student',3,3,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        // 固定时钟 NOW=2026-10-15T06:00:00Z,picked_at 需早于 05:55 才构成租约过期
+        jdbc.update("INSERT INTO precheck_tasks(id,checklist_id,user_id,async_job_id,status,checklist_version,rules_version,input_digest,input_snapshot,model_config_version,retry_count,picked_at,created_at,updated_at) VALUES(2,?,101,802,'running',0,0,'x','{}','material-precheck:v1',3,'2026-10-15 05:50:00',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                Long.parseLong(checklistId));
+        context.getBean("checklistPrecheckWorker", Runnable.class).run();
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM precheck_tasks WHERE id=2", String.class));
+        Assertions.assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=802", String.class));
     }
 
     @Test

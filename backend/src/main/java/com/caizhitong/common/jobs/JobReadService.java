@@ -51,10 +51,30 @@ public class JobReadService {
         };
         if (!allowed) throw missing();
         String result = (String) row[3];
+        String errorCode = (String) row[4];
         return new OpportunityViews.AsyncJob(Long.toString((Long) row[0]), (String) row[1], (String) row[2],
-                result == null ? null : mapper.readTree(result), (String) row[4],
+                result == null ? null : mapper.readTree(result),
+                errorCode == null ? null : new OpportunityViews.JobError(errorCode, describe(errorCode)),
                 row[5] == null ? null : ((LocalDateTime) row[5]).toInstant(ZoneOffset.UTC),
                 row[6] == null ? null : ((LocalDateTime) row[6]).toInstant(ZoneOffset.UTC));
+    }
+
+    /** 错误码 → 面向客户端的中文说明；未知码不泄露内部细节。 */
+    private String describe(String code) {
+        return switch (code) {
+            case "ELIGIBILITY_LEASE_EXPIRED", "ELIGIBILITY_FAILED" -> "资格检查执行失败";
+            case "PARSE_FAILED", "PARSE_LEASE_EXPIRED", "AI_KEY_MISSING", "AI_TIMEOUT", "AI_UPSTREAM", "AI_UNAUTHORIZED",
+                    "AI_PAYMENT", "AI_REQUEST", "AI_RATE_LIMITED", "AI_BAD_RESPONSE", "AI_RESPONSE_TOO_LARGE" -> "通知解析失败";
+            case "FETCH_URL_INVALID", "FETCH_URL_SCHEME", "FETCH_URL_PORT", "FETCH_URL_BLOCKED", "FETCH_TLS_HOST",
+                    "FETCH_TLS_FAILED", "FETCH_REDIRECT_INVALID", "FETCH_TOO_MANY_REDIRECTS", "FETCH_UPSTREAM_STATUS",
+                    "FETCH_UPSTREAM_IO", "FETCH_TIMEOUT", "FETCH_HEADER_TOO_LARGE", "FETCH_BODY_TOO_LARGE",
+                    "FETCH_DNS_FAILED", "FETCH_CONTENT_TYPE", "FETCH_PROTOCOL" -> "通知原文读取失败";
+            case "MATERIAL_PRECHECK_LEASE_EXPIRED", "MATERIAL_PRECHECK_FAILED",
+                    "CHECKLIST_PRECHECK_FAILED", "CHECKLIST_PRECHECK_LEASE_EXPIRED" -> "材料预检执行失败";
+            case "JOB_SCOPE_INVALID", "OPPORTUNITY_GONE", "RULES_SNAPSHOT_MISSING", "NOTICE_GONE", "NO_SOURCE",
+                    "ATTACHMENT_NO_TEXT", "ATTACHMENT_UNREADABLE", "ATTACHMENT_NO_OCR", "ATTACHMENT_OWNER_MISSING" -> "任务输入已不可用";
+            default -> "任务执行失败";
+        };
     }
 
     private BusinessException missing() { return new BusinessException(404, "NOT_FOUND", "未找到该任务"); }

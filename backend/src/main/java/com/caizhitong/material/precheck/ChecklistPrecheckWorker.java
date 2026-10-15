@@ -63,6 +63,9 @@ public class ChecklistPrecheckWorker implements Runnable {
         LocalDateTime now = now();
         jdbc.update("UPDATE precheck_tasks SET status=CASE WHEN retry_count>=3 THEN 'failed' ELSE 'pending' END,claim_token=NULL,next_retry_at=?,updated_at=?,result_json=NULL WHERE status='running' AND picked_at<?",
                 now, now, now.minusMinutes(5));
+        // 租约恢复同 fail() 一样要终结收据:重试耗尽的恢复任务,其 async_jobs 不能永远停在中途
+        jdbc.update("UPDATE async_jobs SET status='failed',error='CHECKLIST_PRECHECK_LEASE_EXPIRED',updated_at=? WHERE status NOT IN ('succeeded','failed') AND id IN (SELECT async_job_id FROM precheck_tasks WHERE status='failed' AND retry_count>=3 AND claim_token IS NULL AND async_job_id IS NOT NULL)",
+                now);
         var rows = jdbc.query("SELECT id,retry_count FROM precheck_tasks WHERE status='pending' AND retry_count<3 AND (next_retry_at IS NULL OR next_retry_at<=?) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED",
                 (r, i) -> new Claim(r.getLong(1), UUID.randomUUID().toString(), r.getInt(2) + 1, 3), now);
         if (rows.isEmpty()) return null;
@@ -156,8 +159,14 @@ public class ChecklistPrecheckWorker implements Runnable {
     private void fail(Claim claim) {
         if (!owns(claim)) return;
         LocalDateTime now = now();
+        boolean exhausted = claim.attempt() >= claim.max();
         jdbc.update("UPDATE precheck_tasks SET status=?,next_retry_at=?,claim_token=NULL,updated_at=? WHERE id=?",
-                claim.attempt() >= claim.max() ? "failed" : "pending", now.plusSeconds(30), now, claim.task());
+                exhausted ? "failed" : "pending", now.plusSeconds(30), now, claim.task());
+        // 收据与任务状态一致：重试期间保持 pending，耗尽才 failed，不能让 /jobs/{jobId} 永远停在中途
+        if (exhausted) {
+            jdbc.update("UPDATE async_jobs SET status='failed',error='CHECKLIST_PRECHECK_FAILED',updated_at=? WHERE id IN (SELECT async_job_id FROM precheck_tasks WHERE id=? AND async_job_id IS NOT NULL)",
+                    now, claim.task());
+        }
     }
 
     private boolean owns(Claim claim) {

@@ -39,12 +39,12 @@ public class OpportunityService {
         this.mapper = mapper;
     }
 
-    /** 登录用户用其校园；游客带 campusCode，或全站仅一个开放校园时自动采用。 */
+    /** 登录用户用其校园；游客带 campusCode，省略时按文档第 2.8 节默认首发开放校园（最早创建）。 */
     public long scope(String campusCode) {
         return current.optional().map(Actor::campusId).orElseGet(() -> {
             if (campusCode != null) return campuses.open(campusCode);
-            var rows = jdbc.queryForList("SELECT id FROM campuses WHERE status='active' AND deleted_at IS NULL ORDER BY id", Long.class);
-            if (rows.size() != 1) throw invalid();
+            var rows = jdbc.queryForList("SELECT id FROM campuses WHERE status='active' AND deleted_at IS NULL ORDER BY id LIMIT 1", Long.class);
+            if (rows.isEmpty()) throw invalid();
             return rows.getFirst();
         });
     }
@@ -132,7 +132,11 @@ public class OpportunityService {
         boolean isFavorited = current.optional()
                 .map(actor -> jdbc.queryForObject("SELECT COUNT(*) FROM favorites WHERE user_id=? AND target_type='opportunity' AND target_id=?", Integer.class, actor.userId(), idValue) > 0)
                 .orElse(false);
-        return new OpportunityViews.Detail(opportunity, notice, rules, requirements, teamCount, isFavorited);
+        return new OpportunityViews.Detail(opportunity.id(), opportunity.title(), opportunity.category(), opportunity.organizer(),
+                opportunity.summary(), opportunity.deadline(), opportunity.status(), opportunity.version(),
+                opportunity.sourceType(), opportunity.sourceName(), opportunity.updatedAt(), opportunity.isStale(),
+                opportunity.officialReference(), opportunity.externalId(),
+                notice, rules, requirements, teamCount, isFavorited);
     }
 
     /** 通知只带已获发布依据的安全原文与来源，不含任何管理员字段。 */

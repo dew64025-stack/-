@@ -154,7 +154,8 @@ public class AdminNoticeService {
                 task, notice, job, now, now);
         jdbc.update("UPDATE notices SET status='parsing',version=version+1,updated_at=? WHERE id=?", now, notice);
         audit(actor, "notice.parse", "notice", notice, Map.of("parseTaskId", Long.toString(task)));
-        return new OpportunityViews.AsyncJob(Long.toString(task), "notice_parse", "pending", null, null, clock.instant(), clock.instant());
+        // 收据 id 必须是 async_jobs 的 id（文档第 5 节 /jobs/{jobId}），解析任务 id 在任务结果里返回
+        return new OpportunityViews.AsyncJob(Long.toString(job), "notice_parse", "pending", null, null, clock.instant(), clock.instant());
     }
 
     /** 字段级解析结果；跨校 404；不含内部 payload/对象键。 */

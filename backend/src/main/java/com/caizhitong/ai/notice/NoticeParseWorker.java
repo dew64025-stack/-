@@ -84,6 +84,9 @@ public class NoticeParseWorker implements Runnable {
         LocalDateTime now = now();
         jdbc.update("UPDATE ai_parse_tasks SET status=CASE WHEN retry_count>=3 THEN 'failed' ELSE 'pending' END,claim_token=NULL,next_retry_at=?,updated_at=?,error='PARSE_LEASE_EXPIRED' WHERE status='processing' AND picked_at<?",
                 now, now, now.minusMinutes(5));
+        // 租约恢复同 fail() 一样要终结收据:重试耗尽的恢复任务,其 async_jobs 不能永远停在中途
+        jdbc.update("UPDATE async_jobs SET status='failed',error='PARSE_LEASE_EXPIRED',updated_at=? WHERE status NOT IN ('succeeded','failed') AND id IN (SELECT async_job_id FROM ai_parse_tasks WHERE status='failed' AND error='PARSE_LEASE_EXPIRED' AND async_job_id IS NOT NULL)",
+                now);
         var rows = jdbc.query("SELECT id,retry_count FROM ai_parse_tasks WHERE status='pending' AND retry_count<3 AND (next_retry_at IS NULL OR next_retry_at<=?) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED",
                 (r, i) -> new Claim(r.getLong(1), UUID.randomUUID().toString(), r.getInt(2) + 1, 3), now);
         if (rows.isEmpty()) return null;
@@ -177,7 +180,8 @@ public class NoticeParseWorker implements Runnable {
         if (exhausted && latest(noticeId) == claim.task()) {
             jdbc.update("UPDATE notices SET status='pending',updated_at=? WHERE id=?", now, noticeId);
         }
-        finishAsyncJob(claim, "failed", null, code);
+        // 收据与任务状态一致：可重试时保持 pending，耗尽才 failed
+        finishAsyncJob(claim, exhausted ? "failed" : "pending", null, code);
     }
 
     private void finishAsyncJob(Claim claim, String status, String resultJson, String error) {
