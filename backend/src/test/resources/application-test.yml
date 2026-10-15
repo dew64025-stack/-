@@ -18,6 +18,8 @@ spring:
     redis:
       password: ""
 app:
+  files:
+    scheduling-enabled: false
   identity:
     roster-scheduling-enabled: false
   ids:

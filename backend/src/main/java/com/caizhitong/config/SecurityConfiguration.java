@@ -19,6 +19,18 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Configuration @EnableMethodSecurity
 public class SecurityConfiguration {
+    @Bean @Order(0) public SecurityFilterChain uploadSecurity(HttpSecurity http, JsonSecurityErrors errors,
+            com.caizhitong.material.files.UploadService uploads,JsonMapper mapper) throws Exception {
+        return http.securityMatcher(request -> RoutePolicy.binaryUpload(request.getMethod(),request.getRequestURI()))
+                .csrf(config -> config.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .requestCache(cache -> cache.disable())
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(errors).accessDeniedHandler(errors))
+                .addFilterBefore(new com.caizhitong.material.files.UploadCredentialFilter(uploads,new FilterErrors(mapper)),AnonymousAuthenticationFilter.class)
+                .authorizeHttpRequests(auth -> auth.anyRequest().access((authentication,context) ->
+                        new AuthorizationDecision(authentication.get().getPrincipal() instanceof com.caizhitong.material.files.UploadClaim)))
+                .build();
+    }
     @Bean @Order(1) public SecurityFilterChain adminSecurity(HttpSecurity http, JsonSecurityErrors errors,
             SessionTokenService sessions, JsonMapper mapper, SensitiveDataCrypto crypto) throws Exception {
         var csrf = new CookieCsrfTokenRepository();

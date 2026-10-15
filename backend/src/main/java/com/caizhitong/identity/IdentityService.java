@@ -15,7 +15,8 @@ import static com.caizhitong.identity.IdentityViews.*;
 
 @Service public class IdentityService {
     private final JdbcTemplate jdbc;private final CurrentActor current;private final SensitiveDataCrypto crypto;private final SnowflakeIds ids;private final JsonMapper mapper;private final Clock clock;private final CursorCodec cursors;
-    public IdentityService(JdbcTemplate jdbc,CurrentActor current,SensitiveDataCrypto crypto,SnowflakeIds ids,JsonMapper mapper,Clock clock,CursorCodec cursors){this.jdbc=jdbc;this.current=current;this.crypto=crypto;this.ids=ids;this.mapper=mapper;this.clock=clock;this.cursors=cursors;}
+    private final com.caizhitong.material.files.AvatarUrls avatarUrls;
+    public IdentityService(JdbcTemplate jdbc,CurrentActor current,SensitiveDataCrypto crypto,SnowflakeIds ids,JsonMapper mapper,Clock clock,CursorCodec cursors,com.caizhitong.material.files.AvatarUrls avatarUrls){this.jdbc=jdbc;this.current=current;this.crypto=crypto;this.ids=ids;this.mapper=mapper;this.clock=clock;this.cursors=cursors;this.avatarUrls=avatarUrls;}
     public User me(){return user(current.require());}
     public User user(Actor actor){User row=jdbc.queryForObject("SELECT id,campus_id,nickname,avatar_url,status,version FROM users WHERE id=? AND campus_id=? AND deleted_at IS NULL",(r,i)->new User(r.getString(1),r.getString(2),r.getString(3),r.getString(4),r.getString(5),false,null,null,r.getInt(6)),actor.userId(),actor.campusId());return new User(row.id(),row.campusId(),row.nickname(),row.avatarUrl(),row.status(),actor.phoneBound(),maskedPhone(actor.userId(),actor.phoneBound()),verification(actor.userId(),actor.campusId()).status(),row.version());}
     private String maskedPhone(long user,boolean bound){if(!bound)return null;var values=jdbc.queryForList("SELECT phone_encrypted FROM user_phones WHERE user_id=? AND verified=1",byte[].class,user);return values.isEmpty()?null:mask(crypto.decrypt("phone",values.getFirst()));}
@@ -27,7 +28,14 @@ import static com.caizhitong.identity.IdentityViews.*;
     @BusinessWrite public User update(Update input){Actor actor=current.require();lock(actor);int version=version(input.version());String nickname=input.nickname()==null?me().nickname():text(input.nickname(),64,false);User old=me();String url=input.avatarAttachmentId()==null?old.avatarUrl():null;
         if(jdbc.update("UPDATE users SET nickname=?,avatar_url=?,avatar_attachment_id=CASE WHEN ? THEN ? ELSE avatar_attachment_id END,version=version+1,updated_at=? WHERE id=? AND campus_id=? AND version=?",nickname,url,input.avatarAttachmentId()!=null,input.avatarAttachmentId()==null||input.avatarAttachmentId().isNull()?null:id(input.avatarAttachmentId()),now(),actor.userId(),actor.campusId(),version)!=1)throw conflict();User value=me();return new User(value.id(),value.campusId(),value.nickname(),null,value.status(),value.phoneBound(),value.phoneMasked(),value.verificationStatus(),value.version());}
     /** Avatar access URLs are hydrated outside the business proxy and never enter persisted replay DTOs. */
-    public User userResponse(User value){Actor actor=current.require();if(!Long.toString(actor.userId()).equals(value.id()))throw forbidden();return new User(value.id(),value.campusId(),value.nickname(),me().avatarUrl(),value.status(),value.phoneBound(),value.phoneMasked(),value.verificationStatus(),value.version());}
+    public User userResponse(User value) {
+        Actor actor=current.require();
+        if(!Long.toString(actor.userId()).equals(value.id())||!Long.toString(actor.campusId()).equals(value.campusId()))throw forbidden();
+        var row=jdbc.queryForMap("SELECT avatar_attachment_id,avatar_url FROM users WHERE id=? AND campus_id=?",actor.userId(),actor.campusId());
+        String url=row.get("avatar_attachment_id")==null?(String)row.get("avatar_url"):
+                avatarUrls.avatarUrl(actor,((Number)row.get("avatar_attachment_id")).longValue());
+        return new User(value.id(),value.campusId(),value.nickname(),url,value.status(),value.phoneBound(),value.phoneMasked(),value.verificationStatus(),value.version());
+    }
     @BusinessWrite public Profile updateProfile(ProfileUpdate input){Actor actor=current.require();lock(actor);Profile old=profile(actor.userId());if(old.version()!=version(input.version()))throw conflict();
         String college=input.college()==null?old.college():text(input.college(),128,true),grade=input.grade()==null?old.grade():text(input.grade(),32,true);
         if(college!=null&&jdbc.queryForObject("SELECT COUNT(*) FROM campus_organizations WHERE campus_id=? AND name=? AND type='college' AND status='active' AND deleted_at IS NULL",Integer.class,actor.campusId(),college)==0)throw invalid();

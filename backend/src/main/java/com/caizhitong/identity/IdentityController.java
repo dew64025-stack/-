@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
     public IdentityController(IdentityService service,CurrentActor current,IdentityFiles files,SessionTokenService sessions,WechatIdentityService wechat){this.service=service;this.current=current;this.files=files;this.sessions=sessions;this.wechat=wechat;}
     @PostMapping("/auth/wechat/login") public ApiResponse<?> login(@RequestBody Login input,HttpServletRequest r){return ok(wechat.login(input,r.getRemoteAddr()),r);}
     @PostMapping("/auth/phone/bind") public ApiResponse<?> phone(@RequestBody Phone input,HttpServletRequest r){return ok(wechat.bind(input),r);}
-    @GetMapping("/me") public ApiResponse<?> me(HttpServletRequest r){return ok(service.me(),r);}
+    @GetMapping("/me") public ApiResponse<?> me(HttpServletRequest r){return ok(service.userResponse(service.me()),r);}
     @PostMapping("/me/update") public ApiResponse<?> update(@RequestBody Update input,HttpServletRequest r){if(input.avatarAttachmentId()!=null&&!input.avatarAttachmentId().isNull())files.validateAvatar(current.require(),IdentityInputs.id(input.avatarAttachmentId()));return ok(service.userResponse(service.update(input)),r);}
     @GetMapping("/me/profile") public ApiResponse<?> profile(HttpServletRequest r){return ok(service.profile(),r);}
     @PostMapping("/me/profile/update") public ApiResponse<?> profileUpdate(@RequestBody ProfileUpdate input,HttpServletRequest r){return ok(service.updateProfile(input),r);}

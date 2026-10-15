@@ -111,7 +111,8 @@ class SessionHttpBoundaryTest {
                 .andExpect(status().isForbidden());
     }
     @Test void uploadBearerIsNotATemporaryUploadCredentialAndAdminLoginValidatesInput() throws Exception {
-        mvc.perform(post("/api/v1/files/uploads/10001").header("Authorization", bearer(10001, SessionKind.STUDENT))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/files/uploads/10001").header("Authorization", bearer(10001, SessionKind.STUDENT)))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("INVALID_UPLOAD_CREDENTIAL"));
         mvc.perform(adminCsrf(post("/api/v1/admin/auth/login"),true)).andExpect(status().isBadRequest());
     }
     @Test void interleavedRefreshAndLogoutReturns401AndCurrentCredentialsCanLogoutNormally() throws Exception {
