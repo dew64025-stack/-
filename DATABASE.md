@@ -75,6 +75,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunities TO 'caizhitong_
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_eligibility_rules TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_eligibility_checks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_material_items TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.opportunity_rule_snapshots TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.favorites TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reminders TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_opportunity_submissions TO 'caizhitong_app'@'<ip>';
@@ -161,6 +162,13 @@ sql/V3__service_and_reservation.sql     服务与预约（13 表）
 sql/V4__mutual_aid_and_community.sql    互助与社区（12 表）
 sql/V5__messaging_governance_integration.sql  消息/治理/集成（16 表）
 sql/V6__supplementary_models.sql        补充模型（4 表）
+sql/V7__runtime_coordination.sql        运行时协调（幂等记录等）
+sql/V8__identity_runtime.sql            身份运行时约束
+sql/V9__files_and_jobs.sql              安全文件与任务
+sql/V10__opportunity_runtime.sql        机会运行时（负责人A：解析租约/复核、提交唯一约束、规则快照）
+sql/V11__checklist_precheck_runtime.sql 清单预检运行时（负责人A：任务租约、AI 授权依据）
+sql/V14__mutual_aid_ratings.sql         互助评价（负责人C）
+sql/V15__community_governance_runtime.sql 社区治理运行时（负责人C）
 ```
 
 **演示种子目录** `demo/`（仅演示环境执行，生产 Flyway 不加载）：
