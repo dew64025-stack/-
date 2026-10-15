@@ -19,13 +19,15 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
+import org.springframework.stereotype.Component;
 
 /**
  * 受限原文读取：仅 HTTPS、逐跳解析并验证全部 A/AAAA 目标、拒内网/环回/链路本地/保留地址、
  * TLS 校验原主机、连接固定到已验证地址、最多 3 次重定向且每跳重新检查、正文与解压后均有上限。
  * 不信任系统代理，不提供任何测试绕过开关。错误信息不回显完整上游 URL/响应。
  */
-public final class SafeUrlReader {
+@Component
+public class SafeUrlReader {
     public static final int MAX_REDIRECTS = 3;
     public static final int MAX_BODY_BYTES = 2 * 1024 * 1024;
     private static final int MAX_HEADER_BYTES = 64 * 1024;
@@ -43,6 +45,18 @@ public final class SafeUrlReader {
     }
 
     public record Fetched(String body, String contentType) {}
+
+    private final SSLContext sslContext;
+    private final javax.net.ssl.HostnameVerifier hostnameVerifier;
+
+    /** 生产默认：系统信任库 + 默认主机名校验。 */
+    public SafeUrlReader() { this(null, null); }
+
+    /** 测试注入：受控信任边界；生产不提供测试绕过开关。 */
+    public SafeUrlReader(SSLContext sslContext, javax.net.ssl.HostnameVerifier hostnameVerifier) {
+        this.sslContext = sslContext;
+        this.hostnameVerifier = hostnameVerifier;
+    }
 
     public Fetched fetch(String url) {
         if (url == null || url.length() > 1024) throw new FetchFailure("URL_INVALID", false, "原文链接不合法");
@@ -173,7 +187,8 @@ public final class SafeUrlReader {
 
     private SSLSocket connect(Target target) throws IOException {
         SSLContext context;
-        try { context = SSLContext.getDefault(); } catch (Exception e) { throw new FetchFailure("TLS_FAILED", true, "安全连接不可用"); }
+        try { context = sslContext != null ? sslContext : SSLContext.getDefault(); }
+        catch (Exception e) { throw new FetchFailure("TLS_FAILED", true, "安全连接不可用"); }
         SSLSocketFactory factory = context.getSocketFactory();
         SSLSocket socket = (SSLSocket) factory.createSocket();
         SSLParameters parameters = context.getDefaultSSLParameters();
@@ -181,7 +196,8 @@ public final class SafeUrlReader {
         socket.setSSLParameters(parameters);
         socket.connect(new InetSocketAddress(target.address(), 443), 2000);
         socket.startHandshake();
-        if (!HttpsURLConnection.getDefaultHostnameVerifier().verify(target.host(), socket.getSession()))
+        javax.net.ssl.HostnameVerifier verifier = hostnameVerifier != null ? hostnameVerifier : HttpsURLConnection.getDefaultHostnameVerifier();
+        if (!verifier.verify(target.host(), socket.getSession()))
             throw new FetchFailure("TLS_HOST", false, "原文链接证书与主机不匹配");
         return socket;
     }
