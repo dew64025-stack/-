@@ -60,8 +60,8 @@ public class MaterialService {
         var attachments=jdbc.queryForList("SELECT DISTINCT attachment_id FROM material_versions WHERE file_id=? AND attachment_id IS NOT NULL ORDER BY attachment_id",Long.class,id);
         for(long attachment:attachments){
             var a=files.owner(current.require(),attachment,"material",false,true);
-            // Creators/appends take this same attachment lock before adding a reference.
-            if(jdbc.queryForObject("SELECT COUNT(*) FROM material_versions v JOIN material_files m ON m.id=v.file_id WHERE v.attachment_id=? AND m.status='active' AND m.id<>?",Integer.class,attachment,id)>0)continue;
+            // All reference changes take this attachment lock. A locking read must also bypass any older RR snapshot.
+            if(!jdbc.queryForList("SELECT v.id FROM material_versions v JOIN material_files m ON m.id=v.file_id WHERE v.attachment_id=? AND m.status='active' AND m.id<>? LIMIT 1 FOR UPDATE",Long.class,attachment,id).isEmpty())continue;
             jdbc.update("UPDATE file_attachments SET state='deleted',updated_at=? WHERE id=?",now(),attachment);
             uploads.cleanup(a.key(),null,attachment,now());
         }

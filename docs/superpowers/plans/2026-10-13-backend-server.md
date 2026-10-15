@@ -146,11 +146,29 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 
 ## Task 5: 通知、机会、AI解析与资格
 
-**Files:** opportunity/、ai/notice/、integration/providers/、admin/opportunity/；追加迁移；test。
-- [ ] RED：第6、16.3节全部相关路由，公开仅published/ended可见，人工发布门禁，解析字段证据与置信度、资格unknown不判eligible、用户自行提交唯一。
-- [ ] 真实持久化收藏/提醒/画像快照，规则辅助判定；后台通知上传/审核/发布/截止/归档状态机。
-- [ ] AI适配只接固定Schema，外部内容不作为指令；失败转人工，不伪造解析结论。
-- [ ] GREEN：跨校读写、版本和幂等、发布审批测试，本地检查点。
+**Files:** opportunity/（机会查询、规则与快照、资格worker、收藏提醒各自负责）、ai/notice/（原文提取、固定Schema与解析worker）、integration/providers/（来源元信息）、integration/notice/（受限URL读取）、common/jobs/（授权任务读取）、admin/opportunity/（通知与机会管理）；sql/V10__opportunity_runtime.sql；对应test与独立测试schema；docs/backend/机会模块说明。不得将所有职责堆进一个服务或Controller。
+
+**精确范围与接口交接：** 第6节11条、第16.3节10条路由，以及提前实现第5节GET /jobs/{jobId}，共22条计划路由。Task12复用任务读取，不重复创建Controller。异步收据和读取使用契约AsyncJob；解析专用读取仍保留字段级数据。复用V8/V9的可信任务归属、领取和扫描边界，不从payload猜用户，也不把未知归属旧任务开放给人。Task4提供AttachmentService.owner/readCleanOwner与LinkedAttachmentPolicy；通知附件只允许本校当前管理员自己的clean notice_document文件，外部文件读取在事务外。材料提醒引用本人active材料；资源、互助、社区收藏和借用/预约提醒通过窄目标访问接口接入，当前任务实现真实的opportunity/material策略，其余类型先明确拒绝，报告并交接Task7/9/11补真实可见性，禁止同校即授权的通用表CRUD。供Task6消费的机会规则版本、材料要求快照和读取权限应形成窄接口；报告须写出实际完整签名和不可变约束，Task6 brief据此补齐。
+
+**公开查询：** 数据字典与V2的精确状态是published/expired，不引入ended。创建始终显式draft，不采用旧SQL的published默认。仅本校未删除且人工发布过的published/expired公开；draft/parsing/reviewing/archived不可见，关联通知只能带已获发布依据的安全原文与来源，不泄露画像或管理员字段。人工撤回为archived；截止状态持久化为expired，过期调度有条件更新，不能把未发布草稿按时间自动公开。游客校园遵守现有开放校园解析，登录后的campusCode不能换校。q为1～100字符，category严格五类，时间区间为带时区RFC3339且起止有序。机会列表deadline ASC,id ASC，NULL deadline最后；其他列表createdAt DESC,id DESC。游标签名绑定校园、过滤、排序，默认20/最大100，参数化查询并将搜索通配符按普通数据处理。六个来源字段必须在顶层；人工输入固定manual，不能靠请求伪造official/demo，不配置官方协议时明确未接通且无demo兜底。
+
+**通知与人工发布门禁：** 通知title 1～256、publisher≤128、rawUrl≤1024；content/rawUrl/attachmentId至少一项。原文正文上限100000字符；不得接收sourceType、发布状态或校园/创建人。通知pending→parsing→reviewing，失败回到可人工处理状态并保留安全错误/原文；同通知仅当前parse generation可审核，重复/并发审核有锁和状态前置。parse登记与审计原子提交后202，模型/URL/文件读取不持有长事务。逐字段review只接受本任务固定Schema的键，每键一次且值类型/长度正确；approve必须确认所有有效抽取字段，保留人工修正和理由，只生成draft，不能直接公开。失败解析不伪造字段，仍可通过POST /admin/opportunities人工录入并审查发布。发布校验当前version、完整必需字段、关联通知的人工确认依据和规则快照；已发布规则必须撤回后才能修改。无noticeId的人工草稿由有opportunity.publish权限的管理员显式发布并记录不可变审计。reason 1～512，跨校404，重放前仍验证当前权限/对象归属。
+
+**规则与历史：** OpportunityDraft与更新字段遵守API16.3，title≤256、organizer≤128、summary≤100000、材料name≤128/description≤512；数组最多100项，sortOrder为非负整数且稳定排序。eligibilityRules只接受field/operator/value/severity/sortOrder，operator精确eq/ne/in/contains/range、severity=hard/soft，不执行表达式/SQL/脚本；按已知画像字段类型校验operator/value，未支持的字段返回人工确认/possible，不能凭缺值或任意字符串比较得eligible。range只有能严格解析、有上下界且类型可比较才判断；歧义或缺失值是unknown。材料validationRules只接受明确实现的白名单及范围，报告完整Schema供Task6复用，不接收任意可执行规则。规则和材料要求改变时增加独立rulesVersion并保存不可变快照，不能以opportunities.version替代全部历史依据。旧资格检查/清单保留原规则与文件版本，不删除旧依据来更新当前投影。
+
+**资格、收藏提醒与自行提交：** 资格检查真正异步202，入队时保存服务器读取的当前画像及profileVersion、规则版本和输入摘要；worker有有限重试/租约/fencing，结果只属于本人。已知硬条件冲突not_eligible，未知/歧义或未满足的软条件possible，只有明确的已知条件全部满足才eligible；空规则也不能当学校最终认定，结果包含准备建议说明。reason保存field/expected/actual?/result/message/evidence?，未知不能编造actual；私密快照不进公开结果。收藏唯一(user,targetType,targetId)，取消和重试可重复，列表下架目标只返回不可用标识。提醒时间不能早于服务器当前时间，所有目标先验证校园与可见性/本人归属；只允许pending→cancelled，不伪造sent，实际投递交接Task10。自行提交RFC3339，用户＋机会最多一份当前记录，V10增加唯一约束遇到已有重复即明确失败、不能静默删历史；不声称平台代交。并发和幂等均由真实事务/约束保证。
+
+**AI与原文安全：** 用户2026-10-15明确选择DeepSeek。实现integration/ai/下的生产DeepSeek HTTP适配，按[官方首次调用](https://api-docs.deepseek.com/zh-cn/)和[Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)核对后的POST https://api.deepseek.com/chat/completions，Bearer密钥仅从DEEPSEEK_API_KEY读取；模型由DEEPSEEK_MODEL配置，默认当前官方文档的deepseek-flash，可选deepseek-v4-pro，不使用旧记忆中的模型别名。使用已有JDK HTTP客户端或Task4已有HTTP依赖，不为单一请求再引入SDK。固定HTTPS主机/路径、不接收请求中的baseUrl或代理/重定向，连接2秒、总调用60秒、响应1MiB；stream=false、thinking.type=disabled、max_tokens=8192、response_format.type=json_object，系统消息明确要求JSON并给固定Schema。JSON模式不等于满足业务Schema，代码必须再次校验。只处理finish_reason=stop及非空message.content，length/空白/拒绝/错结构均失败转人工；401/402/422等配置或请求错误不盲目重试，429/5xx/超时由有上限的任务重试处理，不能一次任务内无限扣费重试。响应错误不能回显密钥、原文或完整上游body。密钥未配置时明确失败，没有fake成功或自动换供应商；真实付费联调仅由安全配置和明确验收触发，默认测试不调用付费API，测试替身只在src/test。
+
+字段至少覆盖名称、主办方、适用对象、条件、时间、奖项、材料、联系方式和原文证据，单字段保存evidenceLocation≤512、confidence为0～1、humanConfirmed/humanValue；固定Schema严格拒绝未知键/重复键/错类型/超限及无原文依据内容。原文只作数据、不覆盖系统指令，不授予模型发布/审批/查询私密身份工具。记录模型、提示模板版本、输入摘要、结果和耗时，屏蔽非必要手机号/学号；公开机会不直接展示模型抽取的个人联系方式。扫描件没有OCR能力则明确转人工，不编造文字。HTTP适配覆盖鉴权Header、完整请求结构、有效结果、空/截断/错误JSON、超时/重定向/超大响应/HTTP错误测试；真实DeepSeek联调尚无密钥，不能把本地协议测试标为真实模型验证。
+
+**URL读取边界：** rawUrl仅HTTPS，拒绝userinfo、非443端口、片段及非法主机；每一跳解析并验证全部A/AAAA目标，拒绝内网、环回、链路本地、保留/未指定地址与IPv4映射IPv6绕过，实际连接固定到本次检查过的地址且TLS校验原主机，不能检查后再不受控DNS解析。最多3次重定向，每跳重新检查，禁止HTTPS降级；连接2秒、总读取15秒、正文上限2MiB，压缩后也有上限，限定可处理文本类型，错误不输出完整上游URL/响应。生产不能提供测试环境绕过开关或信任系统代理去访问被拦截目标。创建时验证URL，worker访问前重验；不在数据库事务内联网。
+
+- [ ] RED：机会公开筛选/空deadline分页、游标跨校园过滤拒绝、draft不公开/截止不误发布；管理员权限与CSRF、版本冲突、人工确认/发布/撤回；通知缺源/附件越权或未clean、严格JSON和长度边界。
+- [ ] RED：异步领取/失败重试/过时worker fencing，AI未知键/错类型/证据缺失/提示注入不得发布；本机/私网/IPv6/重定向/DNS重绑定/超时/大响应SSRF拒绝，使用受控网络边界测试而非外网探测。
+- [ ] RED：资格未知不eligible、软硬条件、快照不随画像/规则修改而改变；任务跨用户/校园/namespace与未知归属404，敏感内部任务不返回payload或存储键。
+- [ ] RED：收藏/提醒的目标访问、下架、撤销、同键异请求409、并发自行提交不重复，非法目标类型/数字ID/标量转换拒绝。
+- [ ] GREEN：实际HTTP/隔离事务数据库测试及完整package，报告22路由逐项行为、TDD证据、供Task6/7/9/10/11消费接口、真实AI与MySQL未验证项，本地检查点不推送。
 
 ## Task 6: 材料清单与完整性预检
 
@@ -199,6 +217,7 @@ common提供ApiResponse、ApiError、BusinessException、SnowflakeIds、Sensitiv
 ## Task 12: 首页、我的、成长与数据权利
 
 **Files:** home/、identity/me/、credit/、privacy/；补历史/信用纠错/注销状态；test。
+- [ ] 第5节GET /jobs/{jobId}由Task5提前实现；本任务复用其受控读取和类型访问策略，新增助手等任务类型时显式接入，不创建重复映射或放宽既有权限。
 - [ ] RED：第5、15节首页/我的/成长/隐私路由，以及第16.5节信用纠错；游客无私人数据、附近缺位置不伪造距离、匿名社区不进成长档案、AI答案无依据明确未知。
 - [ ] 授权撤销、数据导出/注销冷静期/撤销与清理队列，重认证、本人范围、短期下载；法定保留项解释。
 - [ ] GREEN：数据权利闭环、权限与幂等测试，本地检查点。

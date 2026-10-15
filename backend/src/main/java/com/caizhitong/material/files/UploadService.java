@@ -58,14 +58,39 @@ public class UploadService {
     public FileViews.Received receive(UploadClaim claim,org.springframework.web.multipart.MultipartFile file) {
         if(file==null||!claim.fileName().equals(file.getOriginalFilename())||!claim.mime().equals(file.getContentType()))throw invalid();
         if(file.getSize()>claim.size())throw new BusinessException(413,"FILE_TOO_LARGE","文件超过大小限制");
+        // Multipart parsing may have taken arbitrarily long after the credential was claimed.
+        tx.executeWithoutResult(s->requireReceiving(claim));
         String key=crypto.decrypt("file-object-key",claim.encryptedKey());
+        boolean accepted=false;
         try(var stream=new BoundedDigestStream(file.getInputStream(),claim.size())) {
             storage.put(key,stream,claim.mime());
             String hash=stream.sha256();
             if(stream.count()!=claim.size()||claim.expectedSha256()!=null&&!claim.expectedSha256().equals(hash))throw invalid();
-            tx.executeWithoutResult(s->{if(jdbc.update("UPDATE file_uploads SET state='uploaded',original_sha256=?,updated_at=? WHERE id=? AND state='uploading'",hash,now(),claim.id())!=1)throw FilePurpose.conflict();});
+            tx.executeWithoutResult(s->{
+                requireReceiving(claim);
+                if(jdbc.update("UPDATE file_uploads SET state='uploaded',original_sha256=?,updated_at=? WHERE id=? AND state='uploading'",hash,now(),claim.id())!=1)throw FilePurpose.conflict();
+            });
+            accepted=true;
             return new FileViews.Received(Long.toString(claim.id()),true);
         } catch(java.io.IOException e){throw FilePurpose.unavailable();}
+        finally {
+            if(!accepted)tx.executeWithoutResult(s->recoverLateWrite(claim));
+        }
+    }
+    private void requireReceiving(UploadClaim claim) {
+        boolean valid=Boolean.TRUE.equals(jdbc.queryForObject("SELECT state,expires_at FROM file_uploads WHERE id=? FOR UPDATE",
+                (r,i)->r.getString("state").equals("uploading")&&r.getObject("expires_at",LocalDateTime.class).isAfter(now()),claim.id()));
+        if(!valid)throw FilePurpose.conflict();
+        Actor fresh=actors.load(claim.actor().userId(),claim.actor().campusId(),claim.actor().kind()).orElseThrow(UploadCredentialFilter::invalid);
+        FilePurpose.authorize(fresh,claim.purpose(),claim.mime());
+    }
+    private void recoverLateWrite(UploadClaim claim) {
+        String state=jdbc.queryForObject("SELECT state FROM file_uploads WHERE id=? FOR UPDATE",String.class,claim.id());
+        if(state.equals("uploaded")||state.equals("completed"))return;
+        jdbc.update("UPDATE file_uploads SET state='aborted',updated_at=? WHERE id=?",now(),claim.id());
+        // A previous worker may already have deleted a missing object and completed its job before this IO returned.
+        int renewed=jdbc.update("UPDATE file_cleanup_jobs SET next_retry_at=?,updated_at=? WHERE upload_id=? AND state='pending'",now(),now(),claim.id());
+        if(renewed==0)cleanup(claim.encryptedKey(),claim.id(),null,now());
     }
     long cleanup(byte[] key,Long upload,Long attachment,LocalDateTime due) {
         long id=ids.nextId();
