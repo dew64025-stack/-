@@ -20,7 +20,7 @@ public class GovernanceController {
     @GetMapping("/reports/{id}")
     public ApiResponse<GovernanceViews.Report> reportDetail(@PathVariable String id,HttpServletRequest r){return ok(service.reportDetail(IdentityInputs.id(id)),r);}
     @PutMapping("/blocks/{targetType}/{targetId}")
-    public ApiResponse<GovernanceViews.Blocked> block(@PathVariable String targetType,@PathVariable String targetId,@RequestBody GovernanceInputs.Empty input,HttpServletRequest r){checkBlockType(targetType);return ok(service.block(targetType,IdentityInputs.id(targetId)),r);}
+    public ApiResponse<GovernanceViews.Blocked> block(@PathVariable String targetType,@PathVariable String targetId,@RequestBody(required=false) GovernanceInputs.Empty input,HttpServletRequest r){checkBlockType(targetType);return ok(service.block(targetType,IdentityInputs.id(targetId)),r);}
     @DeleteMapping("/blocks/{targetType}/{targetId}")
     public ApiResponse<GovernanceViews.Blocked> unblock(@PathVariable String targetType,@PathVariable String targetId,HttpServletRequest r){checkBlockType(targetType);return ok(service.unblock(targetType,IdentityInputs.id(targetId)),r);}
     @GetMapping("/me/penalties")

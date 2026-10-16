@@ -61,7 +61,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> unexpected(Exception error, HttpServletRequest request) {
-        log.warn("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), error);
+        log.warn("Unexpected error requestId={} type={}", RequestIdFilter.requestId(request), error.getClass().getSimpleName());
         return response(500, error("INTERNAL_ERROR", "服务暂时不可用，请稍后重试", true), request);
     }
 

@@ -175,7 +175,7 @@ fieldErrors 为数组，没有字段错误时返回空数组。错误中不得�
 | TeamMember | id:string,userId:string?,role:string?,skillTags:string[],status:string |
 | TeamApplication | id:string,teamId:string,applicant:{id:string,nickname:string?},message:string?,status:string,createdAt:datetime |
 | CommunityPost | id:string,title:string,content:string?,pseudonym:string,status:string,version:int,canEdit:boolean,createdAt:datetime |
-| CommunityComment | id:string,postId:string,pseudonym:string,content:string,status:string,canDelete:boolean,createdAt:datetime |
+| CommunityComment | id:string,postId:string,pseudonym:string,content:string,status:string,canDelete:boolean,createdAt:datetime；canDelete 仅当前评论作者为 true，不返回真实身份映射 |
 | Report | id:string,targetType:string,targetId:string,reason:string,status:string,resolution:string?,createdAt:datetime,updatedAt:datetime |
 | Appeal | id:string,penaltyId:string?,reason:string,status:string,reviewedAt:datetime?,decisionReason:string?,createdAt:datetime |
 | Conversation | id:string,type:string,title:string?,unreadCount:int,lastMessage:Message?,updatedAt:datetime |

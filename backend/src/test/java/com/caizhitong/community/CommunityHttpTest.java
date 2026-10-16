@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:community_http;MODE=MySQL;DB_CLOSE_DELAY=-1")
-@AutoConfigureMockMvc @ActiveProfiles("test") @Import(CommunityHttpTest.Fixtures.class)
+@AutoConfigureMockMvc(print=org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE) @ActiveProfiles("test") @Import(CommunityHttpTest.Fixtures.class)
 @Sql(scripts={"/identity-schema.sql","/community-schema.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class CommunityHttpTest {
     @Autowired MockMvc mvc;
@@ -127,6 +127,83 @@ class CommunityHttpTest {
         adminCommand("/admin/moderation-tasks/"+task2+"/claim",admin,"{}","md-claim2").andExpect(status().isOk());
         adminCommand("/admin/moderation-tasks/"+task2+"/decision",admin,"{\"decision\":\"reject\",\"reason\":\"x\"}","md-decision2").andExpect(status().isOk());
         assertEquals("deleted",jdbc.queryForObject("SELECT status FROM community_comments WHERE id=?",String.class,comment));
+    }
+
+    @Test void ratingsInheritPostVisibilityForVisitorsOwnersAndOtherCampuses() throws Exception {
+        long pid=Long.parseLong(mapper.readTree(command("/mutual-aid/posts",student,"{\"category\":\"secondhand\",\"title\":\"private\"}","privacy-ratings").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        jdbc.update("INSERT INTO mutual_aid_ratings VALUES(1,?,102,5,'synthetic rating',CURRENT_TIMESTAMP)",pid);
+        String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings?campusCode=one")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings").header("Authorization",other)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings").header("Authorization",student)).andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(1));
+        jdbc.update("UPDATE mutual_aid_posts SET status='published' WHERE id=?",pid);
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings?campusCode=one")).andExpect(status().isOk());
+        jdbc.update("INSERT INTO campuses VALUES(2,'other','two','active',NULL)");
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings?campusCode=two")).andExpect(status().isNotFound());
+        jdbc.update("UPDATE mutual_aid_posts SET status='deleted',deleted_at=CURRENT_TIMESTAMP WHERE id=?",pid);
+        mvc.perform(get("/api/v1/mutual-aid/posts/"+pid+"/ratings?campusCode=one")).andExpect(status().isNotFound());
+    }
+
+    @Test void privateProofNeverLeavesPostDtoAndRemainsStored() throws Exception {
+        String body=command("/mutual-aid/posts",student,"{\"category\":\"lost_found\",\"title\":\"synthetic\",\"detail\":{\"privateProofHint\":\"synthetic-private-proof\",\"kind\":\"lost\"}}","privacy-proof").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String pid=mapper.readTree(body).path("data").path("id").asString();
+        assertFalse(body.contains("privateProofHint"));
+        jdbc.update("UPDATE mutual_aid_posts SET status='published' WHERE id=?",Long.parseLong(pid));
+        for(String path:List.of("/mutual-aid/posts?campusCode=one","/mutual-aid/posts/"+pid+"?campusCode=one","/me/mutual-aid/posts")){
+            String json=mvc.perform(get("/api/v1"+path).header("Authorization",student)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertFalse(json.contains("privateProofHint"),path);
+            assertFalse(json.contains("synthetic-private-proof"),path);
+        }
+        assertTrue(jdbc.queryForObject("SELECT detail_json FROM mutual_aid_posts WHERE id=?",String.class,Long.parseLong(pid)).contains("synthetic-private-proof"));
+    }
+
+    @Test void communityReadsRequireVerifiedStudent() throws Exception {
+        long pid=createPublishedCommunityPost();
+        jdbc.update("UPDATE student_verifications SET status='pending' WHERE user_id=101");
+        for(String path:List.of("/community/posts","/community/posts/"+pid,"/community/posts/"+pid+"/comments","/me/community/posts"))
+            mvc.perform(get("/api/v1"+path).header("Authorization",student)).andExpect(status().isForbidden());
+    }
+
+    @Test void commentsRespectRestrictedAndDeletedParentsAndExposeOnlyOwnerCapability() throws Exception {
+        long pid=createPublishedCommunityPost();
+        String created=command("/community/posts/"+pid+"/comments",student,"{\"content\":\"synthetic\"}","privacy-comment").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        JsonNode comment=mapper.readTree(created).path("data");
+        assertEquals(Long.toString(pid),comment.path("postId").asString());
+        assertTrue(comment.path("canDelete").asBoolean());
+        assertFalse(created.contains("userId"));
+        jdbc.update("UPDATE community_comments SET status='published' WHERE post_id=?",pid);
+        String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
+        mvc.perform(get("/api/v1/community/posts/"+pid+"/comments").header("Authorization",other)).andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].canDelete").value(false));
+        mvc.perform(get("/api/v1/community/posts/"+pid+"/comments").header("Authorization",student)).andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].canDelete").value(true));
+        for(String state:List.of("restricted","deleted")){
+            jdbc.update("UPDATE community_posts SET status=? WHERE id=?",state,pid);
+            mvc.perform(get("/api/v1/community/posts/"+pid+"/comments").header("Authorization",other)).andExpect(status().isNotFound());
+            command("/community/posts/"+pid+"/comments",student,"{\"content\":\"no\"}","privacy-comment-"+state).andExpect(status().isNotFound());
+        }
+        mvc.perform(get("/api/v1/community/posts/"+pid).header("Authorization",student)).andExpect(status().isNotFound());
+    }
+
+    @Test void blockingAcceptsDocumentedEmptyBody() throws Exception {
+        mvc.perform(put("/api/v1/blocks/community_post/999").header("Authorization",student).header("Idempotency-Key","block-no-body")).andExpect(status().isOk()).andExpect(jsonPath("$.data.blocked").value(true));
+    }
+
+    @Test void commentsCannotReadRestrictedParent() throws Exception {
+        long pid=createPublishedCommunityPost();
+        jdbc.update("UPDATE community_posts SET status='restricted' WHERE id=?",pid);
+        String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
+        mvc.perform(get("/api/v1/community/posts/"+pid+"/comments").header("Authorization",other)).andExpect(status().isNotFound());
+    }
+
+    @Test void deletedParentCannotBeReadEvenByAuthor() throws Exception {
+        long pid=createPublishedCommunityPost();
+        jdbc.update("UPDATE community_posts SET status='deleted',deleted_at=CURRENT_TIMESTAMP WHERE id=?",pid);
+        mvc.perform(get("/api/v1/community/posts/"+pid).header("Authorization",student)).andExpect(status().isNotFound());
+    }
+
+    private long createPublishedCommunityPost() throws Exception {
+        long pid=Long.parseLong(mapper.readTree(command("/community/posts",student,"{\"title\":\"synthetic\",\"content\":\"synthetic\"}","privacy-post").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        jdbc.update("UPDATE community_posts SET status='published' WHERE id=?",pid);
+        return pid;
     }
 
     private ResultActions command(String path,String bearer,String body,String key) throws Exception {

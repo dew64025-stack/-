@@ -160,9 +160,7 @@ public class MutualAidService {
     }
 
     public MutualAidViews.Detail detail(long id,long campus){
-        Actor actor=current.optional().orElse(null);PostRow p=postRow(id);
-        if(p.campusId()!=campus)throw missing();
-        if(!p.status().equals("published")){if(actor==null||actor.userId()!=p.userId())throw missing();}
+        Actor actor=current.optional().orElse(null);PostRow p=visiblePost(id,campus,actor);
         var u=jdbc.query("SELECT id,nickname FROM users WHERE id=?",(rs,i)->new MutualAidViews.Author(Long.toString(rs.getLong("id")),rs.getString("nickname")),p.userId());
         MutualAidViews.Author author=u.isEmpty()?new MutualAidViews.Author(Long.toString(p.userId()),null):u.getFirst();
         boolean canEdit=actor!=null&&actor.userId()==p.userId()&&!Set.of("deleted").contains(p.status());
@@ -171,7 +169,7 @@ public class MutualAidService {
     }
 
     public MutualAidViews.RatingPage ratings(long id,long campus,String cursor,Integer limit){
-        if(postRow(id).campusId()!=campus)throw missing();
+        visiblePost(id,campus,current.optional().orElse(null));
         int size=PageLimits.resolve(limit);
         String scope="mutual-aid-ratings:"+id;
         long before=Long.MAX_VALUE;
@@ -233,6 +231,22 @@ public class MutualAidService {
     }
 
     // ---- helpers ----
+    private PostRow visiblePost(long id,long campus,Actor actor){
+        PostRow p=postRow(id);
+        if(p.campusId()!=campus||"deleted".equals(p.status())||jdbc.queryForObject("SELECT COUNT(*) FROM mutual_aid_posts WHERE id=? AND deleted_at IS NOT NULL",Integer.class,id)>0)throw missing();
+        if(!"published".equals(p.status())&&(actor==null||actor.campusId()!=campus||actor.userId()!=p.userId()))throw missing();
+        return p;
+    }
+    private JsonNode publicDetail(String detail){
+        if(detail==null)return null;
+        JsonNode result=mapper.readTree(detail);
+        removePrivateProof(result);
+        return result;
+    }
+    private void removePrivateProof(JsonNode node){
+        if(node instanceof tools.jackson.databind.node.ObjectNode object)object.remove("privateProofHint");
+        if(node.isContainer())for(JsonNode child:node)removePrivateProof(child);
+    }
     private void authorizeOwner(Actor actor,long id){if(jdbc.queryForObject("SELECT COUNT(*) FROM mutual_aid_posts WHERE id=? AND campus_id=? AND user_id=?",Integer.class,id,actor.campusId(),actor.userId())!=1)throw missing();}
     private boolean ownsPost(Actor actor,long id){return jdbc.queryForObject("SELECT COUNT(*) FROM mutual_aid_posts WHERE id=? AND user_id=? AND campus_id=?",Integer.class,id,actor.userId(),actor.campusId())==1;}
     private boolean participant(Actor actor,PostRow p){return actor.userId()==p.userId()||jdbc.queryForObject("SELECT COUNT(*) FROM borrow_requests WHERE post_id=? AND borrower_id=? AND status IN ('confirmed','handed_over','returned')",Integer.class,p.id(),actor.userId())>0;}
@@ -244,7 +258,7 @@ public class MutualAidService {
     private MutualAidViews.Post postView(PostRow p){
         List<MutualAidViews.Image> images=new ArrayList<>();
         if(p.images()!=null)for(JsonNode n:mapper.readTree(p.images())){long aid=n.asLong();var meta=jdbc.query("SELECT id,file_name,mime_type,size_bytes FROM file_attachments WHERE id=?",(rs,i)->new MutualAidViews.Image(Long.toString(rs.getLong("id")),rs.getString("file_name"),rs.getString("mime_type"),rs.getLong("size_bytes")),aid);if(!meta.isEmpty())images.add(meta.getFirst());}
-        return new MutualAidViews.Post(Long.toString(p.id()),p.category(),p.title(),p.content(),p.detail()==null?null:mapper.readTree(p.detail()),images,p.price(),p.exchangeArea(),p.status(),p.version(),p.createdAt().toInstant(ZoneOffset.UTC));
+        return new MutualAidViews.Post(Long.toString(p.id()),p.category(),p.title(),p.content(),publicDetail(p.detail()),images,p.price(),p.exchangeArea(),p.status(),p.version(),p.createdAt().toInstant(ZoneOffset.UTC));
     }
     private MutualAidViews.Borrow borrow(long id){var rows=jdbc.query("SELECT b.* FROM borrow_requests b WHERE b.id=?",(rs,i)->new MutualAidViews.Borrow(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("post_id")),borrowerName(rs.getLong("borrower_id")),rs.getObject("start_time",LocalDateTime.class)==null?null:rs.getObject("start_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("end_time",LocalDateTime.class)==null?null:rs.getObject("end_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getString("status"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private String borrowerName(long userId){var rows=jdbc.queryForList("SELECT nickname FROM users WHERE id=?",String.class,userId);return rows.isEmpty()?null:rows.getFirst();}

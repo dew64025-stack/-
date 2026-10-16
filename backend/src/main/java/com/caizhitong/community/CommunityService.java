@@ -55,9 +55,9 @@ public class CommunityService {
 
     @BusinessWrite(student=true) public CommunityViews.Comment comment(long postId,CommunityInputs.Comment input){
         Actor actor=current.requireStudent();
-        var p=jdbc.queryForList("SELECT campus_id,status FROM community_posts WHERE id=?",postId);
+        var p=jdbc.queryForList("SELECT campus_id,status FROM community_posts WHERE id=? AND deleted_at IS NULL",postId);
         if(p.isEmpty())throw missing();
-        if(!((Long)p.getFirst().get("campus_id")==actor.campusId()))throw missing();
+        if(((Number)p.getFirst().get("campus_id")).longValue()!=actor.campusId())throw missing();
         if(!p.getFirst().get("status").equals("published"))throw missing();
         long commentId=ids.nextId(),pseudoId=ids.nextId();LocalDateTime now=now();
         String name=randomName();
@@ -75,7 +75,7 @@ public class CommunityService {
     }
 
     public CommunityViews.Page list(String q,String cursor,Integer limit){
-        Actor actor=current.require();int size=PageLimits.resolve(limit);q=q==null?"":q.trim();
+        Actor actor=current.requireStudent();int size=PageLimits.resolve(limit);q=q==null?"":q.trim();
         String scope="community:"+actor.campusId()+":"+HexFormat.of().formatHex(crypto.searchHash("community-list",q));
         long before=Long.MAX_VALUE;
         if(cursor!=null){var keys=cursors.decode(cursor,scope).sortKeys();if(!keys.keySet().equals(Set.of("id")))throw invalid();before=id(keys.get("id"));}
@@ -90,20 +90,23 @@ public class CommunityService {
     }
 
     public CommunityViews.Post detail(long id){
-        Actor actor=current.require();
-        var p=jdbc.queryForList("SELECT campus_id,status FROM community_posts WHERE id=?",id);
-        if(p.isEmpty())throw missing();
-        if(!((Long)p.getFirst().get("campus_id")==actor.campusId()))throw missing();
-        boolean author=isPostAuthor(actor,id);
-        if(!p.getFirst().get("status").equals("published")&&!author)throw missing();
+        Actor actor=current.requireStudent();
+        boolean author=visiblePost(actor,id);
         return post(id,author);
     }
 
-    public CommunityViews.CommentPage comments(long postId,String cursor,Integer limit){
-        Actor actor=current.require();
-        var p=jdbc.queryForList("SELECT campus_id,status FROM community_posts WHERE id=?",postId);
+    private boolean visiblePost(Actor actor,long id){
+        var p=jdbc.queryForList("SELECT campus_id,status FROM community_posts WHERE id=? AND deleted_at IS NULL AND status<>'deleted'",id);
         if(p.isEmpty())throw missing();
-        if(!((Long)p.getFirst().get("campus_id")==actor.campusId()))throw missing();
+        if(((Number)p.getFirst().get("campus_id")).longValue()!=actor.campusId())throw missing();
+        boolean author=isPostAuthor(actor,id);
+        if(!p.getFirst().get("status").equals("published")&&!author)throw missing();
+        return author;
+    }
+
+    public CommunityViews.CommentPage comments(long postId,String cursor,Integer limit){
+        Actor actor=current.requireStudent();
+        visiblePost(actor,postId);
         int size=PageLimits.resolve(limit);
         String scope="community-comments:"+postId;
         long before=Long.MAX_VALUE;
@@ -111,13 +114,13 @@ public class CommunityService {
         var found=jdbc.query("SELECT id FROM community_comments WHERE post_id=? AND status='published' AND id<? ORDER BY id DESC LIMIT ?",
                 (rs,i)->rs.getLong("id"),postId,before,size+1);
         boolean more=found.size()>size;
-        var page=found.stream().limit(size).map(cid->commentView(cid,false)).toList();
+        var page=found.stream().limit(size).map(cid->commentView(cid,isCommentAuthor(actor,cid))).toList();
         String next=more?cursors.encode(new CursorPayload(scope,Map.of("id",page.getLast().id()))):null;
         return new CommunityViews.CommentPage(page,next,more);
     }
 
     public CommunityViews.Page myPosts(String status,String cursor,Integer limit){
-        Actor actor=current.require();int size=PageLimits.resolve(limit);
+        Actor actor=current.requireStudent();int size=PageLimits.resolve(limit);
         String scope="community-mine:"+actor.userId()+":"+status;
         long before=Long.MAX_VALUE;
         if(cursor!=null){var keys=cursors.decode(cursor,scope).sortKeys();if(!keys.keySet().equals(Set.of("id")))throw invalid();before=id(keys.get("id"));}
@@ -144,7 +147,7 @@ public class CommunityService {
     private void queueModeration(long campus,String type,long target,LocalDateTime now){jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,created_at,updated_at) VALUES(?,?,?,?,'pending',?,?)",ids.nextId(),campus,type,target,now,now);}
     private String randomName(){return "匿名"+UUID.randomUUID().toString().replace("-","").substring(0,6);}
     private CommunityViews.Post post(long id,boolean canEdit){var rows=jdbc.query("SELECT id,author_name,title,content,status,version,created_at FROM community_posts WHERE id=?",(rs,i)->new CommunityViews.Post(Long.toString(rs.getLong("id")),rs.getString("title"),rs.getString("content"),rs.getString("author_name"),rs.getString("status"),rs.getInt("version"),canEdit,rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
-    private CommunityViews.Comment commentView(long id,boolean canEdit){var rows=jdbc.query("SELECT id,author_name,content,status,created_at FROM community_comments WHERE id=?",(rs,i)->new CommunityViews.Comment(Long.toString(rs.getLong("id")),rs.getString("author_name"),rs.getString("content"),rs.getString("status"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private CommunityViews.Comment commentView(long id,boolean canDelete){var rows=jdbc.query("SELECT id,post_id,author_name,content,status,created_at FROM community_comments WHERE id=?",(rs,i)->new CommunityViews.Comment(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("post_id")),rs.getString("author_name"),rs.getString("content"),rs.getString("status"),canDelete,rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}
     private String escape(String text){return text.replace("!","!!").replace("%","!%").replace("_","!_");}
     private BusinessException missing(){return new BusinessException(404,"NOT_FOUND","未找到请求的资源");}
