@@ -108,6 +108,13 @@ class BusinessAttachmentPrivacyTest {
         jdbc.update("UPDATE work_orders SET deleted_at=CURRENT_TIMESTAMP WHERE id=603");
         assertEquals(404,assertThrows(BusinessException.class,()->files.businessPreview(actor(901),503,1,"workorder",603)).getStatus());
     }
+    @Test void publicIssueDoesNotPublishPendingEvidenceAttachments(){
+        attachment(505,101,"student","issue");
+        jdbc.update("INSERT INTO campus_issue_evidences(id,issue_id,user_id,content,images_json,review_status,created_at) VALUES(605,602,101,'Synthetic private evidence','[505]','pending',CURRENT_TIMESTAMP)");
+        assertEquals(404,assertThrows(BusinessException.class,()->files.download(actor(102),505)).getStatus());
+        assertEquals(404,assertThrows(BusinessException.class,()->files.download(null,505)).getStatus());
+        assertEquals(404,assertThrows(BusinessException.class,()->files.businessPreview(actor(102),505,1,"issue",602)).getStatus());
+    }
     private void attachment(long id,long owner,String domain,String purpose){jdbc.update("INSERT INTO file_attachments(id,upload_id,campus_id,owner_user_id,access_domain,purpose,file_name,mime_type,size_bytes,content_sha256,object_key_encrypted,scan_status,state,created_at,updated_at) VALUES(?,?,1,?,?,?,'Synthetic','image/png',3,?,?,'clean','active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,id,owner,domain,purpose,"a".repeat(64),crypto.encrypt("file-object-key","synthetic/"+id));}
     @TestConfiguration static class StorageFixture {
         @Bean @Primary ObjectStorage syntheticStorage(){return new ObjectStorage(){

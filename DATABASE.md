@@ -95,7 +95,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklists TO 'caizh
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklist_items TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_tasks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_results TO 'caizhitong_app'@'<ip>';
--- C business DTO hydration only; upload/scan workers retain their separate deployment grants.
+-- C only verifies business attachment reads. Full file permissions: docs/backend/files-and-materials.md.
+-- Upload/scan use the same primary datasource; this read grant is not a complete file deployment grant set.
 GRANT SELECT ON caizhitong.file_attachments TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_usage_records TO 'caizhitong_app'@'<ip>';
 

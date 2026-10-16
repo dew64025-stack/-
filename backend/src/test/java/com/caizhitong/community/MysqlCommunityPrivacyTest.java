@@ -212,6 +212,48 @@ class MysqlCommunityPrivacyTest {
         jdbc.update("INSERT INTO pseudo_identities(id,post_id,user_id,random_name,created_at,user_id_encrypted,user_id_search) VALUES(?,?,NULL,'Synthetic alias',UTC_TIMESTAMP(),?,?)",pseudo,post,crypto.encrypt("anonymous-identity","101"),HexFormat.of().formatHex(crypto.searchHash("anonymous-identity","101")));
         return post;
     }
+    @Test void nativeGovernanceKeepsCampusAuditAndUnsignedIdentifiers()throws Exception {
+        jdbc.update("INSERT INTO users(id,campus_id,status,created_at,updated_at) VALUES(901,1,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP()),(201,2,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP())");
+        jdbc.update("INSERT INTO user_roles(id,user_id,role_id,campus_id,created_at) SELECT 901,901,id,1,UTC_TIMESTAMP() FROM roles WHERE code='campus_admin'");
+        long event=ids.nextId(),dispute=ids.nextId(),otherEvent=ids.nextId(),otherDispute=ids.nextId(),wrongOwner=ids.nextId();
+        jdbc.update("INSERT INTO credit_events(id,campus_id,user_id,event_type,reason,points,created_at) VALUES(?,1,101,'damage','Synthetic',-1,UTC_TIMESTAMP()),(?,2,201,'damage','Synthetic',-1,UTC_TIMESTAMP())",event,otherEvent);
+        jdbc.update("INSERT INTO credit_disputes(id,campus_id,user_id,credit_event_id,reason,created_at) VALUES(?,1,101,?,'Synthetic',UTC_TIMESTAMP()),(?,2,201,?,'Synthetic',UTC_TIMESTAMP()),(?,1,102,?,'Synthetic',UTC_TIMESTAMP())",dispute,event,otherDispute,otherEvent,wrongOwner,event);
+        String decision="{\"decision\":\"approve\",\"reason\":\"Synthetic correction\"}";
+        adminCommand(901,"/credit-disputes/"+otherDispute+"/decision",decision).andExpect(status().isNotFound());
+        adminCommand(901,"/credit-disputes/"+wrongOwner+"/decision",decision).andExpect(status().isNotFound());
+        adminCommand(901,"/credit-disputes/"+dispute+"/decision",decision).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("approved"));
+        adminCommand(901,"/credit-disputes/"+dispute+"/decision",decision).andExpect(status().isConflict());
+        assertEquals("Synthetic correction",jdbc.queryForObject("SELECT reason FROM admin_audit_logs WHERE target_type='credit_dispute' AND target_id=?",String.class,dispute));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM credit_events WHERE event_type='correction' AND related_id=?",Integer.class,event));
+        String penalty=mapper.readTree(adminCommand(901,"/penalties","{\"userId\":\"101\",\"type\":\"mute\",\"reason\":\"Synthetic penalty\"}").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        long appeal=ids.nextId();jdbc.update("INSERT INTO appeals(id,user_id,penalty_id,reason,created_at) VALUES(?,101,?,'Synthetic appeal',UTC_TIMESTAMP())",appeal,Long.parseLong(penalty));
+        adminCommand(901,"/appeals/"+appeal+"/decision",decision).andExpect(status().isOk());
+        assertEquals("lifted",jdbc.queryForObject("SELECT status FROM penalties WHERE id=?",String.class,Long.parseLong(penalty)));
+        assertEquals("Synthetic correction",jdbc.queryForObject("SELECT reason FROM admin_audit_logs WHERE target_type='appeal' AND target_id=?",String.class,appeal));
+        long post=anonymousPost(1),task=ids.nextId();
+        jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,assigned_to,created_at,updated_at) VALUES(?,1,'community_post',?,'assigned',901,UTC_TIMESTAMP(),UTC_TIMESTAMP())",task,post);
+        adminCommand(901,"/moderation-tasks/"+task+"/decision",decision).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("resolved"));
+    }
+    @Test void investigatorCommentAndCurrentPermissionAreCheckedBeforeEveryDisclosure()throws Exception {
+        long post=anonymousPost(1);
+        String comment=mapper.readTree(mvc.perform(post("/api/v1/community/posts/"+post+"/comments").header("Authorization","Bearer "+sessions.issue(101,1,SessionKind.STUDENT).accessToken())
+            .header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content("{\"content\":\"Synthetic comment\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        long report=ids.nextId();jdbc.update("INSERT INTO reports(id,campus_id,reporter_id,target_type,target_id,reason,status,created_at,updated_at) VALUES(?,1,102,'community_comment',?,'Synthetic','pending',UTC_TIMESTAMP(),UTC_TIMESTAMP())",report,Long.parseLong(comment));
+        String body="{\"targetType\":\"community_comment\",\"targetId\":\""+comment+"\",\"reportId\":\""+report+"\",\"reason\":\"Synthetic inquiry\"}",key="comment-investigation";
+        String result=investigate(body,key,reauth()).andExpect(status().isOk()).andExpect(jsonPath("$.data.subject.userId").value("101")).andReturn().getResponse().getContentAsString();
+        String investigationId=mapper.readTree(result).path("data").path("investigationId").asString();assertEquals(1,auditCount(investigationId));
+        // Keep an admin session valid but remove investigation permission; cached receipt must not disclose.
+        jdbc.update("UPDATE user_roles SET role_id=(SELECT id FROM roles WHERE code='business_operator') WHERE user_id=900");
+        try{investigate(body,key,reauth()).andExpect(status().isForbidden()).andExpect(jsonPath("$.data.subject").doesNotExist());}
+        finally{jdbc.update("UPDATE user_roles SET role_id=(SELECT id FROM roles WHERE code='security_investigator') WHERE user_id=900");}
+        assertEquals(1,auditCount(investigationId));
+    }
+    private org.springframework.test.web.servlet.ResultActions adminCommand(long user,String route,String body)throws Exception {
+        var csrf=mvc.perform(get("/api/v1/admin/auth/csrf").secure(true)).andReturn().getResponse();
+        return mvc.perform(post("/api/v1/admin"+route).secure(true).cookie(csrf.getCookie("ADMIN-XSRF-TOKEN"))
+            .header("X-ADMIN-CSRF",mapper.readTree(csrf.getContentAsString()).path("data").path("token").asString())
+            .header("Authorization","Bearer "+sessions.issue(user,1,SessionKind.ADMIN).accessToken()).header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content(body));
+    }
     private String reauth(){
         byte[] bytes=new byte[32];new java.security.SecureRandom().nextBytes(bytes);String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         assertTrue(secrets.claim("admin-reauth",HexFormat.of().formatHex(crypto.searchHash("admin-reauth",token)),"900:1:"+(java.time.Instant.now().getEpochSecond()+300),java.time.Duration.ofMinutes(5)));return token;
