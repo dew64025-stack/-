@@ -77,7 +77,7 @@ public class WorkOrderService {
         if(actual!=version)throw conflict();
         String from=(String)row.getFirst().get("status");
         String next=switch(to){
-            case "reviewing"->{if(!from.equals("pending"))throw state();text(input.comment(),512,false);yield "reviewing";}
+            case "reviewing"->{if(!from.equals("pending")&&!(from.equals("reviewing")&&row.getFirst().get("review_approved_at")==null))throw state();text(input.comment(),512,false);yield "reviewing";}
             case "accepted"->{if(!from.equals("reviewing")||row.getFirst().get("review_approved_at")==null)throw state();yield "accepted";}
             case "processing"->{if(!from.equals("accepted"))throw conflict();yield "processing";}
             case "completed"->{if(!from.equals("processing"))throw conflict();yield "completed";}

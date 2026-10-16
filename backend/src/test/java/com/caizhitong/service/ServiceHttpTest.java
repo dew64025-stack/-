@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(scripts={"/identity-schema.sql","/service-schema.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class ServiceHttpTest {
     @Autowired MockMvc mvc;
-    @Autowired JdbcTemplate jdbc;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
     @Autowired TestClock clock;
     @Autowired com.caizhitong.resource.ReservationExpiryWorker expiryWorker;
@@ -288,6 +288,52 @@ class ServiceHttpTest {
             jdbc.update("UPDATE reservations SET status=? WHERE id=12",terminal);
             adminCommand("/admin/reservations/12/decision",admin,"{\"decision\":\"approve\",\"version\":0,\"reason\":\"reviewed\"}","terminal-"+terminal).andExpect(status().isConflict());
         }
+    }
+
+    @Test void expiryCrossedBetweenCleanupStatementsNeverLeavesCancelledOccupancy()throws Exception {
+        resourceFixture();jdbc.update("UPDATE resources SET capacity=2 WHERE id=10");jdbc.update("UPDATE resource_slots SET capacity=2 WHERE id=11");
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at,pending_expires_at) VALUES(12,1,101,11,1,'pending','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)",java.time.LocalDateTime.ofInstant(clock.value.plusMillis(1),ZoneOffset.UTC));
+        jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        org.mockito.Mockito.doAnswer(call->{Object result=call.callRealMethod();clock.value=clock.value.plusMillis(2);return result;}).when(jdbc).update(org.mockito.ArgumentMatchers.startsWith("DELETE FROM resource_occupancies WHERE reservation_id IN"),org.mockito.ArgumentMatchers.any(Object[].class));
+        command("/reservations",student2,"{\"slotId\":\"11\",\"seatNo\":2}","cross-expiry-submit").andExpect(status().isCreated());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies o JOIN reservations v ON v.id=o.reservation_id WHERE v.status='cancelled'",Integer.class));
+        expiryWorker.run();
+        assertEquals("cancelled",jdbc.queryForObject("SELECT status FROM reservations WHERE id=12",String.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=12",Integer.class));
+    }
+
+    @Test void overlappingCapacitySlotsReportDistinctBlockedSeatsAndMatchReservationWrites()throws Exception {
+        resourceFixture();jdbc.update("UPDATE resources SET capacity=2 WHERE id=10");jdbc.update("UPDATE resource_slots SET capacity=2 WHERE id=11");
+        jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,capacity,status,version,created_at,updated_at) VALUES(14,10,'2026-10-20','09:00','11:00',2,'available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),(15,10,'2026-10-20','09:15','10:30',2,'available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at) VALUES(12,1,101,11,1,'confirmed','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),(16,1,101,15,1,'confirmed','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),(17,15,16,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        mvc.perform(get("/api/v1/resource-slots/14/availability").header("Authorization",student2)).andExpect(status().isOk()).andExpect(jsonPath("$.data.availableSeatNos.length()").value(1)).andExpect(jsonPath("$.data.availableSeatNos[0]").value(2)).andExpect(jsonPath("$.data.slot.remaining").value(1));
+        mvc.perform(get("/api/v1/resources/10/slots?date=2026-10-20")).andExpect(status().isOk()).andExpect(jsonPath("$.data[1].remaining").value(1));
+        command("/reservations",student2,"{\"slotId\":\"14\",\"seatNo\":1}","overlap-capacity-block").andExpect(status().isConflict());
+        command("/reservations",student2,"{\"slotId\":\"14\",\"seatNo\":2}","overlap-capacity-free").andExpect(status().isCreated()).andExpect(jsonPath("$.data.slot.remaining").value(0));
+    }
+
+    @Test void overlappingExclusiveSlotsStayUnavailableUntilOriginalBookingIsCancelled()throws Exception {
+        resourceFixture();jdbc.update("UPDATE resources SET capacity=NULL,reservation_mode='exclusive' WHERE id=10");jdbc.update("UPDATE resource_slots SET capacity=NULL WHERE id=11");
+        jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,status,version,created_at,updated_at) VALUES(14,10,'2026-10-20','09:00','11:00','available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at) VALUES(12,1,101,11,0,'confirmed','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        mvc.perform(get("/api/v1/resource-slots/14/availability").header("Authorization",student2)).andExpect(status().isOk()).andExpect(jsonPath("$.data.canReserve").value(false)).andExpect(jsonPath("$.data.availableSeatNos.length()").value(0)).andExpect(jsonPath("$.data.slot.remaining").value(0));
+        command("/reservations",student2,"{\"slotId\":\"14\",\"seatNo\":0}","overlap-exclusive-block").andExpect(status().isConflict());
+        command("/reservations/12/cancel",student,"{\"version\":0}","overlap-exclusive-cancel").andExpect(status().isOk());
+        mvc.perform(get("/api/v1/resource-slots/14/availability").header("Authorization",student2)).andExpect(status().isOk()).andExpect(jsonPath("$.data.availableSeatNos.length()").value(1)).andExpect(jsonPath("$.data.availableSeatNos[0]").value(0)).andExpect(jsonPath("$.data.slot.remaining").value(1));
+        command("/reservations",student2,"{\"slotId\":\"14\",\"seatNo\":0}","overlap-exclusive-retry").andExpect(status().isCreated());
+    }
+
+    @Test void legacyReviewingOrderCanReceiveAuditedApprovalBeforeAcceptance()throws Exception {
+        String id=mapper.readTree(command("/work-orders",student,"{\"category\":\"other\",\"description\":\"legacy repair\",\"urgency\":\"normal\"}","legacy-review-create").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        jdbc.update("UPDATE work_orders SET status='reviewing',review_approved_at=NULL WHERE id=?",Long.parseLong(id));
+        adminCommand("/admin/work-orders/"+id+"/transition",admin,"{\"toStatus\":\"accepted\",\"version\":0}","legacy-no-approval").andExpect(status().isConflict());
+        adminCommand("/admin/work-orders/"+id+"/transition",admin,"{\"toStatus\":\"reviewing\",\"version\":0,\"comment\":\"Human supplemental approval\"}","legacy-supplemental-review").andExpect(status().isOk()).andExpect(jsonPath("$.data.serviceStage").value("pending_acceptance"));
+        assertNotNull(jdbc.queryForObject("SELECT review_approved_at FROM work_orders WHERE id=?",java.sql.Timestamp.class,Long.parseLong(id)));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM work_order_events WHERE work_order_id=? AND from_status='reviewing' AND to_status='reviewing' AND operator_id=900 AND comment='Human supplemental approval'",Integer.class,Long.parseLong(id)));
+        adminCommand("/admin/work-orders/"+id+"/transition",admin,"{\"toStatus\":\"reviewing\",\"version\":1,\"comment\":\"Duplicate approval\"}","legacy-repeat-review").andExpect(status().isConflict());
+        adminCommand("/admin/work-orders/"+id+"/transition",admin,"{\"toStatus\":\"accepted\",\"version\":1}","legacy-accept-reviewed").andExpect(status().isOk());
     }
 
     private void demoBookingFixture(){resourceFixture();jdbc.update("UPDATE resources SET source_type='demo' WHERE id=10");jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at) VALUES(12,1,101,11,1,'confirmed','demo',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");}
