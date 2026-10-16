@@ -31,8 +31,8 @@ public final class GovernanceInputs {
     public record ModerationDecision(JsonNode decision, JsonNode reason) {
         public ModerationDecision { String d=text(decision,16,false); if(!Set.of("approve","reject","restrict").contains(d))throw invalid(); text(reason,512,false); }
     }
-    public record Investigation(JsonNode targetType, JsonNode targetId, JsonNode reportId, JsonNode reason, JsonNode reauthToken) {
-        public Investigation { text(targetType,32,false); id(targetId); if(reportId!=null&&!reportId.isNull())id(reportId); text(reason,512,false); text(reauthToken,128,false); }
+    public record Investigation(JsonNode targetType, JsonNode targetId, JsonNode reportId, JsonNode reason) {
+        public Investigation { text(targetType,32,false); id(targetId); if(reportId!=null&&!reportId.isNull())id(reportId); text(reason,512,false); }
     }
     public static String blockType(JsonNode node){String t=text(node,32,false);if(!BLOCK_TYPES.contains(t))throw invalid();return t;}
 }

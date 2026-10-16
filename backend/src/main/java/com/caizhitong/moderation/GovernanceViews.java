@@ -17,5 +17,6 @@ public final class GovernanceViews {
     public record CreditDispute(String id, String userId, String creditEventId, String reason, String status, Instant createdAt) {}
     public record CreditDisputePage(List<CreditDispute> items, String nextCursor, boolean hasMore) {}
     public record Investigation(String investigationId, Subject subject, boolean audited) {}
+    public record InvestigationReceipt(String investigationId) {}
     public record Subject(String userId) {}
 }

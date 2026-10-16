@@ -36,7 +36,7 @@ CREATE USER 'caizhitong_investigator'@'<ip>' IDENTIFIED BY '<password>';
 
 ```sql
 GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
-      CREATE TEMPORARY TABLES,
+      CREATE TEMPORARY TABLES, CREATE ROUTINE, ALTER ROUTINE, EXECUTE,
       SELECT, INSERT, UPDATE, DELETE
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
@@ -46,6 +46,16 @@ GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
 见第三节迁移与初始化。确认 74 张表创建成功后再继续。
 
 ### 步骤 4：业务账号逐表授权（表已存在）
+
+V18 必须由长期保留的 schema migrator 执行，两个过程默认为该账号 DEFINER。迁移完成后若收紧迁移权限，必须保留 `pseudo_identities`、`community_posts`、`community_comments` 的 SELECT，以及 `community_owner_check` / `community_owner_posts` 各自的 EXECUTE；仅保留 SELECT 会使过程以 definer 身份执行时失败。不得删除 definer 账号，不得将其密码配置为业务密码。创建过程只需 schema 的 CREATE ROUTINE/ALTER ROUTINE/EXECUTE，无需全局权限或 root definer。
+
+```sql
+GRANT SELECT ON caizhitong.pseudo_identities TO 'caizhitong_migrator'@'<ip>';
+GRANT SELECT ON caizhitong.community_posts TO 'caizhitong_migrator'@'<ip>';
+GRANT SELECT ON caizhitong.community_comments TO 'caizhitong_migrator'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_check TO 'caizhitong_migrator'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_posts TO 'caizhitong_migrator'@'<ip>';
+```
 
 业务账号拥有 71 张业务表的增删改查、`pseudo_identities` 仅 INSERT、`admin_audit_logs` 仅追加；**不授予 `security_investigations`**：
 
@@ -96,6 +106,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.campus_issue_locations TO 'ca
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.campus_issue_follows TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.campus_issue_evidences TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.campus_issue_votes TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT ON caizhitong.campus_issue_events TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.resources TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.resource_slots TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reservations TO 'caizhitong_app'@'<ip>';
@@ -115,6 +126,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reports TO 'caizhitong_app'@'
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.penalties TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.appeals TO 'caizhitong_app'@'<ip>';
 GRANT INSERT ON caizhitong.pseudo_identities TO 'caizhitong_app'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_check TO 'caizhitong_app'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_posts TO 'caizhitong_app'@'<ip>';
 
 -- 消息与治理（审计仅追加，security_investigations 不授予业务账号）
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.conversations TO 'caizhitong_app'@'<ip>';
@@ -143,13 +156,18 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.async_jobs TO 'caizhitong_app
 ### 步骤 5：安全调查账号授权
 
 ```sql
--- 只读受限身份映射与审计；调查记录追加写 + 只读
-GRANT SELECT ON caizhitong.pseudo_identities TO 'caizhitong_investigator'@'<ip>';
-GRANT SELECT ON caizhitong.admin_audit_logs TO 'caizhitong_investigator'@'<ip>';
+-- 调查只需目标映射密文与校园定位列；无 users/phone/student 权限
+GRANT SELECT (post_id, comment_id, user_id_encrypted) ON caizhitong.pseudo_identities TO 'caizhitong_investigator'@'<ip>';
+GRANT SELECT (id, campus_id) ON caizhitong.community_posts TO 'caizhitong_investigator'@'<ip>';
+GRANT SELECT (id, post_id) ON caizhitong.community_comments TO 'caizhitong_investigator'@'<ip>';
 GRANT SELECT, INSERT ON caizhitong.security_investigations TO 'caizhitong_investigator'@'<ip>';
 ```
 
-> 匿名身份映射的运行时路径：业务账号可 `INSERT pseudo_identities` 创建「帖子→真实账号」映射（不可 SELECT，避免批量查询真实作者）；匿名昵称已冗余到 `community_posts.author_name` / `community_comments.author_name`，展示无需读取映射表。作者维护自己的帖子由后端服务按会话 user_id 在事务内校验归属，不得开放批量真实身份查询。
+> 匿名身份映射的运行时路径：业务账号仅 `INSERT pseudo_identities`。作者维护通过 V18 两个 SQL SECURITY DEFINER 过程，后端从当前会话计算带密钥 owner proof，过程限定 campus，仅返回 boolean 或本人的帖子ID；从不返回映射/真实用户ID。H2 替身仅在 src/test，生产无 JDBC SELECT fallback。
+
+调查部署须单独配置 `INVESTIGATION_DB_URL`、`INVESTIGATION_DB_USER`、`INVESTIGATION_DB_PASSWORD`（只从服务端秘密配置注入）。用户名必须与业务账号不同；缺失配置或专用数据库故障返回503，无业务连接回退。gateway 内部持有私有 DataSourceTransactionManager，不向 Spring 注册第二个 DataSource/事务管理器，不影响主业务自动配置。
+
+调查幂等只缓存 `{investigationId}`；每次披露（包括重试）重新校验权限、目标校园、举报关联及新 `X-Reauth-Token`。专用事务每次追加 `security_investigations`，其 `result_json.investigationId` 关联稳定调查标识，`result_json.campusId/reportId` 记录范围；audit INSERT/commit 失败不返回身份。该账号不具有审计 UPDATE/DELETE。同key不同正文409；同正文返回同调查标识但必须换新二次认证凭证。
 
 ## 三、迁移与初始化
 

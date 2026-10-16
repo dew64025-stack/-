@@ -19,12 +19,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:community_http;MODE=MySQL;DB_CLOSE_DELAY=-1")
-@AutoConfigureMockMvc(print=org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE) @ActiveProfiles("test") @Import(CommunityHttpTest.Fixtures.class)
+@AutoConfigureMockMvc(print=org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE) @ActiveProfiles("test") @Import({CommunityHttpTest.Fixtures.class,H2AnonymousOwnership.class})
 @Sql(scripts={"/identity-schema.sql","/community-schema.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class CommunityHttpTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
+    @Autowired com.caizhitong.identity.OneTimeSecrets secrets;
+    @Autowired com.caizhitong.common.SensitiveDataCrypto crypto;
     private final JsonMapper mapper=new JsonMapper();
     private String student, admin;
 
@@ -160,8 +162,9 @@ class CommunityHttpTest {
     @Test void communityReadsRequireVerifiedStudent() throws Exception {
         long pid=createPublishedCommunityPost();
         jdbc.update("UPDATE student_verifications SET status='pending' WHERE user_id=101");
-        for(String path:List.of("/community/posts","/community/posts/"+pid,"/community/posts/"+pid+"/comments","/me/community/posts"))
+        for(String path:List.of("/community/posts","/community/posts/"+pid,"/community/posts/"+pid+"/comments"))
             mvc.perform(get("/api/v1"+path).header("Authorization",student)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/me/community/posts").header("Authorization",student)).andExpect(status().isOk());
     }
 
     @Test void commentsRespectRestrictedAndDeletedParentsAndExposeOnlyOwnerCapability() throws Exception {
@@ -185,6 +188,55 @@ class CommunityHttpTest {
 
     @Test void blockingAcceptsDocumentedEmptyBody() throws Exception {
         mvc.perform(put("/api/v1/blocks/community_post/999").header("Authorization",student).header("Idempotency-Key","block-no-body")).andExpect(status().isOk()).andExpect(jsonPath("$.data.blocked").value(true));
+    }
+
+    @Test void campusAdminCannotPenalizeOrLiftAnotherCampusUser() throws Exception {
+        seedOtherCampusGovernance();
+        adminCommand("/admin/penalties",admin,"{\"userId\":\"201\",\"type\":\"mute\",\"reason\":\"Synthetic\"}","cross-penalty").andExpect(status().isNotFound());
+        adminCommand("/admin/penalties/801/lift",admin,"{\"reason\":\"Synthetic\"}","cross-lift").andExpect(status().isNotFound());
+        assertEquals("active",jdbc.queryForObject("SELECT status FROM penalties WHERE id=801",String.class));
+    }
+
+    @Test void campusAdminCannotListOrDecideAnotherCampusAppeal() throws Exception {
+        seedOtherCampusGovernance();
+        mvc.perform(get("/api/v1/admin/appeals").header("Authorization",admin)).andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
+        adminCommand("/admin/appeals/802/decision",admin,"{\"decision\":\"approve\",\"reason\":\"Synthetic\"}","cross-appeal").andExpect(status().isNotFound());
+        assertEquals("pending",jdbc.queryForObject("SELECT status FROM appeals WHERE id=802",String.class));
+    }
+
+    @Test void sameCampusGovernancePreservesReasonsAndAudit() throws Exception {
+        long penalty=Long.parseLong(mapper.readTree(adminCommand("/admin/penalties",admin,"{\"userId\":\"101\",\"type\":\"mute\",\"reason\":\"Synthetic penalty reason\"}","audited-penalty").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        adminCommand("/admin/penalties/"+penalty+"/lift",admin,"{\"reason\":\"Synthetic lift reason\"}","audited-lift").andExpect(status().isOk());
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE target_id=? AND reason IN ('Synthetic penalty reason','Synthetic lift reason')",Integer.class,penalty));
+        adminCommand("/admin/penalties/"+penalty+"/lift",admin,"{\"reason\":\"again\"}","audited-lift-again").andExpect(status().isConflict());
+    }
+
+    @Test void crossCampusPenaltyLiftAndAppealDecisionAreHidden() throws Exception {
+        seedOtherCampusGovernance();
+        assertAll(
+            ()->adminCommand("/admin/penalties/801/lift",admin,"{\"reason\":\"Synthetic\"}","cross-lift-only").andExpect(status().isNotFound()),
+            ()->adminCommand("/admin/appeals/802/decision",admin,"{\"decision\":\"approve\",\"reason\":\"Synthetic\"}","cross-appeal-only").andExpect(status().isNotFound()));
+    }
+
+    private void seedOtherCampusGovernance(){
+        jdbc.update("INSERT INTO campuses VALUES(2,'other','two','active',NULL)");
+        jdbc.update("INSERT INTO users(id,campus_id,status,version,created_at,updated_at) VALUES(201,2,'active',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO penalties(id,user_id,penalty_type,reason,status,created_by,created_at) VALUES(801,201,'mute','Synthetic','active',900,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO appeals(id,user_id,penalty_id,reason,status,created_at) VALUES(802,201,801,'Synthetic','pending',CURRENT_TIMESTAMP)");
+    }
+
+    @Test void investigationWithoutDedicatedConfigurationFailsClosed() throws Exception {
+        long pid=createPublishedCommunityPost();
+        jdbc.update("INSERT INTO user_roles(id,user_id,role_id,campus_id) VALUES(2,900,9,1)");
+        var csrf=mvc.perform(get("/api/v1/admin/auth/csrf").secure(true)).andReturn().getResponse();
+        String token=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        secrets.claim("admin-reauth",HexFormat.of().formatHex(crypto.searchHash("admin-reauth",token)),"900:1:"+(java.time.Instant.now().getEpochSecond()+300),java.time.Duration.ofMinutes(5));
+        mvc.perform(post("/api/v1/admin/security-investigations").secure(true).cookie(csrf.getCookie("ADMIN-XSRF-TOKEN"))
+            .header("X-ADMIN-CSRF",mapper.readTree(csrf.getContentAsString()).path("data").path("token").asString()).header("Authorization",admin)
+            .header("Idempotency-Key","investigation-disabled").header("X-Reauth-Token",token).contentType("application/json")
+            .content("{\"targetType\":\"community_post\",\"targetId\":\""+pid+"\",\"reason\":\"Synthetic investigation\"}"))
+            .andExpect(status().isServiceUnavailable());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM security_investigations",Integer.class));
     }
 
     @Test void commentsCannotReadRestrictedParent() throws Exception {
@@ -215,6 +267,11 @@ class CommunityHttpTest {
         return mvc.perform(post("/api/v1"+path).secure(true).cookie(bootstrap.getResponse().getCookie("ADMIN-XSRF-TOKEN")).header("X-ADMIN-CSRF",csrf).header("Authorization",bearer).header("Idempotency-Key",key).contentType("application/json").content(body));
     }
     @TestConfiguration static class Fixtures {
+        @Bean @Primary com.caizhitong.identity.OneTimeSecrets testSecrets(){return new com.caizhitong.identity.OneTimeSecrets(){
+            final Map<String,String> data=new HashMap<>();
+            public synchronized boolean claim(String namespace,String digest,String value,java.time.Duration ttl){return data.putIfAbsent(namespace+":"+digest,value)==null;}
+            public synchronized String consume(String namespace,String digest){return data.remove(namespace+":"+digest);}
+        };}
         @Bean @Primary com.caizhitong.common.ratelimit.RateCounter counter(){return (bucket,window)->1L;}
         @Bean @Primary SessionStore store(){return new SessionStore(){
             final Map<String,SessionRecord> data=new HashMap<>();

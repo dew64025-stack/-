@@ -61,6 +61,11 @@ management:
     health:
       show-details: never
 app:
+  security:
+    investigation:
+      url: ${INVESTIGATION_DB_URL:}
+      username: ${INVESTIGATION_DB_USER:}
+      password: ${INVESTIGATION_DB_PASSWORD:}
   files:
     clamd:
       host: ${FILES_CLAMD_HOST:}

@@ -33,7 +33,7 @@ public class AdminGovernanceController {
     @PostMapping("/credit-disputes/{id}/decision")
     public ApiResponse<GovernanceViews.CreditDispute> decideCreditDispute(@PathVariable String id,@RequestBody GovernanceInputs.Decision input,HttpServletRequest r){return ok(service.decideCreditDispute(IdentityInputs.id(id),input),r);}
     @PostMapping("/security-investigations")
-    public ApiResponse<GovernanceViews.Investigation> investigate(@RequestBody GovernanceInputs.Investigation input,HttpServletRequest r){return ok(service.investigate(input),r);}
+    public ApiResponse<GovernanceViews.Investigation> investigate(@RequestBody GovernanceInputs.Investigation input,@RequestHeader(value="X-Reauth-Token",required=false)String reauth,HttpServletRequest r){return ok(service.investigate(input,reauth,(com.caizhitong.common.idempotency.IdempotencyContext)r.getAttribute(com.caizhitong.common.idempotency.IdempotencyContext.REQUEST_ATTRIBUTE)),r);}
 
     private <T> ApiResponse<T> ok(T data,HttpServletRequest r){return ApiResponse.ok(data,RequestIdFilter.requestId(r));}
 }

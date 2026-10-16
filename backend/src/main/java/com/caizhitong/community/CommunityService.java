@@ -20,8 +20,9 @@ public class CommunityService {
     private final Clock clock;
     private final CursorCodec cursors;
     private final SensitiveDataCrypto crypto;
-    public CommunityService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,CursorCodec cursors,SensitiveDataCrypto crypto){
-        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.cursors=cursors;this.crypto=crypto;
+    private final AnonymousOwnership ownership;
+    public CommunityService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,CursorCodec cursors,SensitiveDataCrypto crypto,AnonymousOwnership ownership){
+        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.cursors=cursors;this.crypto=crypto;this.ownership=ownership;
     }
 
     @BusinessWrite(student=true) public CommunityViews.Post create(CommunityInputs.Create input){
@@ -120,15 +121,11 @@ public class CommunityService {
     }
 
     public CommunityViews.Page myPosts(String status,String cursor,Integer limit){
-        Actor actor=current.requireStudent();int size=PageLimits.resolve(limit);
-        String scope="community-mine:"+actor.userId()+":"+status;
+        Actor actor=current.require();int size=PageLimits.resolve(limit);
+        String scope="community-mine:"+actor.campusId()+":"+actor.userId()+":"+status;
         long before=Long.MAX_VALUE;
         if(cursor!=null){var keys=cursors.decode(cursor,scope).sortKeys();if(!keys.keySet().equals(Set.of("id")))throw invalid();before=id(keys.get("id"));}
-        String sql="SELECT p.post_id FROM pseudo_identities p JOIN community_posts c ON c.id=p.post_id WHERE p.user_id_search=? AND p.post_id<?";
-        List<Object> args=new ArrayList<>(List.of(searchOf(actor.userId()),before));
-        if(status!=null){sql+=" AND c.status=?";args.add(status);}
-        sql+=" ORDER BY p.post_id DESC LIMIT ?";args.add(size+1);
-        var found=jdbc.queryForList(sql,Long.class,args.toArray());boolean more=found.size()>size;
+        var found=ownership.posts(actor,status,before,size+1);boolean more=found.size()>size;
         var page=found.stream().limit(size).map(id->post(id,true)).toList();
         String next=more?cursors.encode(new CursorPayload(scope,Map.of("id",page.getLast().id()))):null;
         return new CommunityViews.Page(page,next,more);
@@ -140,8 +137,8 @@ public class CommunityService {
                 pseudoId,postId,name,now,commentId,crypto.encrypt(ANON,Long.toString(userId)),searchOf(userId));
     }
     private String searchOf(long userId){return HexFormat.of().formatHex(crypto.searchHash(ANON,Long.toString(userId)));}
-    private boolean isPostAuthor(Actor actor,long postId){return jdbc.queryForObject("SELECT COUNT(*) FROM pseudo_identities WHERE post_id=? AND user_id_search=?",Integer.class,postId,searchOf(actor.userId()))>0;}
-    private boolean isCommentAuthor(Actor actor,long commentId){return jdbc.queryForObject("SELECT COUNT(*) FROM pseudo_identities WHERE comment_id=? AND user_id_search=?",Integer.class,commentId,searchOf(actor.userId()))>0;}
+    private boolean isPostAuthor(Actor actor,long postId){return ownership.owns(actor,"community_post",postId);}
+    private boolean isCommentAuthor(Actor actor,long commentId){return ownership.owns(actor,"community_comment",commentId);}
     private void authorizePostAuthor(Actor actor,long postId){if(!isPostAuthor(actor,postId))throw missing();}
     private void authorizeCommentAuthor(Actor actor,long commentId){if(!isCommentAuthor(actor,commentId))throw missing();}
     private void queueModeration(long campus,String type,long target,LocalDateTime now){jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,created_at,updated_at) VALUES(?,?,?,?,'pending',?,?)",ids.nextId(),campus,type,target,now,now);}

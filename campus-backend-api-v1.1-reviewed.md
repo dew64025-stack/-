@@ -768,7 +768,9 @@ URL 正文先处理长度/分块传输，再解 gzip/deflate，压缩字节与�
 | GET | /admin/credit-disputes | A(credit.review) | status?,cursor,limit | 分页信用纠错申请 |
 | POST | /admin/credit-disputes/{id}/decision | A(credit.review) | {decision:approve/reject,reason} | 决策对象；通过时追加修正事件，不抹除原始信用事实 |
 | POST | /admin/appeals/{id}/decision | A(appeal.review) | {decision:approve/reject,reason} | Appeal |
-| POST | /admin/security-investigations | A(security.investigate)＋二次认证 | {targetType,targetId,reportId,reason,reauthToken} | {investigationId,subject:{userId},audited:true}；不擅自增加调查账号无权读取的手机号 |
+| POST | /admin/security-investigations | A(security.investigate)＋二次认证 | {targetType,targetId,reportId?,reason}；X-Reauth-Token 请求头 | {investigationId,subject:{userId},audited:true}；不擅自增加调查账号无权读取的手机号 |
+
+调查同 actor/campus/route/key＋相同正文保持相同 investigationId，不同正文409；重试披露仍需新的 X-Reauth-Token 和当前权限/目标校园/举报关联校验。investigationId 为稳定调查标识，每次成功披露在受限 security_investigations 追加记录，并由 result_json.investigationId 关联；必须提交审计后才返回身份，配置缺失或审计失败503。普通业务幂等记录只存标识回执，不存 subject/userId 或二次认证凭证。
 | GET | /admin/audit-logs | A(audit.read) | action?,from?,to?,cursor,limit | 本校范围脱敏审计；平台级访问另校需授权 |
 
 处罚 type=remind/rate_limit/take_down/mute/ban。封禁、身份追溯不能由模型直接决定。普通内容审核员只能看到匿名身份；安全调查需明确案件理由并留下受限记录，审计写入失败时不得返回真实身份。调查结果不可进入普通日志和默认统计。普通数据源不得访问security_investigations。调查服务使用专用数据源SELECT映射并INSERT调查记录，提交受限记录后才返回身份；普通审计仅追加脱敏案件摘要。任何必需审计失败都不返回身份。应用安全调查角色与数据库账号是两层控制；如果未来确需查询手机号，必须另行配置受控、脱敏的授权路径，本稿不默认赋予该权限。
