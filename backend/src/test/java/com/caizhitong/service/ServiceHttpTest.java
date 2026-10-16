@@ -302,6 +302,39 @@ class ServiceHttpTest {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=12",Integer.class));
     }
 
+    @Test void sameSeatExpiringAfterCleanupReturnsConflictThenWorkerAllowsRetry()throws Exception {
+        resourceFixture();
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at,pending_expires_at) VALUES(12,1,101,11,1,'pending','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)",LocalDateTime.ofInstant(clock.value.plusMillis(1),ZoneOffset.UTC));
+        jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        org.mockito.Mockito.doAnswer(call->{Object result=call.callRealMethod();clock.value=clock.value.plusMillis(2);return result;}).when(jdbc).update(org.mockito.ArgumentMatchers.startsWith("DELETE FROM resource_occupancies WHERE reservation_id IN"),org.mockito.ArgumentMatchers.any(Object[].class));
+        String body="{\"slotId\":\"11\",\"seatNo\":1}";
+        command("/reservations",student2,body,"same-seat-expiry-retry").andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("RESERVATION_CONFLICT"));
+        assertEquals("pending",jdbc.queryForObject("SELECT status FROM reservations WHERE id=12",String.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM reservations",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=12",Integer.class));
+        expiryWorker.run();
+        assertEquals("cancelled",jdbc.queryForObject("SELECT status FROM reservations WHERE id=12",String.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=12",Integer.class));
+        command("/reservations",student2,body,"same-seat-expiry-retry").andExpect(status().isCreated()).andExpect(jsonPath("$.data.status").value("pending"));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM reservations",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE slot_id=11 AND seat_no=1",Integer.class));
+    }
+
+    @Test void overlappingSeatExpiringAfterCleanupStaysBlockedUntilPhysicalRelease()throws Exception {
+        resourceFixture();
+        jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,capacity,status,version,created_at,updated_at) VALUES(14,10,'2026-10-20','09:00','11:00',1,'available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at,pending_expires_at) VALUES(12,1,101,11,1,'pending','manual',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)",LocalDateTime.ofInstant(clock.value.plusMillis(1),ZoneOffset.UTC));
+        jdbc.update("INSERT INTO resource_occupancies VALUES(13,11,12,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        org.mockito.Mockito.doAnswer(call->{Object result=call.callRealMethod();clock.value=clock.value.plusMillis(2);return result;}).when(jdbc).update(org.mockito.ArgumentMatchers.startsWith("DELETE FROM resource_occupancies WHERE reservation_id IN"),org.mockito.ArgumentMatchers.any(Object[].class));
+        String body="{\"slotId\":\"14\",\"seatNo\":1}";
+        command("/reservations",student2,body,"overlap-expiry-retry").andExpect(status().isConflict());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM reservations",Integer.class));
+        expiryWorker.run();
+        command("/reservations",student2,body,"overlap-expiry-retry").andExpect(status().isCreated());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE slot_id=14 AND seat_no=1",Integer.class));
+    }
+
     @Test void overlappingCapacitySlotsReportDistinctBlockedSeatsAndMatchReservationWrites()throws Exception {
         resourceFixture();jdbc.update("UPDATE resources SET capacity=2 WHERE id=10");jdbc.update("UPDATE resource_slots SET capacity=2 WHERE id=11");
         jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,capacity,status,version,created_at,updated_at) VALUES(14,10,'2026-10-20','09:00','11:00',2,'available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),(15,10,'2026-10-20','09:15','10:30',2,'available',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");

@@ -33,7 +33,7 @@ public class ResourceService {
         Actor actor=current.requireStudent();
         long slotId=IdentityInputs.id(input.slotId());int seatNo=input.seatNo().asInt();
         long resourceId=number(one("SELECT resource_id FROM resource_slots WHERE id=?",slotId),"resource_id");
-        var resource=visible(resourceId,actor.campusId(),true);expire(resourceId);
+        var resource=visible(resourceId,actor.campusId(),true);LocalDateTime cutoff=expire(resourceId);
         requireConfiguration(resource);
         var slot=one("SELECT * FROM resource_slots WHERE id=? FOR UPDATE",slotId);
         Integer cap=capacity(slot,resource);
@@ -43,7 +43,7 @@ public class ResourceService {
         if(exclusive){if(seatNo!=0)throw new BusinessException(409,"SEAT_INVALID","独占资源座位号必须为0");}
         else if(seatNo<1||seatNo>cap)throw new BusinessException(409,"SEAT_INVALID","座位号超出范围");
         if("official".equals(resource.get("source_type")))throw unavailable();
-        if(occupiedSeats(slot,true).contains(seatNo))throw reservationConflict();
+        if(occupiedSeats(slot,true,cutoff).contains(seatNo))throw reservationConflict();
         long id=ids.nextId();LocalDateTime now=now();
         String source=(String)resource.get("source_type"),status="demo".equals(source)?"confirmed":"pending";
         jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at,pending_expires_at) VALUES(?,?,?,?,?,?,?,0,?,?,?)",id,actor.campusId(),actor.userId(),slotId,seatNo,status,source,now,now,"pending".equals(status)?now.plusMinutes(15):null);
@@ -267,14 +267,14 @@ public class ResourceService {
     private void authorizeReservation(Actor actor,long id){if(jdbc.queryForObject("SELECT COUNT(*) FROM reservations WHERE id=? AND campus_id=? AND user_id=?",Integer.class,id,actor.campusId(),actor.userId())!=1)throw missing();}
     private ResourceViews.Resource resource(long id){var rows=jdbc.query("SELECT * FROM resources WHERE id=?",(rs,i)->new ResourceViews.Resource(rs.getString("id"),rs.getString("name"),rs.getString("type"),rs.getString("region_id"),integer(rs.getObject("capacity")),rs.getString("equipment_json")==null?null:mapper.readTree(rs.getString("equipment_json")),rs.getString("status"),rs.getString("reservation_mode"),rs.getInt("version"),sources.read(rs.getLong("campus_id"),"resource",id,rs.getString("source_type"),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),new ResourceViews.BookingRules(CAMPUS_ZONE.getId(),15,true)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private ResourceViews.Slot slot(long id){var s=one("SELECT * FROM resource_slots WHERE id=?",id);long rid=number(s,"resource_id");var r=one("SELECT * FROM resources WHERE id=?",rid);Integer cap=capacity(s,r);boolean exclusive="exclusive".equals(r.get("reservation_mode"));int total=exclusive?1:cap==null?0:cap;
-        int count=(int)occupiedSeats(s,false).stream().filter(seat->exclusive?seat==0:seat>=1&&seat<=total).count();
+        int count=(int)occupiedSeats(s,false,now()).stream().filter(seat->exclusive?seat==0:seat>=1&&seat<=total).count();
         int remaining=validConfiguration(r,false)?Math.max(0,total-count):0;
         return new ResourceViews.Slot(Long.toString(id),Long.toString(rid),day(s).toString(),time(s,"start_time").toString(),time(s,"end_time").toString(),cap,(String)s.get("status"),remaining,((Number)s.get("version")).intValue(),sources.read(number(r,"campus_id"),"resource",rid,(String)r.get("source_type"),instant(s,"updated_at")));}
     private ResourceViews.SlotAvailability availability(ResourceViews.Slot s,long slotId){
         var r=resource(Long.parseLong(s.resourceId()));Integer cap=s.capacity();boolean exclusive="exclusive".equals(r.reservationMode());
         if(!validConfiguration(one("SELECT * FROM resources WHERE id=?",Long.parseLong(s.resourceId())),false))return new ResourceViews.SlotAvailability(s,r.reservationMode(),List.of(),false,"预约配置需要管理员修复");
         var rawSlot=one("SELECT * FROM resource_slots WHERE id=?",slotId);
-        Set<Integer> occ=occupiedSeats(rawSlot,false);
+        Set<Integer> occ=occupiedSeats(rawSlot,false,now());
         List<Integer> available=new ArrayList<>();
         int limit=exclusive?0:cap==null?0:cap;
         if(exclusive){if(!occ.contains(0))available.add(0);}
@@ -285,14 +285,15 @@ public class ResourceService {
     }
     private ResourceViews.Reservation reservation(long id){var v=one("SELECT * FROM reservations WHERE id=?",id);var s=slot(number(v,"slot_id"));var r=resource(Long.parseLong(s.resourceId()));return new ResourceViews.Reservation(Long.toString(id),new ResourceViews.ResourceReference(r.id(),r.name(),r.type()),s,((Number)v.get("seat_no")).intValue(),(String)v.get("status"),((Number)v.get("version")).intValue(),instant(v,"created_at"),sources.read(number(v,"campus_id"),"reservation",id,(String)v.get("source_type"),instant(v,"updated_at")),instant(v,"pending_expires_at"));}
     private Map<String,Object> lockReservation(long id,long campus){var link=one("SELECT s.resource_id FROM reservations v JOIN resource_slots s ON s.id=v.slot_id WHERE v.id=? AND v.campus_id=? AND v.deleted_at IS NULL",id,campus);long rid=number(link,"resource_id");one("SELECT id FROM resources WHERE id=? FOR UPDATE",rid);expire(rid);return one("SELECT * FROM reservations WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE",id,campus);}
-    private void expire(long resource){
+    private LocalDateTime expire(long resource){
         LocalDateTime cutoff=now();
         jdbc.update("DELETE FROM resource_occupancies WHERE reservation_id IN (SELECT v.id FROM reservations v JOIN resource_slots s ON s.id=v.slot_id WHERE s.resource_id=? AND v.status='pending' AND v.pending_expires_at<=?)",resource,cutoff);
         jdbc.update("UPDATE reservations SET status='cancelled',version=version+1,updated_at=?,pending_expires_at=NULL WHERE status='pending' AND pending_expires_at<=? AND slot_id IN (SELECT id FROM resource_slots WHERE resource_id=?)",cutoff,cutoff,resource);
+        return cutoff;
     }
-    private Set<Integer> occupiedSeats(Map<String,Object> slot,boolean lock){
+    private Set<Integer> occupiedSeats(Map<String,Object> slot,boolean lock,LocalDateTime cutoff){
         return new HashSet<>(jdbc.queryForList("SELECT o.seat_no FROM resource_occupancies o JOIN resource_slots s ON s.id=o.slot_id JOIN reservations v ON v.id=o.reservation_id WHERE s.resource_id=? AND s.slot_date=? AND s.start_time<? AND s.end_time>? AND (v.status<>'pending' OR v.pending_expires_at>?)"+(lock?" FOR UPDATE":""),Integer.class,
-                number(slot,"resource_id"),slot.get("slot_date"),slot.get("end_time"),slot.get("start_time"),now()));
+                number(slot,"resource_id"),slot.get("slot_date"),slot.get("end_time"),slot.get("start_time"),cutoff));
     }
     private void checkDemoWindow(Map<String,Object> row){
         if(!"confirmed".equals(row.get("status"))||!"demo".equals(row.get("source_type")))throw state();
