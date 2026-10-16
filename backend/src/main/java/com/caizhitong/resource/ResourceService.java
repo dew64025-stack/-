@@ -138,7 +138,7 @@ public class ResourceService {
         String status=decision.equals("approve")?"confirmed":"rejected";
         if(status.equals("confirmed")){
             var slot=one("SELECT * FROM resource_slots WHERE id=? FOR UPDATE",number(row,"slot_id"));
-            requireConfiguration(visible(number(slot,"resource_id"),actor.campusId(),false));
+            requireConfiguration(visible(number(slot,"resource_id"),actor.campusId(),true));
             if(!"available".equals(slot.get("status"))||!slotEnd(slot).isAfter(clock.instant()))throw state();
         }
         if(status.equals("confirmed")&&jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=?",Integer.class,id)!=1)throw state();

@@ -124,6 +124,36 @@ class MysqlServiceRegressionTest {
         });
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM campus_issue_votes WHERE issue_id=2502",Integer.class));
     }
+    @Test void approvalCannotUseActiveResourceFromEarlierRepeatableReadSnapshot(){
+        assertApprovalUsesCurrentState(2601,2602,2603,true);
+    }
+    @Test void approvalCannotUseAvailableSlotFromEarlierRepeatableReadSnapshot(){
+        assertApprovalUsesCurrentState(2611,2612,2613,false);
+    }
+    @Test void legacyOverlappingExclusiveAvailabilityMatchesWriteConflict()throws Exception {
+        jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,capacity,status,created_at,updated_at) VALUES(2104,2001,'2026-10-20','09:00','11:00',NULL,'available',UTC_TIMESTAMP(),UTC_TIMESTAMP())");
+        mvc.perform(get("/api/v1/resource-slots/2104/availability").header("Authorization",second)).andExpect(status().isOk()).andExpect(jsonPath("$.data.canReserve").value(false)).andExpect(jsonPath("$.data.slot.remaining").value(0)).andExpect(jsonPath("$.data.availableSeatNos.length()").value(0));
+        command(second,2104,0,"mysql-overlap-exclusive").andExpect(status().isConflict());
+    }
+    private void assertApprovalUsesCurrentState(long resource,long slot,long reservation,boolean stopResource){
+        jdbc.update("INSERT INTO resources(id,campus_id,type,name,capacity,reservation_mode,status,source_type,created_at,updated_at) VALUES(?,1,'library_seat','Approval snapshot fixture',1,'capacity','active','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",resource);
+        jdbc.update("INSERT INTO resource_slots(id,resource_id,slot_date,start_time,end_time,capacity,status,created_at,updated_at) VALUES(?,?,'2026-10-20','08:00','10:00',1,'available',UTC_TIMESTAMP(),UTC_TIMESTAMP())",slot,resource);
+        jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,pending_expires_at,created_at,updated_at) VALUES(?,1,101,?,1,'pending','manual','2026-10-20 00:15:00',UTC_TIMESTAMP(),UTC_TIMESTAMP())",reservation,slot);
+        jdbc.update("INSERT INTO resource_occupancies(id,slot_id,reservation_id,seat_no,created_at,updated_at) VALUES(?,?,?,1,UTC_TIMESTAMP(),UTC_TIMESTAMP())",reservation+100,slot,reservation);
+        var actor=new Actor(900,1,Set.of("resource.process"),true,true,"active",SessionKind.ADMIN);var current=org.mockito.Mockito.mock(CurrentActor.class);
+        org.mockito.Mockito.when(current.requirePermission("resource.process")).thenReturn(actor);
+        var service=new com.caizhitong.resource.ResourceService(jdbc,current,ids,clock,null,null,null,sources,mapper);
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status->{
+            assertEquals("active",jdbc.queryForObject("SELECT status FROM resources WHERE id=?",String.class,resource));
+            assertEquals("available",jdbc.queryForObject("SELECT status FROM resource_slots WHERE id=?",String.class,slot));
+            var disabling=new org.springframework.transaction.support.TransactionTemplate(transactions);disabling.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            disabling.executeWithoutResult(inner->{if(stopResource)jdbc.update("UPDATE resources SET status='inactive' WHERE id=?",resource);else jdbc.update("UPDATE resource_slots SET status='maintenance' WHERE id=?",slot);});
+            var input=new com.caizhitong.resource.ResourceInputs.Decision(mapper.readTree("\"approve\""),mapper.readTree("0"),mapper.readTree("\"Human approval\""));
+            var error=assertThrows(com.caizhitong.common.BusinessException.class,()->service.decide(reservation,input));
+            assertEquals(stopResource?404:409,error.getStatus());
+        });
+        assertEquals("pending",jdbc.queryForObject("SELECT status FROM reservations WHERE id=?",String.class,reservation));
+    }
     private int transactionalVote(long user,CountDownLatch ready,CountDownLatch go){
         var service=issueService(user);
         return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
