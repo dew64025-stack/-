@@ -70,6 +70,7 @@ class MysqlCommunityPrivacyTest {
     @Autowired com.caizhitong.common.SensitiveDataCrypto crypto;
     @Autowired com.caizhitong.common.SnowflakeIds ids;
     @Autowired com.caizhitong.identity.OneTimeSecrets secrets;
+    @Autowired AnonymousOwnership ownership;
     final JsonMapper mapper=new JsonMapper();
 
     @BeforeEach void seed(){
@@ -85,8 +86,8 @@ class MysqlCommunityPrivacyTest {
     }
     @Test void minimumPrivilegeAppCanMaintainAnonymousOwnershipWithoutMappingSelect()throws Exception {
         try(var connection=DriverManager.getConnection(url,app,appPassword);var statement=connection.createStatement()){
-            assertThrows(SQLException.class,()->statement.executeQuery("SELECT * FROM pseudo_identities"));
-            assertThrows(SQLException.class,()->statement.executeQuery("SELECT * FROM security_investigations"));
+            assertEquals(1142,assertThrows(SQLException.class,()->statement.executeQuery("SELECT * FROM pseudo_identities")).getErrorCode());
+            assertEquals(1142,assertThrows(SQLException.class,()->statement.executeQuery("SELECT * FROM security_investigations")).getErrorCode());
         }
         String owner="Bearer "+sessions.issue(101,1,SessionKind.STUDENT).accessToken();
         String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
@@ -108,6 +109,12 @@ class MysqlCommunityPrivacyTest {
             tx.setRollbackOnly();
         });
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM campus_issue_events WHERE id=990001",Integer.class));
+    }
+    @Test void documentedAppCanReadPrivacyBusinessTables(){
+        assertAll(()->assertDoesNotThrow(()->jdbc.queryForObject("SELECT COUNT(*) FROM file_attachments",Integer.class)),
+            ()->assertDoesNotThrow(()->jdbc.queryForObject("SELECT COUNT(*) FROM mutual_aid_ratings",Integer.class)),
+            ()->assertDoesNotThrow(()->jdbc.queryForObject("SELECT COUNT(*) FROM blocks",Integer.class)),
+            ()->assertDoesNotThrow(()->jdbc.queryForObject("SELECT COUNT(*) FROM credit_disputes",Integer.class)));
     }
 
     @Test void investigationUsesHeaderDedicatedAuditAndReceiptOnlyReplay()throws Exception {
@@ -136,6 +143,67 @@ class MysqlCommunityPrivacyTest {
         long report=ids.nextId();jdbc.update("INSERT INTO reports(id,campus_id,reporter_id,target_type,target_id,reason,status,created_at,updated_at) VALUES(?,1,101,'community_post',?,'Synthetic','pending',UTC_TIMESTAMP(),UTC_TIMESTAMP())",report,other);
         investigate(investigationBody(own).replace("\"reason\"","\"reportId\":\""+report+"\",\"reason\""),"investigate-report",reauth()).andExpect(status().isNotFound());
         investigate(investigationBody(own).replace("community_post","mutual_aid_post"),"investigate-type",reauth()).andExpect(status().isBadRequest());
+    }
+
+    @Test void concurrentSameKeyInvestigationsKeepOneReceiptAndAuditEveryDisclosure()throws Exception {
+        String body=investigationBody(anonymousPost(1));String a=reauth(),b=reauth();
+        var ready=new java.util.concurrent.CountDownLatch(2);var go=new java.util.concurrent.CountDownLatch(1);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            var first=pool.submit(()->{ready.countDown();go.await();return investigate(body,"concurrent-inquiry",a).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();});
+            var second=pool.submit(()->{ready.countDown();go.await();return investigate(body,"concurrent-inquiry",b).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();});
+            assertTrue(ready.await(5,java.util.concurrent.TimeUnit.SECONDS));go.countDown();
+            String id=mapper.readTree(first.get(15,java.util.concurrent.TimeUnit.SECONDS)).path("data").path("investigationId").asString();
+            assertEquals(id,mapper.readTree(second.get(15,java.util.concurrent.TimeUnit.SECONDS)).path("data").path("investigationId").asString());
+            assertEquals(2,auditCount(id));
+        }
+    }
+
+    @Test void cachedReceiptCannotRevealIdentityWhenDedicatedAuditInsertFailsAndRetryIsSafe()throws Exception {
+        String body=investigationBody(anonymousPost(1)),key="audit-failure-retry",token=reauth();
+        assertTrue(schema.matches("czt_abc_c_[a-z0-9_]+"));assertTrue(investigator.matches("czt_c_i_[a-f0-9]{12}"));
+        assertNotEquals(app,investigator);assertNotEquals(migrator,investigator);
+        assertEquals("abc-review-repairs-20261015",System.getenv("CZT_ABC_C_VERIFIED_LABEL"));
+        String rootPassword=System.getenv("CZT_ABC_C_ROOT_PASSWORD");
+        String receiptId;
+        try(var connection=DriverManager.getConnection(url,"root",rootPassword);var statement=connection.createStatement()){
+            try{
+                statement.execute("REVOKE INSERT ON "+schema+".security_investigations FROM '"+investigator+"'@'%'");
+                String failure=investigate(body,key,token).andExpect(status().isServiceUnavailable()).andReturn().getResponse().getContentAsString();
+                assertFalse(failure.contains("subject"));assertFalse(failure.contains("userId"));
+                receiptId=lastReceiptId();assertEquals(0,auditCount(receiptId));
+            }finally{
+                statement.execute("GRANT INSERT ON "+schema+".security_investigations TO '"+investigator+"'@'%'");
+                try(var rows=statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA='"+schema+"' AND TABLE_NAME='security_investigations' AND PRIVILEGE_TYPE='INSERT' AND GRANTEE=\"'"+investigator+"'@'%'\"")){
+                    assertTrue(rows.next());assertEquals(1,rows.getInt(1),"Exact temporary investigator INSERT grant must be restored");
+                }
+            }
+        }catch(SQLException failure){throw new IllegalStateException("Scoped fault injection failed: SQLState="+failure.getSQLState()+", code="+failure.getErrorCode());}
+        finally{rootPassword=null;}
+        investigate(body,key,token).andExpect(status().isForbidden());
+        investigate(body,key,reauth()).andExpect(status().isOk()).andExpect(jsonPath("$.data.investigationId").value(receiptId));
+        assertEquals(1,auditCount(receiptId));
+    }
+
+    @Test void ownershipNeverCrossesCampusAndCommentsRemainOwnerMaintained()throws Exception {
+        long pid=anonymousPost(1);
+        assertFalse(ownership.owns(new Actor(101,2,Set.of(),true,true,"active",SessionKind.STUDENT),"community_post",pid));
+        assertTrue(ownership.posts(new Actor(101,2,Set.of(),true,true,"active",SessionKind.STUDENT),null,Long.MAX_VALUE,10).stream().noneMatch(id->id==pid));
+        String owner="Bearer "+sessions.issue(101,1,SessionKind.STUDENT).accessToken();String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
+        String body=mvc.perform(post("/api/v1/community/posts/"+pid+"/comments").header("Authorization",owner).header("Idempotency-Key","mysql-owner-comment").contentType("application/json").content("{\"content\":\"Synthetic\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String comment=mapper.readTree(body).path("data").path("id").asString();
+        mvc.perform(delete("/api/v1/community/comments/"+comment).header("Authorization",other).header("Idempotency-Key","mysql-other-comment")).andExpect(status().isNotFound());
+        jdbc.update("UPDATE student_verifications SET status='pending' WHERE user_id=101");
+        mvc.perform(delete("/api/v1/community/comments/"+comment).header("Authorization",owner).header("Idempotency-Key","mysql-delete-comment")).andExpect(status().isOk());
+    }
+
+    private String lastReceiptId(){
+        var receipt=jdbc.queryForMap("SELECT scope_digest,key_digest,request_digest,response_encrypted FROM api_idempotency_records WHERE response_type LIKE '%InvestigationReceipt' ORDER BY id DESC LIMIT 1");
+        return mapper.readTree(crypto.decrypt("idempotency-result:"+receipt.get("scope_digest")+":"+receipt.get("key_digest")+":"+receipt.get("request_digest"),(byte[])receipt.get("response_encrypted"))).path("investigationId").asString();
+    }
+    private int auditCount(String id)throws SQLException {
+        try(var connection=DriverManager.getConnection(url,investigator,investigatorPassword);var statement=connection.prepareStatement("SELECT COUNT(*) FROM security_investigations WHERE JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.investigationId'))=?")){
+            statement.setString(1,id);try(var rows=statement.executeQuery()){assertTrue(rows.next());return rows.getInt(1);}
+        }
     }
 
     private long anonymousPost(long campus){

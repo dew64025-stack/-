@@ -95,6 +95,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklists TO 'caizh
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklist_items TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_tasks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_results TO 'caizhitong_app'@'<ip>';
+-- C business DTO hydration only; upload/scan workers retain their separate deployment grants.
+GRANT SELECT ON caizhitong.file_attachments TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_usage_records TO 'caizhitong_app'@'<ip>';
 
 -- 服务与预约
@@ -115,6 +117,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reservation_checkins TO 'caiz
 
 -- 互助与社区（pseudo_identities 仅 INSERT）
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.mutual_aid_posts TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT ON caizhitong.mutual_aid_ratings TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.lost_found_matches TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.borrow_requests TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.teams TO 'caizhitong_app'@'<ip>';
@@ -139,6 +142,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.message_send_records TO 'caiz
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.moderation_tasks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.moderation_rules TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.credit_events TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.credit_disputes TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, DELETE ON caizhitong.blocks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT ON caizhitong.admin_audit_logs TO 'caizhitong_app'@'<ip>';
 
 -- 集成与补充

@@ -38,13 +38,23 @@ public class AttachmentService {
     public Attachment authorizeRead(Actor actor,long id){
         Actor current=actor==null?null:fresh(actor);Attachment a=find(id,false);
         if(!a.state().equals("active"))throw FilePurpose.missing();
-        if(current!=null&&(current.campusId()!=a.scope().campusId()||!a.scope().accessDomain().equals(current.kind().name().toLowerCase(Locale.ROOT))))throw FilePurpose.missing();
+        if(current!=null&&current.campusId()!=a.scope().campusId())throw FilePurpose.missing();
         if(current!=null&&current.kind()==SessionKind.ADMIN&&!current.permissions().contains("file.read"))throw FilePurpose.forbidden();
-        boolean owner=current!=null&&current.userId()==a.scope().ownerUserId();
+        boolean owner=current!=null&&current.userId()==a.scope().ownerUserId()&&a.scope().accessDomain().equals(current.kind().name().toLowerCase(Locale.ROOT));
         boolean linked=!Set.of("avatar","material","student_roster").contains(a.scope().purpose())&&policies.stream().anyMatch(p->p.permitsRead(current,a.scope()));
         if(!owner&&!linked)throw FilePurpose.missing();return a;
     }
     public FileViews.Metadata metadata(Actor actor,long id){Attachment a=authorizeRead(actor,id);return new FileViews.Metadata(Long.toString(id),a.name(),a.mime(),a.size(),a.scan());}
+    /** Narrow DTO-only preview; neither file ownership nor generic file.read substitutes for the parent link. */
+    public FileViews.Download businessPreview(Actor actor,long id,long campus,String purpose,long targetId){
+        if(!Set.of("mutual_aid","issue","workorder").contains(purpose))throw FilePurpose.missing();
+        Actor current=actor==null?null:fresh(actor);Attachment a=find(id,false);
+        if(!"active".equals(a.state())||a.scope().campusId()!=campus||!purpose.equals(a.scope().purpose())||current!=null&&current.campusId()!=campus)throw FilePurpose.missing();
+        if(policies.stream().noneMatch(p->p.permitsBusinessRead(current,a.scope(),targetId)))throw FilePurpose.missing();
+        requireClean(a);
+        if(!a.mime().startsWith("image/"))return null;
+        return new FileViews.Download(storage.sign(crypto.decrypt("file-object-key",a.key()),Duration.ofSeconds(120)),clock.instant().plusSeconds(120));
+    }
     public FileViews.Download download(Actor actor,long id){
         Attachment a=authorizeRead(actor,id);requireClean(a);
         if(a.scope().purpose().equals("student_roster")) {

@@ -6,4 +6,6 @@ import com.caizhitong.security.Actor;
  * Same-campus membership alone is never a grant. Null actor is reserved for explicit public business reads. */
 public interface LinkedAttachmentPolicy {
     boolean permitsRead(Actor actor,AttachmentScope attachment);
+    /** Business DTO preview: the exact persisted parent must independently authorize this reader. */
+    default boolean permitsBusinessRead(Actor actor,AttachmentScope attachment,long targetId){return false;}
 }

@@ -7,9 +7,8 @@ import tools.jackson.databind.JsonNode;
 public final class MutualAidViews {
     private MutualAidViews() {}
     public record Author(String id, String nickname) {}
-    public record Image(String id, String fileName, String mimeType, long sizeBytes) {}
     public record Post(String id, String category, String title, String content, JsonNode detail,
-            List<Image> images, String price, String exchangeArea, String status, int version, Instant createdAt) {}
+            List<com.caizhitong.resource.ServiceSources.Attachment> images, String price, String exchangeArea, String status, int version, Instant createdAt) {}
     public record Detail(Post post, Author author, boolean canContact, boolean canEdit) {}
     public record Page(List<Post> items, String nextCursor, boolean hasMore) {}
     public record Rating(String id, int score, String comment, Instant createdAt) {}

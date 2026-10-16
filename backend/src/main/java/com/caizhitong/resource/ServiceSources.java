@@ -27,4 +27,16 @@ public class ServiceSources {
         }
         return ids.stream().map(id->new Attachment(id,null,null)).toList();
     }
+    public static List<Attachment> attachments(tools.jackson.databind.JsonNode data,com.caizhitong.material.files.AttachmentService files,com.caizhitong.security.Actor actor,long campus,String purpose,long targetId){
+        return attachments(data).stream().map(item->{
+            try{
+                var download=files.businessPreview(actor,Long.parseLong(item.id()),campus,purpose,targetId);
+                if(download==null)return item;
+                return new Attachment(item.id(),download.url(),download.expiresAt());
+            }catch(com.caizhitong.common.BusinessException error){
+                if(error.getStatus()==403||error.getStatus()==404||error.getStatus()==409)return null;
+                throw error;
+            }
+        }).filter(java.util.Objects::nonNull).toList();
+    }
 }

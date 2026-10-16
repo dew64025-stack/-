@@ -361,7 +361,9 @@ WorkOrderCreate：{category,location,description,urgency,attachmentIds}。catego
 
 SQL保留pending/reviewing/accepted/processing/completed/rated/rejected。规划书要求“待审核→待受理→处理中→待评价→已完成”，不能把数据库completed直接显示为整项已完成。WorkOrder额外返回serviceStage：pending/reviewing→pending_review；审核通过等待受理→pending_acceptance；accepted未开始处理→accepted；processing→processing；数据库completed且无评价→awaiting_rating；rated或completed且已有评价→completed；rejected→rejected。待受理阶段需持久化明确的审核通过依据。评价只允许提交人、处于awaiting_rating时写入，评分记录与状态迁移同事务完成。关闭、无法处理、转办仍须补齐状态/事件模型并同步字典，不能把它们冒充普通completed。用户不能设置处理人或服务状态。未接官方系统的工单显示“平台处理”。
 
-现有运行实现：管理员以 `toStatus=reviewing`、非空 `comment` 记录审核通过，保存 `review_approved_at` 和审核事件，此时 `serviceStage=pending_acceptance`；随后才可 accepted→processing→completed，评价后 rated。历史 reviewing 且无审核通过依据仍为 pending_review，不能直接受理。详情字段平铺在 data 内，并附 events；分派和评价也保留事件。附件仅返回已校验关联的 `{id,thumbnailUrl:null,urlExpiresAt:null}`，下载仍由文件服务的狭窄关联策略授权。
+现有运行实现：管理员以 `toStatus=reviewing`、非空 `comment` 记录审核通过，保存 `review_approved_at` 和审核事件，此时 `serviceStage=pending_acceptance`；随后才可 accepted→processing→completed，评价后 rated。历史 reviewing 且无审核通过依据仍为 pending_review，不能直接受理。详情字段平铺在 data 内，并附 events；分派和评价也保留事件。
+
+互助、问题和工单的 `images:Attachment[]` 只对当前读者可见的实际父对象关联文件提供预览：同时核验校园、精确对象ID、附件ID、purpose、active和clean。合法图片返回120秒私有签名 `thumbnailUrl/urlExpiresAt`；PDF等非图片保留id但两项URL字段为null，不伪造缩略图；不可读/未清洁的附件不列入DTO。管理业务列表依原 `workorder.read/issue.read` 授权，不额外要求通用 `file.read`，也不增加角色权限。通用 `/files` 仍需登录，`/admin/files` 仍须 `file.read`，并继承文件用途等限制。仅 `mutual_aid/issue/workorder` 可以获得业务关联读取；material/avatar/student_roster/notice_document不开放。历史导入admin-domain文件只有purpose和实际业务关联都满足时才能跨domain读取；当前管理员上传意向仍仅notice_document/student_roster，未新增上传能力。
 
 ### 8.2 校园问题
 
