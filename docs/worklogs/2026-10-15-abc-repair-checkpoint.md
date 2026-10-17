@@ -121,3 +121,5 @@ Task4第一致性切片已提交并远程核验工作分支为 `3bffbc890f04bb79
 Task4最终实施提交 `e501c14e8d09aab43b3b8485505470cc1a08e95a` 已保存，自查新增真实RR旧快照重试RED（对方已ignore却返回verified）并最小修复，团队锁序统一。50项完整聚焦通过后，10:53:44最终一次全套exit0/BUILD SUCCESS：286总数、274执行通过、12跳过、0失败/错误，其中C原生15项通过；主控制器独立读取38份10:51:53至10:53:43的新鲜XML确认数字。跳过B原生9、旧文件2、真实文件1，不能当作通过。没有全套后生产修改；既有负例日志/迁移及依赖弃用提示仍存在，不能称无警告。独立审查代理 `/root/abc_c_workflows_review` 正审唯一2提交包 `review-13333f9..e501c14.diff`；此时尚未通过门禁。
 
 新增最终验收必修项：DATABASE原来漏borrow_events授权，现有借用逻辑需SELECT/INSERT。Task4仅证明H2原双人交接/归还未回退，不能声称最小账号原生借用可部署；已与文件授权冲突一并交Task5，必须补精确授权及真实最小账号完整双人链路和禁止事件修改的验证。不改原事件模型，不遗忘为minor。目标main/feature仍未发布。
+
+Task4独立审查现已通过：Spec compliant / Task quality Approved，0 Critical/Important，完整报告 `task-4-review.md`。两项非阻塞建议交总验收/最终审查：sourceName类型/可空测试断言比报告用语弱、继续如实说明已知警告。所有Task4 CannotVerify已有明确归属：真实borrow/完整文件授权、组合测试/历史哈希留Task5，真实外部服务仍不冒称验收。现在开始Task5，随后全分支审查及双分支普通原子推送。当前工作分支已远程核验 `e60f212`；目标分支未覆盖，原工作区不变。
