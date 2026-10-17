@@ -32,6 +32,8 @@ AttachmentService.owner供业务关联前校验，readCleanOwner提供限量且�
 
 V1–V8未修改。V9复用V8的async_jobs校园/所有者/访问域/claim token，增加file_attachment_id；未知历史任务不猜测归属。业务账号对file_uploads/file_attachments/file_cleanup_jobs使用SELECT/INSERT/UPDATE，material_versions只用SELECT/INSERT；禁止版本UPDATE/DELETE，不授予file_key_migrations权限。其他关联表保留必要的读写权限，须在独立MySQL验收。
 
+逐条可执行授权统一见根目录 DATABASE.md；这三张文件表与上传、扫描、清理使用同一个主业务连接。已有账号必须先 SHOW GRANTS，在维护窗口审查旧表级、数据库级、全局及角色宽授权；仅追加较窄 GRANT 不会撤销版本 UPDATE/DELETE。按实际账号/host 精确协调撤权，不能直接套用 REVOKE ALL。本次隔离 MySQL 回归覆盖合成文件元数据的登记、状态变更和不可变版本权限，不等于真实 S3/ClamD 上传扫描验收。
+
 新写入仅存加密对象键；HTTP不返回对象键。V9保留旧material_files/material_versions.object_key，不自动补归属/扫描/附件关联，不将旧记录视为新clean附件。
 
 ## 受控遗留转换

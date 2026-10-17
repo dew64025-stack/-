@@ -59,7 +59,7 @@ GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_check TO 'caizhitong_migra
 GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_posts TO 'caizhitong_migrator'@'<ip>';
 ```
 
-业务账号拥有 71 张业务表的增删改查、`pseudo_identities` 仅 INSERT、`admin_audit_logs` 仅追加；**不授予 `security_investigations`**：
+业务账号按下面逐表白名单授权。材料版本和事件审计仅追加/读取，文件三表允许状态更新但不允许删除；`pseudo_identities` 仅 INSERT；**不授予 `security_investigations` 或 `file_key_migrations`**。上传、扫描和清理与业务使用同一主数据源，不存在另一个上传数据库账号：
 
 ```sql
 -- 校园与身份
@@ -92,14 +92,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.favorites TO 'caizhitong_app'
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reminders TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.user_opportunity_submissions TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_files TO 'caizhitong_app'@'<ip>';
-GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_versions TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT ON caizhitong.material_versions TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklists TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_checklist_items TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_tasks TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.precheck_results TO 'caizhitong_app'@'<ip>';
--- C only verifies business attachment reads. Full file permissions: docs/backend/files-and-materials.md.
--- Upload/scan use the same primary datasource; this read grant is not a complete file deployment grant set.
-GRANT SELECT ON caizhitong.file_attachments TO 'caizhitong_app'@'<ip>';
+-- V9: upload/scan/cleanup share the primary business datasource; versions remain immutable.
+GRANT SELECT, INSERT, UPDATE ON caizhitong.file_uploads TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.file_attachments TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.file_cleanup_jobs TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.material_usage_records TO 'caizhitong_app'@'<ip>';
 
 -- 服务与预约
@@ -123,6 +124,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.mutual_aid_posts TO 'caizhito
 GRANT SELECT, INSERT ON caizhitong.mutual_aid_ratings TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.lost_found_matches TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.borrow_requests TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT ON caizhitong.borrow_events TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.teams TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.team_members TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.team_applications TO 'caizhitong_app'@'<ip>';
@@ -219,12 +221,12 @@ demo/demo_seed.sql   校园/演示账号/通知/机会/资源/互助/问题/拥�
 
 ### 旧账号权限升级说明
 
-新建账号时逐表白名单方向正确，但**追加白名单不会自动撤销旧环境的宽授权**。若旧账号已获得数据库级或全局权限：
+新建账号时逐表白名单方向正确，但**追加白名单不会自动撤销旧环境的宽授权**。部署人员须在维护窗口核对准确的账号和 host；检查已有表级授权及数据库级/全局通配授权：
 
 1. 用 `SHOW GRANTS FOR 'caizhitong_app'@'<ip>'` 检查现有授权。
-2. 先 `REVOKE` 旧的数据库级/全局宽权限。
-3. 再授予上述白名单。
-4. 用业务账号实测受限查询、UPDATE、DELETE 必须失败。
+2. 按实际 `SHOW GRANTS` 结果逐项核对并撤销多余权限，特别是 `material_versions` 的 UPDATE/DELETE、文件三表 DELETE、`borrow_events`/其他仅追加事件表的 UPDATE/DELETE；数据库级、全局或继承角色的宽授权也会使表级收窄失效。
+3. 再授予上述白名单，复查有效授权。不要盲目运行通用 `REVOKE ALL`，也不要删除重建账号或删除 V18 的 definer。
+4. 用业务账号实测受限查询、UPDATE、DELETE 必须失败，再声明版本不可变。先备份与演练恢复，按核对后的精确账号/host 生成变更单；本次自动测试只改全新合成账号，不执行任何用户库授权变更。
 
 不要默认删除或重建已有账号；操作前明确目标账号与环境。
 
@@ -253,9 +255,9 @@ demo/demo_seed.sql   校园/演示账号/通知/机会/资源/互助/问题/拥�
 | 身份 | `users` `user_wechat_identities` `user_phones` `student_verifications` `user_profiles` `roles` `user_roles` `authorizations` |
 | 机会 | `notices` `ai_parse_tasks` `ai_parse_fields` `opportunities` `opportunity_eligibility_rules` `opportunity_eligibility_checks` `opportunity_material_items` `favorites` `reminders` `user_opportunity_submissions` |
 | 材料 | `material_files` `material_versions` `material_checklists` `material_checklist_items` `precheck_tasks` `precheck_results` `material_usage_records` |
-| 服务 | `work_orders` `work_order_events` `work_order_ratings` `campus_issues` `campus_issue_locations` `campus_issue_follows` `campus_issue_evidences` `campus_issue_votes` |
+| 服务 | `work_orders` `work_order_events` `work_order_ratings` `campus_issues` `campus_issue_locations` `campus_issue_follows` `campus_issue_evidences` `campus_issue_votes` `campus_issue_events` |
 | 预约 | `resources` `resource_slots` `reservations` `resource_occupancies` `reservation_checkins` |
-| 互助 | `mutual_aid_posts` `lost_found_matches` `borrow_requests` `teams` `team_members` `team_applications` |
+| 互助 | `mutual_aid_posts` `lost_found_matches` `lost_found_events` `borrow_requests` `borrow_events` `teams` `team_members` `team_applications` `team_open_roles` |
 | 社区 | `community_posts` `community_comments` `pseudo_identities` `reports` `penalties` `appeals` |
 | 消息 | `conversations` `conversation_members` `messages` `notifications` `subscription_authorizations` `message_send_records` |
 | 治理 | `moderation_tasks` `moderation_rules` `credit_events` `admin_audit_logs` `security_investigations` |

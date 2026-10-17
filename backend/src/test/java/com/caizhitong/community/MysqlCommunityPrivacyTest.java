@@ -73,6 +73,63 @@ class MysqlCommunityPrivacyTest {
     @Autowired AnonymousOwnership ownership;
     final JsonMapper mapper=new JsonMapper();
 
+    @Test void minimumAppFileMetadataSupportsUploadScanCleanupAndImmutableVersions()throws Exception {
+        long upload=ids.nextId(),attachment=ids.nextId(),cleanup=ids.nextId(),file=ids.nextId(),version=ids.nextId();
+        String hash="a".repeat(64);
+        jdbc.update("INSERT INTO file_uploads(id,campus_id,owner_user_id,access_domain,purpose,file_name,mime_type,size_bytes,token_digest,expires_at,object_key_encrypted,created_at,updated_at) VALUES(?,1,101,'student','material','Synthetic.pdf','application/pdf',1,?,UTC_TIMESTAMP()+INTERVAL 10 MINUTE,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())",upload,hash,new byte[]{1});
+        jdbc.update("INSERT INTO file_cleanup_jobs(id,object_key_encrypted,upload_id,next_retry_at,created_at,updated_at) VALUES(?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP())",cleanup,new byte[]{1},upload);
+        jdbc.update("INSERT INTO file_attachments(id,upload_id,campus_id,owner_user_id,access_domain,purpose,file_name,mime_type,size_bytes,original_sha256,object_key_encrypted,created_at,updated_at) VALUES(?,?,1,101,'student','material','Synthetic.pdf','application/pdf',1,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())",attachment,upload,hash,new byte[]{1});
+        assertEquals(1,jdbc.update("UPDATE file_uploads SET state='completed',attachment_id=? WHERE id=?",attachment,upload));
+        assertEquals(1,jdbc.update("UPDATE file_attachments SET scan_status='clean',content_sha256=? WHERE id=?",hash,attachment));
+        assertEquals(1,jdbc.update("UPDATE file_cleanup_jobs SET state='cancelled' WHERE id=?",cleanup));
+        jdbc.update("INSERT INTO material_files(id,user_id,campus_id,file_hash,size_bytes,mime_type,current_attachment_id,created_at,updated_at) VALUES(?,101,1,?,1,'application/pdf',?,UTC_TIMESTAMP(),UTC_TIMESTAMP())",file,hash,attachment);
+        jdbc.update("INSERT INTO material_versions(id,file_id,version_no,attachment_id,file_hash,created_at) VALUES(?,?,1,?,?,UTC_TIMESTAMP())",version,file,attachment,hash);
+        assertEquals("clean",jdbc.queryForObject("SELECT scan_status FROM file_attachments WHERE id=?",String.class,attachment));
+        assertEquals("completed",jdbc.queryForObject("SELECT state FROM file_uploads WHERE id=?",String.class,upload));
+        assertEquals("cancelled",jdbc.queryForObject("SELECT state FROM file_cleanup_jobs WHERE id=?",String.class,cleanup));
+        assertEquals(hash,jdbc.queryForObject("SELECT file_hash FROM material_versions WHERE id=?",String.class,version));
+    }
+
+    @Test void minimumAppCannotMutateVersionsAuditEventsOrReadConverterState()throws Exception {
+        try(var connection=DriverManager.getConnection(url,app,appPassword);var statement=connection.createStatement()){
+            for(String table:List.of("material_versions","borrow_events","campus_issue_events","lost_found_events","admin_audit_logs")){
+                String column=switch(table){case "material_versions"->"version_no";case "borrow_events"->"actor_id";case "campus_issue_events"->"operator_id";case "lost_found_events"->"actor_id";default->"id";};
+                assertEquals(1142,assertThrows(SQLException.class,()->statement.executeUpdate("UPDATE "+table+" SET "+column+"="+column+" WHERE id=0"),table+" UPDATE must be denied").getErrorCode());
+                assertEquals(1142,assertThrows(SQLException.class,()->statement.executeUpdate("DELETE FROM "+table+" WHERE id=0"),table+" DELETE must be denied").getErrorCode());
+            }
+            assertEquals(1142,assertThrows(SQLException.class,()->statement.executeQuery("SELECT * FROM file_key_migrations")).getErrorCode());
+            for(String table:List.of("file_uploads","file_attachments","file_cleanup_jobs","team_open_roles"))
+                assertEquals(1142,assertThrows(SQLException.class,()->statement.executeUpdate("DELETE FROM "+table+" WHERE id=0")).getErrorCode());
+            assertDoesNotThrow(()->statement.executeUpdate("UPDATE admin_credentials SET last_totp_step=last_totp_step WHERE user_id=0"));
+            assertEquals(1142,assertThrows(SQLException.class,()->statement.executeUpdate("DELETE FROM admin_credentials WHERE user_id=0")).getErrorCode());
+            assertEquals(1143,assertThrows(SQLException.class,()->statement.executeUpdate("UPDATE admin_credentials SET mfa_seed_encrypted=mfa_seed_encrypted WHERE user_id=0")).getErrorCode());
+            for(String table:List.of("campus_issue_events","team_open_roles","lost_found_events","blocks","credit_disputes"))
+                assertDoesNotThrow(()->statement.executeQuery("SELECT COUNT(*) FROM "+table));
+        }
+    }
+
+    @Test void minimumAppBorrowRequiresBothPeopleForHandoverAndReturn()throws Exception {
+        long post=ids.nextId();
+        jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,detail_json,status,source_type,created_at,updated_at) VALUES(?,1,101,'borrow','Synthetic offer','{\"kind\":\"offer\",\"itemName\":\"book\"}','published','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",post);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var owner=mutualService(101);var borrower=mutualService(102);
+        var request=tx.execute(s->borrower.borrow(post,new com.caizhitong.mutualaid.MutualAidInputs.BorrowStart(null,null)));
+        long id=Long.parseLong(request.id());assertEquals("pending",request.status());
+        assertEquals("confirmed",tx.execute(s->owner.borrowAction(id,borrowAction("approve"))).status());
+        for(String action:List.of("confirm_handover","confirm_return")){
+            String before=action.equals("confirm_handover")?"confirmed":"handed_over",after=action.equals("confirm_handover")?"handed_over":"returned";
+            assertEquals(before,tx.execute(s->owner.borrowAction(id,borrowAction(action))).status());
+            assertEquals(before,tx.execute(s->owner.borrowAction(id,borrowAction(action))).status());
+            assertEquals(after,tx.execute(s->borrower.borrowAction(id,borrowAction(action))).status());
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(DISTINCT actor_id) FROM borrow_events WHERE borrow_request_id=? AND action=?",Integer.class,id,action));
+        }
+        assertEquals("returned",jdbc.queryForObject("SELECT status FROM borrow_requests WHERE id=?",String.class,id));
+    }
+
+    private com.caizhitong.mutualaid.MutualAidInputs.BorrowAction borrowAction(String action) {
+        return new com.caizhitong.mutualaid.MutualAidInputs.BorrowAction(mapper.valueToTree(action));
+    }
+
     @Test void unsignedTeamBoundaryBindsActualApplicantAndSupportsLeaveWithMinimumAppGrants()throws Exception {
         var captain=teamService(101);var applicant=teamService(102);var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
         String team=tx.execute(s->captain.create(new com.caizhitong.team.TeamInputs.Create(mapper.readTree("\"Synthetic unsigned team\""),null,null,mapper.readTree("[{\"role\":\"Writer\",\"quantity\":1}]"))).id());
@@ -194,7 +251,12 @@ class MysqlCommunityPrivacyTest {
         String other="Bearer "+sessions.issue(102,1,SessionKind.STUDENT).accessToken();
         String body=mvc.perform(post("/api/v1/community/posts").header("Authorization",owner).header("Idempotency-Key","mysql-c-create").contentType("application/json").content("{\"title\":\"Synthetic\",\"content\":\"Synthetic\"}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String id=mapper.readTree(body).path("data").path("id").asString();
-        assertDoesNotThrow(()->jdbc.queryForObject("CALL community_owner_check(1,'community_post',?,'synthetic-invalid-proof')",Boolean.class,Long.parseLong(id)));
+        assertFalse(jdbc.queryForObject("CALL community_owner_check(1,'community_post',?,'synthetic-invalid-proof')",Boolean.class,Long.parseLong(id)));
+        assertTrue(ownership.owns(new Actor(101,1,Set.of(),true,true,"active",SessionKind.STUDENT),"community_post",Long.parseLong(id)));
+        assertFalse(ownership.owns(new Actor(102,1,Set.of(),true,true,"active",SessionKind.STUDENT),"community_post",Long.parseLong(id)));
+        var wrongCampus=new Actor(101,2,Set.of(),true,true,"active",SessionKind.STUDENT);
+        assertFalse(ownership.owns(wrongCampus,"community_post",Long.parseLong(id)));
+        assertFalse(ownership.posts(wrongCampus,null,Long.MAX_VALUE,20).contains(Long.parseLong(id)));
         mvc.perform(get("/api/v1/community/posts/"+id).header("Authorization",owner)).andExpect(status().isOk()).andExpect(jsonPath("$.data.canEdit").value(true));
         mvc.perform(get("/api/v1/community/posts/"+id).header("Authorization",other)).andExpect(status().isNotFound());
         jdbc.update("UPDATE student_verifications SET status='pending' WHERE user_id=101");

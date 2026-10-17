@@ -78,6 +78,10 @@ class CommunityHttpTest {
         String id=mapper.readTree(command("/mutual-aid/posts",student,"{\"category\":\"secondhand\",\"title\":\"Synthetic\"}","flat-post").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
         JsonNode detail=mapper.readTree(mvc.perform(get("/api/v1/mutual-aid/posts/"+id).header("Authorization",student)).andExpect(status().isOk()).andExpect(jsonPath("$.data.title").value("Synthetic")).andExpect(jsonPath("$.data.sourceType").value("manual")).andReturn().getResponse().getContentAsString()).path("data");
         for(String field:List.of("sourceType","sourceName","updatedAt","isStale","officialReference","externalId"))assertTrue(detail.has(field),field);
+        assertTrue(detail.path("sourceName").isString());
+        jdbc.update("UPDATE mutual_aid_posts SET source_type='official' WHERE id=?",Long.parseLong(id));
+        JsonNode official=mapper.readTree(mvc.perform(get("/api/v1/mutual-aid/posts/"+id).header("Authorization",student)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("data");
+        assertTrue(official.has("sourceName"));assertTrue(official.path("sourceName").isNull());
         assertTrue(detail.path("id").isString());assertTrue(detail.path("isStale").isBoolean());assertTrue(detail.path("updatedAt").isString());assertTrue(detail.path("officialReference").isNull());assertTrue(detail.path("externalId").isNull());assertFalse(detail.has("post"));assertFalse(detail.has("sourceFields"));
         JsonNode team=mapper.readTree(command("/teams",student,"{\"title\":\"Synthetic\",\"openRoles\":[{\"role\":\"Writer\",\"quantity\":1}]}","flat-team").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data");
         assertEquals("101",team.path("leader").path("id").asString());assertTrue(team.path("members").isArray());assertEquals("101",team.path("members").get(0).path("userId").asString());assertTrue(team.has("opportunityId"));assertTrue(team.path("opportunityId").isNull());
