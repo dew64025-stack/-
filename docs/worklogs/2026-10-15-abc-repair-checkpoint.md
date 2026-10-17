@@ -123,3 +123,11 @@ Task4最终实施提交 `e501c14e8d09aab43b3b8485505470cc1a08e95a` 已保存，�
 新增最终验收必修项：DATABASE原来漏borrow_events授权，现有借用逻辑需SELECT/INSERT。Task4仅证明H2原双人交接/归还未回退，不能声称最小账号原生借用可部署；已与文件授权冲突一并交Task5，必须补精确授权及真实最小账号完整双人链路和禁止事件修改的验证。不改原事件模型，不遗忘为minor。目标main/feature仍未发布。
 
 Task4独立审查现已通过：Spec compliant / Task quality Approved，0 Critical/Important，完整报告 `task-4-review.md`。两项非阻塞建议交总验收/最终审查：sourceName类型/可空测试断言比报告用语弱、继续如实说明已知警告。所有Task4 CannotVerify已有明确归属：真实borrow/完整文件授权、组合测试/历史哈希留Task5，真实外部服务仍不冒称验收。现在开始Task5，随后全分支审查及双分支普通原子推送。当前工作分支已远程核验 `e60f212`；目标分支未覆盖，原工作区不变。
+
+Task5从 `204c7b8` 干净门禁检查点接续（已备份并远程核验），代理 `/root/abc_final_acceptance`，本机报告 `task-5-report.md`。11:06:11真实最小账号3项测试实际出现1失败/2错误：material_versions错误允许UPDATE、file_uploads与borrow_events错误拒绝INSERT；初始编译夹具问题不算RED。仅修精确授权文档后11:07:25相同3项全部通过，使用新库迁移V1–V19，元数据生命周期/版本禁止改删/转换表拒读及真实双人借用链路已证明；不代表S3/ClamD真实验收。扩大聚焦、组合全套/package、审查和发布仍进行中。
+
+17. 历史迁移需按两个原始分支中真实存在的文件交叉比对，再对合并347adc0全15核对，而非计划误写的“全都对原main”：main没有V10/V11，feature没有V12/V13。影响：后续复核须保留两个原始SHA并区分Git不变字节与Windows工作文件CRLF，不能假称工作文件原始字节等于Git LF blob。主控制器已验证原始头到合并基线26次现存blob比较无差异，当前sql提交差异仅新增V16–V19；没有修改历史迁移来消除换行差异。
+
+Task5首切片 `9d202022359d9a1497cbdddc39332274c0bb312d` 已备份并远程核验。代理在最终文档提交前额度中断，用户18:34继续（已过15:29重置）；已恢复同一实施者，完整报告/正式MD草稿/归档删除/两scratch取消跟踪均保留。主控制器独立读取38份11:11:18至11:13:25的XML，确认组合289项、286执行通过、3跳过、0失败/错误，B原生9+C原生18都执行；3跳过为旧文件2/真实文件1。package11:13:51成功，实际JAR SHA256为 `a4f28ac5a292b1211966e26a621880a0fd79fe2b3798b305937383b9a1509b29`，与报告一致。没有遗留Java进程。恢复后fetch仍main6e87d51/feature6e56062，原工作区9871ff7干净。最终提交/独立门禁/全分支审查和发布尚待完成。
+
+最终Task5实施已保存 `b2af0589d8d1dc703779542c817554963c5ad4dc`。主控制器核对测试后生产/测试/迁移/pom差异为空，文档、ignore及唯一CONNECTION.zip删除为后续变化；归档可从Git历史恢复。错误跟踪的两份本任务scratch仅取消跟踪，保留本地及历史，现在无tracked .sdd文件。正式报告为 `docs/backend/abc-review-repairs-2026-10-15.md`，含17项取舍/部署/精确证明。Task5独立审查 `/root/abc_acceptance_review` 正审包 `review-204c7b8..b2af058.diff`，之后还需全分支审查，不能提前发布或称审查完成。
