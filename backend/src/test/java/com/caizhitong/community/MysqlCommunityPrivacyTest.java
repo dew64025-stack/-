@@ -136,6 +136,22 @@ class MysqlCommunityPrivacyTest {
         assertEquals("Synthetic native evidence",jdbc.queryForObject("SELECT description FROM lost_found_events WHERE match_id=? AND actor_id=101",String.class,match));
     }
 
+    @Test void nativeLostDuplicateReturnsCurrentIgnoredStateAfterEarlierSnapshot(){
+        long lost=ids.nextId(),found=ids.nextId(),match=ids.nextId();
+        for(long[] pair:List.of(new long[]{lost,101},new long[]{found,102}))jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,source_type,created_at,updated_at) VALUES(?,1,?,'lost_found','Synthetic retry','published','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",pair[0],pair[1]);
+        jdbc.update("INSERT INTO lost_found_matches(id,lost_post_id,found_post_id,status,created_at) VALUES(?,?,?,'verified',UTC_TIMESTAMP())",match,lost,found);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.execute(s->mutualService(101).matchAction(match,new com.caizhitong.mutualaid.MutualAidInputs.MatchAction(mapper.readTree("\"confirm_return\""),null)));
+        tx.executeWithoutResult(outer->{
+            assertEquals("verified",jdbc.queryForObject("SELECT status FROM lost_found_matches WHERE id=?",String.class,match));
+            var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            inner.execute(s->mutualService(102).matchAction(match,new com.caizhitong.mutualaid.MutualAidInputs.MatchAction(mapper.readTree("\"ignore\""),null)));
+            assertEquals("ignored",mutualService(101).matchAction(match,new com.caizhitong.mutualaid.MutualAidInputs.MatchAction(mapper.readTree("\"confirm_return\""),null)).status());
+        });
+        assertEquals("ignored",jdbc.queryForObject("SELECT status FROM lost_found_matches WHERE id=?",String.class,match));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM lost_found_events WHERE match_id=?",Integer.class,match));
+    }
+
     private void nativeUser(long user){if(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id=?",Integer.class,user)==0)jdbc.update("INSERT INTO users(id,campus_id,status,created_at,updated_at) VALUES(?,1,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP())",user);}
     private long[] nativeTeamApplications(boolean legacy){
         long team=ids.nextId(),role=ids.nextId(),role2=ids.nextId(),a=ids.nextId(),b=ids.nextId();

@@ -55,9 +55,10 @@ public class TeamService {
         if(t.campusId()!=actor.campusId())throw missing();
         if(!t.status().equals("recruiting"))throw conflict();
         if(t.leaderId()==actor.userId())throw conflict();
-        long role=resolveRole(teamId,input.openRoleId());checkCapacity(t,role);
-        if(!jdbc.queryForList("SELECT id FROM team_members WHERE team_id=? AND user_id=? FOR UPDATE",Long.class,teamId,actor.userId()).isEmpty())throw conflict();
+        long role=resolveRole(teamId,input.openRoleId());
         if(!jdbc.queryForList("SELECT id FROM team_applications WHERE team_id=? AND user_id=? AND status='pending' FOR UPDATE",Long.class,teamId,actor.userId()).isEmpty())throw conflict();
+        if(!jdbc.queryForList("SELECT id FROM team_members WHERE team_id=? AND user_id=? FOR UPDATE",Long.class,teamId,actor.userId()).isEmpty())throw conflict();
+        checkCapacity(t,role);
         long id=ids.nextId();LocalDateTime now=now();
         jdbc.update("INSERT INTO team_applications(id,team_id,user_id,open_role_id,message,status,created_at,updated_at) VALUES(?,?,?,?,?,'pending',?,?)",
                 id,teamId,actor.userId(),role,input.message()==null?null:text(input.message(),512,true),now,now);
@@ -68,6 +69,7 @@ public class TeamService {
         Actor actor=current.require();String decision=text(input.decision(),16,false);
         var teamIds=jdbc.queryForList("SELECT team_id FROM team_applications WHERE id=?",Long.class,id);if(teamIds.isEmpty())throw missing();
         TeamRow team=lockTeam(teamIds.getFirst());authorizeLeader(actor,team);if(team.status().equals("closed"))throw conflict();
+        lockRoles(team.id());
         var a=jdbc.query("SELECT id,team_id,user_id,status,open_role_id FROM team_applications WHERE id=? FOR UPDATE",
                 (rs,i)->new ApplyRow(rs.getLong("id"),rs.getLong("team_id"),rs.getLong("user_id"),rs.getString("status"),rs.getString("open_role_id")),id);
         if(a.isEmpty())throw missing();ApplyRow row=a.getFirst();
@@ -91,6 +93,7 @@ public class TeamService {
         Actor actor=current.require();
         TeamRow t=lockTeam(id);if(t.campusId()!=actor.campusId())throw missing();if(t.status().equals("closed"))throw conflict();
         if(t.leaderId()==actor.userId())throw conflict();
+        lockRoles(id);
         if(jdbc.update("DELETE FROM team_members WHERE team_id=? AND user_id=?",id,actor.userId())!=1)throw missing();
         refreshStatus(id);return new TeamViews.Left(true);
     }
@@ -186,7 +189,7 @@ public class TeamService {
     private TeamRow lockTeam(long id){var rows=jdbc.query("SELECT id,campus_id,leader_id,status,version FROM teams WHERE id=? AND deleted_at IS NULL FOR UPDATE",(rs,i)->new TeamRow(rs.getLong("id"),rs.getLong("campus_id"),rs.getLong("leader_id"),rs.getString("status"),rs.getInt("version")),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private void authorizeLeader(Actor actor,TeamRow team){if(team.campusId()!=actor.campusId()||team.leaderId()!=actor.userId())throw missing();}
     private long resolveRole(long team,JsonNode input){
-        var active=jdbc.queryForList("SELECT id FROM team_open_roles WHERE team_id=? AND active=TRUE ORDER BY id FOR UPDATE",Long.class,team);
+        var active=lockRoles(team);
         if(active.isEmpty())throw repairRequired();
         if(input==null||input.isNull()){if(active.size()!=1)throw invalid();return active.getFirst();}
         long role=IdentityInputs.id(input);if(!active.contains(role))throw invalid();return role;
@@ -224,6 +227,7 @@ public class TeamService {
     private int occupied(long team,long role){return jdbc.queryForList("SELECT id FROM team_members WHERE team_id=? AND open_role_id=? AND status='member' FOR UPDATE",Long.class,team,role).size();}
     private int recruited(long team){return jdbc.queryForList("SELECT m.id FROM team_members m JOIN teams t ON t.id=m.team_id WHERE m.team_id=? AND m.status='member' AND m.user_id<>t.leader_id FOR UPDATE",Long.class,team).size();}
     private int capacity(long team){return jdbc.queryForList("SELECT quantity FROM team_open_roles WHERE team_id=? AND active=TRUE ORDER BY id FOR UPDATE",Integer.class,team).stream().mapToInt(Integer::intValue).sum();}
+    private List<Long> lockRoles(long team){return jdbc.queryForList("SELECT id FROM team_open_roles WHERE team_id=? AND active=TRUE ORDER BY id FOR UPDATE",Long.class,team);}
     private void refreshStatus(long team){int remaining=capacity(team)-recruited(team);jdbc.update("UPDATE teams SET status=? WHERE id=? AND status<>'closed'",remaining<=0?"full":"recruiting",team);}
     private BusinessException repairRequired(){return new BusinessException(409,"TEAM_ROLES_REPAIR_REQUIRED","队长需更新岗位；旧申请请先拒绝，再使用岗位ID重新申请");}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}

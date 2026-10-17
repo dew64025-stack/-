@@ -140,7 +140,7 @@ public class MutualAidService {
         if(lostPost.userId()==foundPost.userId())throw new BusinessException(409,"DISTINCT_PARTIES_REQUIRED","失物归还需要两位不同参与人");
         String status=m.getFirst().status();
         boolean recorded=!jdbc.queryForList("SELECT id FROM lost_found_events WHERE match_id=? AND actor_id=? AND action=? FOR SHARE",Long.class,id,actor.userId(),action).isEmpty();
-        if(recorded)return match(id);
+        if(recorded)return match(id,true);
         if(action.equals("verify")&&!Set.of("suggested","verified").contains(status))throw conflict();
         if(action.equals("confirm_return")&&!status.equals("verified"))throw conflict();
         if(action.equals("ignore")&&!Set.of("suggested","verified").contains(status))throw conflict();
@@ -152,7 +152,7 @@ public class MutualAidService {
             default->throw invalid();
         };
         jdbc.update("UPDATE lost_found_matches SET status=? WHERE id=?",next,id);
-        return match(id);
+        return match(id,true);
     }
 
     // ---- reads ----
@@ -275,7 +275,8 @@ public class MutualAidService {
     }
     private MutualAidViews.Borrow borrow(long id){var rows=jdbc.query("SELECT b.* FROM borrow_requests b WHERE b.id=?",(rs,i)->new MutualAidViews.Borrow(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("post_id")),borrowerName(rs.getLong("borrower_id")),rs.getObject("start_time",LocalDateTime.class)==null?null:rs.getObject("start_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("end_time",LocalDateTime.class)==null?null:rs.getObject("end_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getString("status"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private String borrowerName(long userId){var rows=jdbc.queryForList("SELECT nickname FROM users WHERE id=?",String.class,userId);return rows.isEmpty()?null:rows.getFirst();}
-    private MutualAidViews.Match match(long id){var rows=jdbc.query("SELECT id,lost_post_id,found_post_id,similarity,status FROM lost_found_matches WHERE id=?",(rs,i)->new MutualAidViews.Match(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("lost_post_id")),Long.toString(rs.getLong("found_post_id")),rs.getBigDecimal("similarity")==null?null:rs.getBigDecimal("similarity").toPlainString(),rs.getString("status"),confirmation(id)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private MutualAidViews.Match match(long id){return match(id,false);}
+    private MutualAidViews.Match match(long id,boolean currentRead){var rows=jdbc.query("SELECT id,lost_post_id,found_post_id,similarity,status FROM lost_found_matches WHERE id=?"+(currentRead?" FOR UPDATE":""),(rs,i)->new MutualAidViews.Match(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("lost_post_id")),Long.toString(rs.getLong("found_post_id")),rs.getBigDecimal("similarity")==null?null:rs.getBigDecimal("similarity").toPlainString(),rs.getString("status"),confirmation(id)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private String confirmation(long id){int count=new HashSet<>(jdbc.queryForList("SELECT e.actor_id FROM lost_found_events e JOIN lost_found_matches m ON m.id=e.match_id JOIN mutual_aid_posts l ON l.id=m.lost_post_id JOIN mutual_aid_posts f ON f.id=m.found_post_id WHERE e.match_id=? AND e.action='confirm_return' AND e.actor_id IN (l.user_id,f.user_id) FOR SHARE",Long.class,id)).size();return count==0?"unconfirmed":count==1?"partially_confirmed":"confirmed";}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}
     private String escape(String text){return text.replace("!","!!").replace("%","!%").replace("_","!_");}
