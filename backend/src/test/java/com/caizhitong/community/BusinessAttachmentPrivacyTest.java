@@ -38,7 +38,7 @@ class BusinessAttachmentPrivacyTest {
         attachment(501,101,"student","mutual_aid");attachment(502,101,"student","issue");attachment(503,101,"student","workorder");
         // Historical trusted import: tests the read boundary, not a new administrator upload capability.
         attachment(504,900,"admin","mutual_aid");
-        jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,images_json,created_at) VALUES(601,1,101,'secondhand','Synthetic','published','[501,504]',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,images_json,created_at,updated_at,source_type) VALUES(601,1,101,'secondhand','Synthetic','published','[501,504]',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'manual')");
         jdbc.update("INSERT INTO campus_issues(id,campus_id,user_id,title,status,visibility,images_json,created_at,updated_at,source_type) VALUES(602,1,101,'Synthetic','published','public','[502]',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'manual')");
         jdbc.update("INSERT INTO work_orders(id,campus_id,user_id,status,images_json,created_at,updated_at,source_type) VALUES(603,1,101,'pending','[503]',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'manual')");
     }
@@ -74,10 +74,10 @@ class BusinessAttachmentPrivacyTest {
     }
     @Test void publicBusinessDtoHasAuthorizedShortLivedImageButGenericFileRouteStaysAuthenticated()throws Exception {
         mvc.perform(get("/api/v1/mutual-aid/posts/601?campusCode=one")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.post.images[0].id").value("501"))
-            .andExpect(jsonPath("$.data.post.images[0].thumbnailUrl").value("https://synthetic.invalid/image"))
-            .andExpect(jsonPath("$.data.post.images[0].urlExpiresAt").isNotEmpty())
-            .andExpect(jsonPath("$.data.post.images[0].fileName").doesNotExist());
+            .andExpect(jsonPath("$.data.images[0].id").value("501"))
+            .andExpect(jsonPath("$.data.images[0].thumbnailUrl").value("https://synthetic.invalid/image"))
+            .andExpect(jsonPath("$.data.images[0].urlExpiresAt").isNotEmpty())
+            .andExpect(jsonPath("$.data.images[0].fileName").doesNotExist());
         mvc.perform(get("/api/v1/files/501")).andExpect(status().isUnauthorized());
     }
     @Test void businessOperatorSeesOnlyAuthorizedBusinessImagesWithoutGenericFileRead()throws Exception {

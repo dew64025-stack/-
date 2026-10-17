@@ -73,6 +73,91 @@ class MysqlCommunityPrivacyTest {
     @Autowired AnonymousOwnership ownership;
     final JsonMapper mapper=new JsonMapper();
 
+    @Test void unsignedTeamBoundaryBindsActualApplicantAndSupportsLeaveWithMinimumAppGrants()throws Exception {
+        var captain=teamService(101);var applicant=teamService(102);var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        String team=tx.execute(s->captain.create(new com.caizhitong.team.TeamInputs.Create(mapper.readTree("\"Synthetic unsigned team\""),null,null,mapper.readTree("[{\"role\":\"Writer\",\"quantity\":1}]"))).id());
+        assertInstanceOf(java.math.BigInteger.class,jdbc.queryForMap("SELECT campus_id,leader_id FROM teams WHERE id=?",Long.parseLong(team)).get("campus_id"));
+        assertInstanceOf(java.math.BigInteger.class,jdbc.queryForMap("SELECT leader_id FROM teams WHERE id=?",Long.parseLong(team)).get("leader_id"));
+        String role=jdbc.queryForObject("SELECT id FROM team_open_roles WHERE team_id=?",String.class,Long.parseLong(team));
+        var application=tx.execute(s->applicant.apply(new com.caizhitong.team.TeamInputs.Apply(mapper.readTree("\""+team+"\""),null,mapper.readTree("\""+role+"\""))));
+        assertEquals("102",application.applicant().id());assertEquals(role,application.openRoleId());
+        tx.execute(s->captain.decide(Long.parseLong(application.id()),new com.caizhitong.team.TeamInputs.Decision(mapper.readTree("\"approve\""))));
+        assertTrue(tx.execute(s->applicant.leave(Long.parseLong(team))).left());
+        assertEquals("recruiting",jdbc.queryForObject("SELECT status FROM teams WHERE id=?",String.class,Long.parseLong(team)));
+        try(var connection=DriverManager.getConnection(url,app,appPassword);var statement=connection.createStatement()){
+            assertThrows(SQLException.class,()->statement.executeUpdate("DELETE FROM team_open_roles WHERE id=0"));
+            assertThrows(SQLException.class,()->statement.executeUpdate("UPDATE lost_found_events SET description='changed' WHERE id=0"));
+            assertThrows(SQLException.class,()->statement.executeUpdate("DELETE FROM lost_found_events WHERE id=0"));
+            assertDoesNotThrow(()->statement.executeQuery("SELECT COUNT(*) FROM lost_found_events"));
+        }
+    }
+
+    @Test void nativeConcurrentLastRoleUsesCurrentRowsAfterBothRepeatableReadSnapshots()throws Exception {
+        nativeUser(103);var fixture=nativeTeamApplications(false);long team=fixture[0],first=fixture[1],second=fixture[2];
+        var ready=new java.util.concurrent.CountDownLatch(2);var go=new java.util.concurrent.CountDownLatch(1);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            var a=pool.submit(()->nativeApproval(first,team,ready,go));var b=pool.submit(()->nativeApproval(second,team,ready,go));
+            assertTrue(ready.await(5,java.util.concurrent.TimeUnit.SECONDS));go.countDown();
+            var results=List.of(a.get(15,java.util.concurrent.TimeUnit.SECONDS),b.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(1,results.stream().filter(status->status==200).count());assertEquals(1,results.stream().filter(status->status==409).count());
+        }
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=?",Integer.class,team));
+        assertEquals("recruiting",jdbc.queryForObject("SELECT status FROM teams WHERE id=?",String.class,team)); // second distinct role is still free
+    }
+
+    @Test void nativeLegacyTotalCapacityCannotUseEarlierSnapshot()throws Exception {
+        nativeUser(103);var fixture=nativeTeamApplications(false);long team=fixture[0],first=fixture[1],second=fixture[2];
+        jdbc.update("UPDATE team_applications SET open_role_id=(SELECT MAX(id) FROM team_open_roles WHERE team_id=?) WHERE id=?",team,second);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.executeWithoutResult(outer->{
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=?",Integer.class,team));
+            var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            inner.execute(s->teamService(101).decide(first,new com.caizhitong.team.TeamInputs.Decision(mapper.readTree("\"approve\""))));
+            // A historical import with unknown role consumes total capacity; it does not invent role ownership.
+            inner.executeWithoutResult(s->jdbc.update("INSERT INTO team_members(id,team_id,user_id,status,created_at) VALUES(?,?,900,'member',UTC_TIMESTAMP())",ids.nextId(),team));
+            var error=assertThrows(com.caizhitong.common.BusinessException.class,()->teamService(101).decide(second,new com.caizhitong.team.TeamInputs.Decision(mapper.readTree("\"approve\""))));assertEquals(409,error.getStatus());
+        });
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=?",Integer.class,team));
+    }
+
+    @Test void nativeLostEventsRemainTwoPartyAcrossEarlierRepeatableReadSnapshot(){
+        long lost=ids.nextId(),found=ids.nextId(),match=ids.nextId();
+        for(long[] pair:List.of(new long[]{lost,101},new long[]{found,102}))jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,source_type,created_at,updated_at) VALUES(?,1,?,'lost_found','Synthetic lost','published','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",pair[0],pair[1]);
+        jdbc.update("INSERT INTO lost_found_matches(id,lost_post_id,found_post_id,status,created_at) VALUES(?,?,?,'verified',UTC_TIMESTAMP())",match,lost,found);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.executeWithoutResult(outer->{
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM lost_found_events WHERE match_id=?",Integer.class,match));
+            var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            assertEquals("verified",inner.execute(s->mutualService(101).matchAction(match,new com.caizhitong.mutualaid.MutualAidInputs.MatchAction(mapper.readTree("\"confirm_return\""),mapper.readTree("\"Synthetic native evidence\"")))).status());
+            var result=mutualService(102).matchAction(match,new com.caizhitong.mutualaid.MutualAidInputs.MatchAction(mapper.readTree("\"confirm_return\""),null));
+            assertEquals("returned",result.status());assertEquals("confirmed",result.confirmationStatus());
+        });
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM lost_found_events WHERE match_id=?",Integer.class,match));
+        assertEquals("Synthetic native evidence",jdbc.queryForObject("SELECT description FROM lost_found_events WHERE match_id=? AND actor_id=101",String.class,match));
+    }
+
+    private void nativeUser(long user){if(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id=?",Integer.class,user)==0)jdbc.update("INSERT INTO users(id,campus_id,status,created_at,updated_at) VALUES(?,1,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP())",user);}
+    private long[] nativeTeamApplications(boolean legacy){
+        long team=ids.nextId(),role=ids.nextId(),role2=ids.nextId(),a=ids.nextId(),b=ids.nextId();
+        jdbc.update("INSERT INTO teams(id,campus_id,leader_id,title,status,created_at,updated_at) VALUES(?,1,101,'Synthetic race','recruiting',UTC_TIMESTAMP(),UTC_TIMESTAMP())",team);
+        jdbc.update("INSERT INTO team_members(id,team_id,user_id,status,created_at) VALUES(?,?,101,'member',UTC_TIMESTAMP())",ids.nextId(),team);
+        if(legacy)jdbc.update("INSERT INTO team_members(id,team_id,user_id,status,created_at) VALUES(?,?,900,'member',UTC_TIMESTAMP())",ids.nextId(),team);
+        for(long r:new long[]{role,role2})jdbc.update("INSERT INTO team_open_roles(id,team_id,role,quantity,active,created_at) VALUES(?,?,'Writer',1,TRUE,UTC_TIMESTAMP())",r,team);
+        jdbc.update("INSERT INTO team_applications(id,team_id,user_id,open_role_id,status,created_at,updated_at) VALUES(?,?,102,?,'pending',UTC_TIMESTAMP(),UTC_TIMESTAMP()),(?,?,103,?,'pending',UTC_TIMESTAMP(),UTC_TIMESTAMP())",a,team,role,b,team,legacy?role2:role);
+        return new long[]{team,a,b};
+    }
+    private int nativeApproval(long application,long team,java.util.concurrent.CountDownLatch ready,java.util.concurrent.CountDownLatch go){
+        try{return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status->{
+            assertEquals("REPEATABLE-READ",jdbc.queryForObject("SELECT @@transaction_isolation",String.class));
+            jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=?",Integer.class,team);ready.countDown();
+            try{if(!go.await(5,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("Native team snapshot barrier timeout");}catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}
+            teamService(101).decide(application,new com.caizhitong.team.TeamInputs.Decision(mapper.readTree("\"approve\"")));return 200;
+        });}catch(com.caizhitong.common.BusinessException error){return error.getStatus();}
+    }
+    private CurrentActor nativeActor(long user){var actor=new Actor(user,1,Set.of(),true,true,"active",SessionKind.STUDENT);var current=org.mockito.Mockito.mock(CurrentActor.class);org.mockito.Mockito.when(current.require()).thenReturn(actor);org.mockito.Mockito.when(current.requireStudent()).thenReturn(actor);org.mockito.Mockito.when(current.optional()).thenReturn(Optional.of(actor));return current;}
+    private com.caizhitong.team.TeamService teamService(long user){return new com.caizhitong.team.TeamService(jdbc,nativeActor(user),ids,java.time.Clock.systemUTC(),mapper,null,crypto);}
+    private com.caizhitong.mutualaid.MutualAidService mutualService(long user){return new com.caizhitong.mutualaid.MutualAidService(jdbc,nativeActor(user),ids,java.time.Clock.systemUTC(),mapper,null,crypto,null,new com.caizhitong.resource.ServiceSources(jdbc));}
+
     @BeforeEach void seed(){
         if(jdbc.queryForObject("SELECT COUNT(*) FROM campuses WHERE id=1",Integer.class)>0){jdbc.update("UPDATE student_verifications SET status='verified'");return;}
         jdbc.update("INSERT INTO campuses(id,name,code,created_at,updated_at) VALUES(1,'Synthetic C','c-test',UTC_TIMESTAMP(),UTC_TIMESTAMP()),(2,'Synthetic Other','c-other',UTC_TIMESTAMP(),UTC_TIMESTAMP())");

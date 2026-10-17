@@ -8,8 +8,9 @@ public final class MutualAidViews {
     private MutualAidViews() {}
     public record Author(String id, String nickname) {}
     public record Post(String id, String category, String title, String content, JsonNode detail,
-            List<com.caizhitong.resource.ServiceSources.Attachment> images, String price, String exchangeArea, String status, int version, Instant createdAt) {}
-    public record Detail(Post post, Author author, boolean canContact, boolean canEdit) {}
+            List<com.caizhitong.resource.ServiceSources.Attachment> images, String price, String exchangeArea, String status, int version, Instant createdAt,
+            String sourceType,String sourceName,Instant updatedAt,boolean isStale,String officialReference,String externalId) {}
+    public record Detail(@com.fasterxml.jackson.annotation.JsonUnwrapped Post post, Author author, boolean canContact, boolean canEdit) {}
     public record Page(List<Post> items, String nextCursor, boolean hasMore) {}
     public record Rating(String id, int score, String comment, Instant createdAt) {}
     public record RatingPage(List<Rating> items, String nextCursor, boolean hasMore) {}

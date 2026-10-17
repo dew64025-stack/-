@@ -37,6 +37,6 @@ public class TeamController {
     @GetMapping("/me/team-applications")
     public ApiResponse<TeamViews.ApplicationPage> myApplications(@RequestParam(required=false)String status,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.myApplications(status,cursor,limit),r);}
 
-    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->{if(code==null)throw IdentityInputs.invalid();return campuses.open(code);});}
+    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->code==null?Long.parseLong(campuses.campuses().stream().findFirst().orElseThrow(IdentityInputs::invalid).id()):campuses.open(code));}
     private <T> ApiResponse<T> ok(T data,HttpServletRequest r){return ApiResponse.ok(data,RequestIdFilter.requestId(r));}
 }

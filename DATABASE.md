@@ -4,6 +4,8 @@
 
 > 逐表列级说明见 [数据字典 DATA_DICTIONARY.md](./DATA_DICTIONARY.md)。
 
+运行时迁移需按版本继续执行至 V19；上述74张指 V1～V6 初始模型，不含后续运行表。V19 新增 team_open_roles/lost_found_events，并给 team_members/team_applications 增加可空 open_role_id。既有成员、申请、失物匹配和证据原样保留；不推断旧岗位或伪造旧确认。旧团队由队长按接口文档11节完成version更新岗位→拒绝无岗位旧pending→重新申请的修复流程。
+
 ## 一、连接信息
 
 | 项目 | 值 |
@@ -12,7 +14,7 @@
 | 数据库名 | `caizhitong` |
 | 主机 | `127.0.0.1`（本机）或远程 MySQL IP |
 | 端口 | `3306` |
-| 迁移工具 | Flyway（生产 `sql/V1__` ~ `sql/V6__`） |
+| 迁移工具 | Flyway（生产按顺序执行 `sql/V1__` ~ `sql/V19__`） |
 | 字符集 / 排序 | `utf8mb4` / `utf8mb4_unicode_ci` |
 
 > 生产环境：MySQL 只允许后端服务器来源 IP，禁止对 `0.0.0.0/0` 开放；连接使用内网/VPN 或加密链路。数据库密码、AppSecret、AI 密钥一律进服务端密钥配置，不进源码。
@@ -41,9 +43,9 @@ GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
 
-### 步骤 3：用迁移账号执行 V1~V6 建表
+### 步骤 3：用迁移账号顺序执行 V1~V19
 
-见第三节迁移与初始化。确认 74 张表创建成功后再继续。
+见第三节迁移与初始化。确认迁移历史到V19后再继续。
 
 ### 步骤 4：业务账号逐表授权（表已存在）
 
@@ -124,6 +126,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.borrow_requests TO 'caizhiton
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.teams TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.team_members TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.team_applications TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE ON caizhitong.team_open_roles TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT ON caizhitong.lost_found_events TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.community_posts TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.community_comments TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.reports TO 'caizhitong_app'@'<ip>';
@@ -170,6 +174,8 @@ GRANT SELECT, INSERT ON caizhitong.security_investigations TO 'caizhitong_invest
 ```
 
 > 匿名身份映射的运行时路径：业务账号仅 `INSERT pseudo_identities`。作者维护通过 V18 两个 SQL SECURITY DEFINER 过程，后端从当前会话计算带密钥 owner proof，过程限定 campus，仅返回 boolean 或本人的帖子ID；从不返回映射/真实用户ID。H2 替身仅在 src/test，生产无 JDBC SELECT fallback。
+
+V19岗位表仅 SELECT/INSERT/UPDATE，无DELETE；停用保留历史关联。失物事件表仅 SELECT/INSERT，无UPDATE/DELETE；description是私密审计证据。归还先锁lost_found_matches父行，再用FOR SHARE读取当前事件，MySQL最小业务账号不需要获得事件修改权。团队写操作先锁teams，再读取岗位与成员的当前锁定行，避免认证/幂等已建立的REPEATABLE READ旧快照漏算容量。部署前应在新隔离库使用这里的逐表GRANT实际验证，不能用root作为应用账号替代。
 
 调查部署须单独配置 `INVESTIGATION_DB_URL`、`INVESTIGATION_DB_USER`、`INVESTIGATION_DB_PASSWORD`（只从服务端秘密配置注入）。用户名必须与业务账号不同；缺失配置或专用数据库故障返回503，无业务连接回退。gateway 内部持有私有 DataSourceTransactionManager，不向 Spring 注册第二个 DataSource/事务管理器，不影响主业务自动配置。
 

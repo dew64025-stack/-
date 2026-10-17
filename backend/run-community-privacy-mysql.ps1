@@ -1,9 +1,18 @@
 param([string]$Tests = 'MysqlCommunityPrivacyTest')
 $ErrorActionPreference = 'Stop'
 $taskContainer = (docker inspect czt-abc-review-20261015 | ConvertFrom-Json)[0]
+$taskConfigured = @($taskContainer.HostConfig.PortBindings.'3306/tcp')
+if ($taskContainer.Config.Labels.'com.caizhitong.plan' -ne 'abc-review-repairs-20261015' -or
+    $taskConfigured.Count -ne 1 -or $taskConfigured[0].HostIp -ne '127.0.0.1' -or
+    $taskConfigured[0].HostPort -notin @('', '0')) { throw 'Owned ephemeral loopback container required' }
+if (-not $taskContainer.State.Running) {
+    docker start czt-abc-review-20261015 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Owned container could not be resumed' }
+    $taskContainer = (docker inspect czt-abc-review-20261015 | ConvertFrom-Json)[0]
+}
 $taskBinding = @($taskContainer.NetworkSettings.Ports.'3306/tcp')
 if ($taskContainer.Config.Labels.'com.caizhitong.plan' -ne 'abc-review-repairs-20261015' -or
-    $taskBinding.Count -ne 1 -or $taskBinding[0].HostIp -ne '127.0.0.1' -or
+    -not $taskContainer.State.Running -or $taskBinding.Count -ne 1 -or $taskBinding[0].HostIp -ne '127.0.0.1' -or
     $taskBinding[0].HostPort -in @('3306','13306')) { throw 'Owned loopback container required' }
 try {
     $env:CZT_ABC_C_VERIFIED_PORT = $taskBinding[0].HostPort

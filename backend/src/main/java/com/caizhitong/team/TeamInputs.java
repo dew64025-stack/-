@@ -30,6 +30,7 @@ public final class TeamInputs {
         List<JsonNode> roles=new ArrayList<>();
         for(JsonNode item:node){
             if(!item.isObject())throw invalid();
+            if(item.has("id"))id(item.get("id"));
             text(item.get("role"),64,false);
             JsonNode tags=item.get("skillTags");if(tags!=null&&!tags.isNull()){if(!tags.isArray())throw invalid();tags.forEach(t->text(t,32,false));}
             JsonNode qty=item.get("quantity");if(qty==null||!qty.isIntegralNumber()||!qty.canConvertToInt()||qty.asInt()<1||qty.asInt()>20)throw invalid();

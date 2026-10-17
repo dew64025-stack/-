@@ -18,7 +18,7 @@ public class MutualAidController {
     @PostMapping("/mutual-aid/posts") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public ApiResponse<MutualAidViews.Post> create(@RequestBody MutualAidInputs.Create input,HttpServletRequest r){return ok(service.create(input),r);}
     @GetMapping("/mutual-aid/posts")
-    public ApiResponse<MutualAidViews.Page> list(@RequestParam(required=false)String q,@RequestParam(required=false)String category,@RequestParam(required=false)String campusCode,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){return ok(service.list(campus(campusCode),q,category,cursor,limit),r);}
+    public ApiResponse<MutualAidViews.Page> list(@RequestParam(required=false)String q,@RequestParam(required=false)String category,@RequestParam(required=false)String regionId,@RequestParam(required=false)String campusCode,@RequestParam(required=false)String cursor,@RequestParam(required=false)Integer limit,HttpServletRequest r){if(regionId!=null)throw new BusinessException(400,"REGION_FILTER_UNSUPPORTED","互助发布尚未建立区域关联，暂不支持区域筛选");return ok(service.list(campus(campusCode),q,category,cursor,limit),r);}
     @GetMapping("/mutual-aid/posts/{id}")
     public ApiResponse<MutualAidViews.Detail> detail(@PathVariable String id,@RequestParam(required=false)String campusCode,HttpServletRequest r){return ok(service.detail(IdentityInputs.id(id),campus(campusCode)),r);}
     @PostMapping("/mutual-aid/posts/{id}/update")
@@ -42,6 +42,6 @@ public class MutualAidController {
     @PostMapping("/borrow-requests/{id}/actions")
     public ApiResponse<MutualAidViews.Borrow> borrowAction(@PathVariable String id,@RequestBody MutualAidInputs.BorrowAction input,HttpServletRequest r){return ok(service.borrowAction(IdentityInputs.id(id),input),r);}
 
-    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->{if(code==null)throw IdentityInputs.invalid();return campuses.open(code);});}
+    private long campus(String code){return current.optional().map(Actor::campusId).orElseGet(()->code==null?Long.parseLong(campuses.campuses().stream().findFirst().orElseThrow(IdentityInputs::invalid).id()):campuses.open(code));}
     private <T> ApiResponse<T> ok(T data,HttpServletRequest r){return ApiResponse.ok(data,RequestIdFilter.requestId(r));}
 }

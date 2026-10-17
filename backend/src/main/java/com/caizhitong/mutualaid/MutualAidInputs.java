@@ -44,5 +44,18 @@ public final class MutualAidInputs {
     public static Instant instant(JsonNode node) { if(node==null||node.isNull())return null; try{return Instant.parse(text(node,40,false));}catch(java.time.DateTimeException e){throw invalid();} }
     public static String checkPrice(JsonNode node) { if(node==null||node.isNull())return null; String value=text(node,20,false); if(!value.matches("[0-9]{1,8}(\\.[0-9]{1,2})?"))throw invalid(); return value; }
     public static List<Long> checkAttachmentIds(JsonNode node) { if(node==null||node.isNull())return List.of(); if(!node.isArray()||node.size()>9)throw invalid(); List<Long> ids=new ArrayList<>(); node.forEach(item->ids.add(id(item))); return List.copyOf(ids); }
-    private static void checkDetail(String cat,JsonNode node) { if(node==null||node.isNull())return; if(!node.isObject())throw invalid(); if(cat!=null){ if(cat.equals("borrow")&&(!node.hasNonNull("kind")||!node.hasNonNull("itemName")))throw invalid(); if(cat.equals("lost_found")&&!node.hasNonNull("kind"))throw invalid(); } }
+    public static void checkDetail(String cat,JsonNode node) {
+        if(node==null||node.isNull())return;
+        if(!node.isObject())throw invalid();
+        if(cat==null)return;
+        switch(cat){
+            case "borrow"->{oneOf(node.get("kind"),Set.of("offer","request"));text(node.get("itemName"),128,false);Instant from=instant(node.get("availableFrom")),to=instant(node.get("availableTo"));if(from!=null&&to!=null&&!to.isAfter(from))throw invalid();}
+            case "lost_found"->{oneOf(node.get("kind"),Set.of("lost","found"));if(instant(node.get("occurredAt"))==null)throw invalid();text(node.get("place"),256,false);if(node.has("privateProofHint"))text(node.get("privateProofHint"),512,true);}
+            case "secondhand"->{oneOf(node.get("condition"),Set.of("new","like_new","good","used"));text(node.get("itemType"),128,false);}
+            case "textbook"->{text(node.get("bookTitle"),256,false);oneOf(node.get("condition"),Set.of("new","like_new","good","used"));}
+            case "skill"->{for(String key:List.of("offeredSkills","wantedSkills")){JsonNode values=node.get(key);if(values==null||!values.isArray()||values.size()>20)throw invalid();values.forEach(value->text(value,64,false));}}
+            default->throw invalid();
+        }
+    }
+    private static void oneOf(JsonNode value,Set<String> allowed){if(!allowed.contains(text(value,32,false)))throw invalid();}
 }

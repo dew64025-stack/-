@@ -172,8 +172,8 @@ fieldErrors 为数组，没有字段错误时返回空数组。错误中不得�
 | MutualAidPost | id:string,category:string,title:string,content:string?,detail:object?,images:Attachment[],price:decimal-string?,exchangeArea:string?,status:string,version:int,sourceFields,createdAt:datetime |
 | BorrowRequest | id:string,postId:string,borrowerDisplayName:string,startTime:datetime?,endTime:datetime?,status:string,createdAt:datetime,updatedAt:datetime |
 | Team | id:string,opportunityId:string?,title:string,goal:string?,leader:{id:string,nickname:string?},status:string,members:TeamMember[],version:int |
-| TeamMember | id:string,userId:string?,role:string?,skillTags:string[],status:string |
-| TeamApplication | id:string,teamId:string,applicant:{id:string,nickname:string?},message:string?,status:string,createdAt:datetime |
+| TeamMember | id:string,userId:string?,role:string?,skillTags:string[],status:string,openRoleId:string?；旧成员未知岗位时为null |
+| TeamApplication | id:string,teamId:string,applicant:{id:string,nickname:string?},openRoleId:string?,message:string?,status:string,createdAt:datetime,updatedAt:datetime |
 | CommunityPost | id:string,title:string,content:string?,pseudonym:string,status:string,version:int,canEdit:boolean,createdAt:datetime |
 | CommunityComment | id:string,postId:string,pseudonym:string,content:string,status:string,canDelete:boolean,createdAt:datetime；canDelete 仅当前评论作者为 true，不返回真实身份映射 |
 | Report | id:string,targetType:string,targetId:string,reason:string,status:string,resolution:string?,createdAt:datetime,updatedAt:datetime |
@@ -494,7 +494,7 @@ V17 对历史数据仅做一次兼容回填：依据旧 resource_slots.capacity�
 
 | 方法 | 路径 | 权限 | 输入 | data |
 | --- | --- | --- | --- | --- |
-| GET | /mutual-aid/posts | P | q?,category?,regionId?,cursor,limit | 已审核公开的分页 MutualAidPost |
+| GET | /mutual-aid/posts | P | q?,category?,campusCode?,cursor,limit；regionId暂不支持 | 已审核公开的分页 MutualAidPost；传regionId返回400 REGION_FILTER_UNSUPPORTED |
 | GET | /mutual-aid/posts/{id} | P/所有者 | 无 | MutualAidPost + author:{id,nickname},canContact,canEdit |
 | POST | /mutual-aid/posts | S | MutualAidCreate | 201：MutualAidPost，pending |
 | POST | /mutual-aid/posts/{id}/update | O | 可编辑字段＋version | MutualAidPost，内容变更重新审核 |
@@ -519,6 +519,12 @@ detail 按 category 单独校验：
 
 失物动作 action=verify/confirm_return/ignore，保存各方确认事件；双方完成确认才转 returned。认领证据私密保存、限制访问，不能把完整校园卡或证件照片发到公开详情。
 
+详情是扁平的 MutualAidPost 加 author/canContact/canEdit，六个来源字段也在 data 顶层；images 始终使用实际业务附件元数据与短期授权链接。互助发布尚未建模区域ID，不能用交接地点文本冒充 regionId。游客省略 campusCode 时，使用按ID排序首个开放且未删除校园。
+
+V19 将 verify/confirm_return/ignore 的真实 actor、description、时间写入 lost_found_events；同一参与人的同一动作重试不新增事件、不覆盖首份证据。任一方 verify 后可分别确认归还，第一位状态仍 verified，第二位不同参与人确认才 returned。confirmationStatus=unconfirmed/partially_confirmed/confirmed，表示实际归还确认人数0/1/2；旧 returned 记录没有事件时仍为 unconfirmed，不伪造历史。一个账号同时拥有两帖返回409 DISTINCT_PARTIES_REQUIRED。外部人员无权操作，ignore 不能覆盖已归还状态。
+
+分类 detail 一旦提供必须满足该类别结构；更新时按数据库中不可变类别重新校验，不能用空对象或null清除绕过校验。非交易类别不接受非null价格。borrow列表的签名游标绑定side和status，换筛选必须重新开始分页。
+
 不包含任何支付、押金、退款或代收接口；线下交接由双方自行完成。平台不建议抵押学生证、身份证等证件。
 
 ### 10.2 借用
@@ -531,7 +537,7 @@ detail 按 category 单独校验：
 
 action=approve/cancel/confirm_handover/confirm_return。物主批准；双方各自确认交接和归还；状态为 pending→confirmed→handed_over→returned 或 cancelled。申请人不能借自己物品。服务端锁定记录检查重复、时段冲突、当前状态和角色；借用需求帖子先通过站内沟通撮合，不直接建立物主不明确的借用单。
 
-当前 borrow_requests 没有双方确认事件字段，实施前需增加事件记录或等价模型。不能把单方点击直接作为双方归还事实。
+借用双方确认沿用 borrow_events；单方点击不能作为双方交接或归还事实。
 
 ## 11. 组队与同伴匹配
 
@@ -550,6 +556,10 @@ action=approve/cancel/confirm_handover/confirm_return。物主批准；双方各
 | GET | /me/team-applications | L | status?,cursor,limit | 本人 TeamApplication |
 
 title 1～256，goal最多1024，message最多512；openRoles=[{role,skillTags,quantity}]，最多10种、每种数量1～20。队长自动加入团队；同一用户不能重复加入；队长不能直接退出，需转交队长或关闭团队。批准申请时锁定团队和角色缺口，避免并发超员。
+
+Team详情为扁平 Team + openRoles/memberCount/isLeader/isMember/canApply。openRoles返回{id:string,role,skillTags:string[],quantity:int}，id由服务端签发并持久化；更新保留岗位必须带回原id，新增岗位省略id，禁止使用其他团队ID。quantity是该岗位容纳的招募成员总数，队长不占招募数。申请绑定openRoleId，省略时只在恰有一个有效岗位时自动选择；多岗位时必须明确选择。岗位或全队容量已满返回409，不存在或跨队岗位返回400。修改不能删掉已占岗位、把数量减到已占数以下，也不能让全队容量少于已在队的非队长成员。移除空岗位只停用，不删除岗位或历史申请。
+
+旧团队的JSON缺口没有可信岗位ID：队长先通过带version的 /teams/{id}/update 提交openRoles建立稳定岗位。旧成员openRoleId保留null，仍扣减全队招募容量，不推断其具体岗位；容量至少覆盖已有非队长成员。旧pending申请没有岗位绑定时批准返回409 TEAM_ROLES_REPAIR_REQUIRED；队长仍可用原decision=reject拒绝它，申请人再以新岗位ID重新申请，历史申请保留。岗位尚未建立也返回相同修复错误。所有团队写操作都验证当前校园、身份和团队未关闭/删除；游客默认校园规则同互助。
 
 ## 12. 匿名关系与情感社区
 

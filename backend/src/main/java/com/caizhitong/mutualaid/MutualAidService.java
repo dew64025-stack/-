@@ -23,8 +23,9 @@ public class MutualAidService {
     private final CursorCodec cursors;
     private final SensitiveDataCrypto crypto;
     private final AttachmentService files;
-    public MutualAidService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,JsonMapper mapper,CursorCodec cursors,SensitiveDataCrypto crypto,AttachmentService files){
-        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.mapper=mapper;this.cursors=cursors;this.crypto=crypto;this.files=files;
+    private final com.caizhitong.resource.ServiceSources sources;
+    public MutualAidService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,JsonMapper mapper,CursorCodec cursors,SensitiveDataCrypto crypto,AttachmentService files,com.caizhitong.resource.ServiceSources sources){
+        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.mapper=mapper;this.cursors=cursors;this.crypto=crypto;this.files=files;this.sources=sources;
     }
 
     @BusinessWrite(student=true) public MutualAidViews.Post create(MutualAidInputs.Create input){
@@ -44,6 +45,9 @@ public class MutualAidService {
         Actor actor=current.require();authorizeOwner(actor,id);
         int version=version(input.version());int actual=jdbc.queryForObject("SELECT version FROM mutual_aid_posts WHERE id=? FOR UPDATE",Integer.class,id);
         if(actual!=version)throw conflict();
+        String category=jdbc.queryForObject("SELECT category FROM mutual_aid_posts WHERE id=?",String.class,id);
+        if(input.detail()!=null){if(input.detail().isNull())throw invalid();MutualAidInputs.checkDetail(category,input.detail());}
+        if(MutualAidInputs.checkPrice(input.price())!=null&&!Set.of("secondhand","textbook").contains(category))throw invalid();
         String detail=input.detail()==null?null:input.detail().isNull()?null:mapper.writeValueAsString(input.detail());
         String images=input.attachmentIds()==null?null:imagesJson(actor,MutualAidInputs.checkAttachmentIds(input.attachmentIds()));
         jdbc.update("UPDATE mutual_aid_posts SET title=COALESCE(?,title),content=COALESCE(?,content),detail_json=COALESCE(?,detail_json),images_json=COALESCE(?,images_json),price=COALESCE(?,price),exchange_area=COALESCE(?,exchange_area),status='pending',version=version+1,updated_at=? WHERE id=?",
@@ -128,14 +132,23 @@ public class MutualAidService {
 
     @BusinessWrite public MutualAidViews.Match matchAction(long id,MutualAidInputs.MatchAction input){
         Actor actor=current.require();String action=text(input.action(),24,false);
-        var m=jdbc.query("SELECT lost_post_id,found_post_id FROM lost_found_matches WHERE id=? FOR UPDATE",(rs,i)->new long[]{rs.getLong("lost_post_id"),rs.getLong("found_post_id")},id);
-        if(m.isEmpty())throw missing();long lost=m.getFirst()[0],found=m.getFirst()[1];
+        var m=jdbc.query("SELECT lost_post_id,found_post_id,status FROM lost_found_matches WHERE id=? FOR UPDATE",(rs,i)->new MatchRow(rs.getLong("lost_post_id"),rs.getLong("found_post_id"),rs.getString("status")),id);
+        if(m.isEmpty())throw missing();long lost=m.getFirst().lost(),found=m.getFirst().found();
+        PostRow lostPost=postRow(lost),foundPost=postRow(found);
+        if(lostPost.campusId()!=actor.campusId()||foundPost.campusId()!=actor.campusId())throw missing();
         if(!(ownsPost(actor,lost)||ownsPost(actor,found)))throw forbidden();
-        String status=jdbc.queryForObject("SELECT status FROM lost_found_matches WHERE id=?",String.class,id);
+        if(lostPost.userId()==foundPost.userId())throw new BusinessException(409,"DISTINCT_PARTIES_REQUIRED","失物归还需要两位不同参与人");
+        String status=m.getFirst().status();
+        boolean recorded=!jdbc.queryForList("SELECT id FROM lost_found_events WHERE match_id=? AND actor_id=? AND action=? FOR SHARE",Long.class,id,actor.userId(),action).isEmpty();
+        if(recorded)return match(id);
+        if(action.equals("verify")&&!Set.of("suggested","verified").contains(status))throw conflict();
+        if(action.equals("confirm_return")&&!status.equals("verified"))throw conflict();
+        if(action.equals("ignore")&&!Set.of("suggested","verified").contains(status))throw conflict();
+        jdbc.update("INSERT INTO lost_found_events(id,match_id,actor_id,action,description,created_at) VALUES(?,?,?,?,?,?)",ids.nextId(),id,actor.userId(),action,input.description()==null?null:text(input.description(),512,true),now());
         String next=switch(action){
-            case "verify"->{if(!status.equals("suggested"))throw conflict();yield "verified";}
-            case "confirm_return"->{if(!status.equals("verified"))throw conflict();yield "returned";}
-            case "ignore"->{if(!Set.of("suggested","verified").contains(status))throw conflict();yield "ignored";}
+            case "verify"->"verified";
+            case "confirm_return"->{var parties=jdbc.queryForList("SELECT actor_id FROM lost_found_events WHERE match_id=? AND action='confirm_return' FOR SHARE",Long.class,id);yield parties.contains(lostPost.userId())&&parties.contains(foundPost.userId())?"returned":"verified";}
+            case "ignore"->"ignored";
             default->throw invalid();
         };
         jdbc.update("UPDATE lost_found_matches SET status=? WHERE id=?",next,id);
@@ -215,7 +228,7 @@ public class MutualAidService {
     public MutualAidViews.BorrowPage myBorrows(String side,String status,String cursor,Integer limit){
         if(side!=null&&!Set.of("borrower","owner").contains(side))throw invalid();
         Actor actor=current.require();int size=PageLimits.resolve(limit);
-        String scope="borrows:"+actor.userId()+":"+side;
+        String scope="borrows:"+actor.userId()+":"+side+":"+status;
         long before=Long.MAX_VALUE;
         if(cursor!=null){var keys=cursors.decode(cursor,scope).sortKeys();if(!keys.keySet().equals(Set.of("id")))throw invalid();before=id(keys.get("id"));}
         String sql="owner".equals(side)
@@ -254,20 +267,23 @@ public class MutualAidService {
     private String imagesJson(Actor actor,List<Long> attachments){for(long a:attachments)files.owner(actor,a,"mutual_aid",true,false);return attachments.isEmpty()?null:mapper.writeValueAsString(attachments);}
     private boolean detailHas(PostRow p,String key,String value){if(p.detail()==null)return false;JsonNode n=mapper.readTree(p.detail());JsonNode v=n.get(key);return v!=null&&v.isString()&&v.asString().equals(value);}
     private MutualAidViews.Post post(long id){return postView(postRow(id));}
-    private PostRow postRow(long id){var rows=jdbc.query("SELECT * FROM mutual_aid_posts WHERE id=?",(rs,i)->new PostRow(rs.getLong("id"),rs.getLong("campus_id"),rs.getLong("user_id"),rs.getString("category"),rs.getString("title"),rs.getString("content"),rs.getString("detail_json"),rs.getString("images_json"),rs.getString("price"),rs.getString("exchange_area"),rs.getString("status"),rs.getInt("version"),rs.getObject("created_at",LocalDateTime.class)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private PostRow postRow(long id){var rows=jdbc.query("SELECT * FROM mutual_aid_posts WHERE id=?",(rs,i)->new PostRow(rs.getLong("id"),rs.getLong("campus_id"),rs.getLong("user_id"),rs.getString("category"),rs.getString("title"),rs.getString("content"),rs.getString("detail_json"),rs.getString("images_json"),rs.getString("price"),rs.getString("exchange_area"),rs.getString("status"),rs.getInt("version"),rs.getObject("created_at",LocalDateTime.class),rs.getString("source_type"),rs.getObject("updated_at",LocalDateTime.class)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private MutualAidViews.Post postView(PostRow p){
         var images=com.caizhitong.resource.ServiceSources.attachments(p.images()==null?null:mapper.readTree(p.images()),files,current.optional().orElse(null),p.campusId(),"mutual_aid",p.id());
-        return new MutualAidViews.Post(Long.toString(p.id()),p.category(),p.title(),p.content(),publicDetail(p.detail()),images,p.price(),p.exchangeArea(),p.status(),p.version(),p.createdAt().toInstant(ZoneOffset.UTC));
+        var metadata=sources.read(p.campusId(),"mutual_aid_post",p.id(),p.sourceType(),p.updatedAt().toInstant(ZoneOffset.UTC));
+        return new MutualAidViews.Post(Long.toString(p.id()),p.category(),p.title(),p.content(),publicDetail(p.detail()),images,p.price(),p.exchangeArea(),p.status(),p.version(),p.createdAt().toInstant(ZoneOffset.UTC),metadata.sourceType(),metadata.sourceName(),metadata.updatedAt(),metadata.isStale(),metadata.officialReference(),metadata.externalId());
     }
     private MutualAidViews.Borrow borrow(long id){var rows=jdbc.query("SELECT b.* FROM borrow_requests b WHERE b.id=?",(rs,i)->new MutualAidViews.Borrow(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("post_id")),borrowerName(rs.getLong("borrower_id")),rs.getObject("start_time",LocalDateTime.class)==null?null:rs.getObject("start_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("end_time",LocalDateTime.class)==null?null:rs.getObject("end_time",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getString("status"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private String borrowerName(long userId){var rows=jdbc.queryForList("SELECT nickname FROM users WHERE id=?",String.class,userId);return rows.isEmpty()?null:rows.getFirst();}
-    private MutualAidViews.Match match(long id){var rows=jdbc.query("SELECT id,lost_post_id,found_post_id,similarity,status FROM lost_found_matches WHERE id=?",(rs,i)->new MutualAidViews.Match(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("lost_post_id")),Long.toString(rs.getLong("found_post_id")),rs.getBigDecimal("similarity")==null?null:rs.getBigDecimal("similarity").toPlainString(),rs.getString("status"),null),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private MutualAidViews.Match match(long id){var rows=jdbc.query("SELECT id,lost_post_id,found_post_id,similarity,status FROM lost_found_matches WHERE id=?",(rs,i)->new MutualAidViews.Match(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("lost_post_id")),Long.toString(rs.getLong("found_post_id")),rs.getBigDecimal("similarity")==null?null:rs.getBigDecimal("similarity").toPlainString(),rs.getString("status"),confirmation(id)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private String confirmation(long id){int count=new HashSet<>(jdbc.queryForList("SELECT e.actor_id FROM lost_found_events e JOIN lost_found_matches m ON m.id=e.match_id JOIN mutual_aid_posts l ON l.id=m.lost_post_id JOIN mutual_aid_posts f ON f.id=m.found_post_id WHERE e.match_id=? AND e.action='confirm_return' AND e.actor_id IN (l.user_id,f.user_id) FOR SHARE",Long.class,id)).size();return count==0?"unconfirmed":count==1?"partially_confirmed":"confirmed";}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}
     private String escape(String text){return text.replace("!","!!").replace("%","!%").replace("_","!_");}
     private BusinessException missing(){return new BusinessException(404,"NOT_FOUND","未找到请求的资源");}
     private BusinessException conflict(){return new BusinessException(409,"VERSION_CONFLICT","信息已更新，请刷新后重试");}
     private BusinessException forbidden(){return new BusinessException(403,"FORBIDDEN","无权执行此操作");}
     private BusinessException invalid(){return new BusinessException(400,"VALIDATION_FAILED","请检查填写的信息");}
-    private record PostRow(long id,long campusId,long userId,String category,String title,String content,String detail,String images,String price,String exchangeArea,String status,int version,LocalDateTime createdAt){}
+    private record PostRow(long id,long campusId,long userId,String category,String title,String content,String detail,String images,String price,String exchangeArea,String status,int version,LocalDateTime createdAt,String sourceType,LocalDateTime updatedAt){}
     private record BorrowRow(long id,long postId,long borrowerId,long ownerId,long campusId,String status){}
+    private record MatchRow(long lost,long found,String status){}
 }

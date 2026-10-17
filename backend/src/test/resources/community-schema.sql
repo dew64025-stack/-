@@ -6,6 +6,10 @@ CREATE TABLE team_members(id BIGINT PRIMARY KEY,team_id BIGINT,user_id BIGINT,ro
 CREATE TABLE team_applications(id BIGINT PRIMARY KEY,team_id BIGINT,user_id BIGINT,message VARCHAR(512),status VARCHAR(32),created_at TIMESTAMP,updated_at TIMESTAMP);
 CREATE TABLE mutual_aid_ratings(id BIGINT PRIMARY KEY,post_id BIGINT,rater_id BIGINT,score INT,comment VARCHAR(512),created_at TIMESTAMP,UNIQUE(post_id,rater_id));
 CREATE TABLE borrow_events(id BIGINT PRIMARY KEY,borrow_request_id BIGINT,actor_id BIGINT,action VARCHAR(32),created_at TIMESTAMP);
+CREATE TABLE team_open_roles(id BIGINT PRIMARY KEY,team_id BIGINT,role VARCHAR(64),skill_tags VARCHAR(4000),quantity INT,active BOOLEAN,created_at TIMESTAMP);
+ALTER TABLE team_applications ADD open_role_id BIGINT;
+ALTER TABLE team_members ADD open_role_id BIGINT;
+CREATE TABLE lost_found_events(id BIGINT PRIMARY KEY,match_id BIGINT,actor_id BIGINT,action VARCHAR(32),description VARCHAR(512),created_at TIMESTAMP,UNIQUE(match_id,actor_id,action));
 CREATE TABLE community_posts(id BIGINT PRIMARY KEY,campus_id BIGINT,pseudo_identity_id BIGINT,author_name VARCHAR(64),title VARCHAR(256),content VARCHAR(4000),status VARCHAR(32),is_high_risk BOOLEAN DEFAULT FALSE,version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP);
 CREATE TABLE community_comments(id BIGINT PRIMARY KEY,post_id BIGINT,pseudo_identity_id BIGINT,author_name VARCHAR(64),content VARCHAR(2048),status VARCHAR(32),created_at TIMESTAMP);
 CREATE TABLE pseudo_identities(id BIGINT PRIMARY KEY,post_id BIGINT,user_id BIGINT,random_name VARCHAR(64),created_at TIMESTAMP,comment_id BIGINT,user_id_encrypted VARBINARY(2048),user_id_search CHAR(64));
