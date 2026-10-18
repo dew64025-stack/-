@@ -12,7 +12,8 @@ public final class GovernanceViews {
     public record PenaltyPage(List<Penalty> items, String nextCursor, boolean hasMore) {}
     public record Appeal(String id, String penaltyId, String reason, String status, Instant reviewedAt, String decisionReason, Instant createdAt) {}
     public record AppealPage(List<Appeal> items, String nextCursor, boolean hasMore) {}
-    public record ModerationTask(String id, String targetType, String targetId, String status, String result, Instant createdAt) {}
+    public record ModerationTask(String id, String targetType, String targetId, String status, String result,
+                                 String content, Instant createdAt) {}
     public record ModerationPage(List<ModerationTask> items, String nextCursor, boolean hasMore) {}
     public record CreditDispute(String id, String userId, String creditEventId, String reason, String status, Instant createdAt) {}
     public record CreditDisputePage(List<CreditDispute> items, String nextCursor, boolean hasMore) {}

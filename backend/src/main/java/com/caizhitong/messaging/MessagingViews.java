@@ -7,7 +7,8 @@ public final class MessagingViews {
     private MessagingViews() {}
 
     public record ConversationContext(String type, String id) {}
-    public record Message(String id, String conversationId, String senderId, String content, Instant createdAt) {}
+    public record Message(String id, String conversationId, String senderId, String content, String status,
+            String clientMessageId, Instant createdAt) {}
     public record Conversation(String id, String type, String title, ConversationContext context, int memberCount,
             int unreadCount, Message lastMessage, Instant createdAt, Instant updatedAt) {}
     public record ConversationPage(List<Conversation> items, String nextCursor, boolean hasMore) {}

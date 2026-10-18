@@ -52,10 +52,14 @@ class MysqlCommunityPrivacyTest {
             statement.execute("GRANT SELECT (id,post_id) ON "+schema+".community_comments TO '"+investigator+"'@'%'");
             statement.execute("GRANT SELECT,INSERT ON "+schema+".security_investigations TO '"+investigator+"'@'%'");
             statement.execute("REVOKE CREATE,ALTER,DROP,INDEX,REFERENCES,CREATE TEMPORARY TABLES,CREATE ROUTINE,ALTER ROUTINE,EXECUTE,SELECT,INSERT,UPDATE,DELETE ON "+schema+".* FROM '"+migrator+"'@'%'");
-            for(String table:List.of("pseudo_identities","community_posts","community_comments"))statement.execute("GRANT SELECT ON "+schema+"."+table+" TO '"+migrator+"'@'%'");
-            for(String routine:List.of("community_owner_check","community_owner_posts"))statement.execute("GRANT EXECUTE ON PROCEDURE "+schema+"."+routine+" TO '"+migrator+"'@'%'");
+            // The definer needs exactly the DML documented for the erasure routine; SELECT-only
+            // grants would make community_privacy_erase fail at runtime with 1142.
+            statement.execute("GRANT SELECT,UPDATE,DELETE ON "+schema+".pseudo_identities TO '"+migrator+"'@'%'");
+            statement.execute("GRANT SELECT,UPDATE ON "+schema+".community_posts TO '"+migrator+"'@'%'");
+            statement.execute("GRANT SELECT,UPDATE ON "+schema+".community_comments TO '"+migrator+"'@'%'");
+            for(String routine:List.of("community_owner_check","community_owner_posts","community_privacy_erase"))statement.execute("GRANT EXECUTE ON PROCEDURE "+schema+"."+routine+" TO '"+migrator+"'@'%'");
             try(var rows=statement.executeQuery("SELECT DEFINER,SECURITY_TYPE FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='"+schema+"'")){
-                int count=0;while(rows.next()){assertEquals(migrator+"@%",rows.getString(1));assertEquals("DEFINER",rows.getString(2));count++;}assertEquals(2,count);
+                int count=0;while(rows.next()){assertEquals(migrator+"@%",rows.getString(1));assertEquals("DEFINER",rows.getString(2));count++;}assertEquals(3,count);
             }
         } catch(SQLException failure){throw new IllegalStateException("Isolated provisioning failed: SQLState="+failure.getSQLState()+", code="+failure.getErrorCode());}
         finally {rootPassword=null;migrationPassword=null;}

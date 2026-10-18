@@ -22,3 +22,5 @@ CREATE TABLE credit_events(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT
 CREATE TABLE credit_disputes(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,credit_event_id BIGINT,reason VARCHAR(512),status VARCHAR(32),reviewed_by BIGINT,reviewed_at TIMESTAMP,created_at TIMESTAMP);
 CREATE TABLE blocks(id BIGINT PRIMARY KEY,blocker_id BIGINT,target_type VARCHAR(32),target_id BIGINT,created_at TIMESTAMP,UNIQUE(blocker_id,target_type,target_id));
 CREATE TABLE security_investigations(id BIGINT PRIMARY KEY,investigator_id BIGINT,reason VARCHAR(512),target_user_id BIGINT,target_type VARCHAR(32),target_id BIGINT,result_json VARCHAR(4000),created_at TIMESTAMP);
+ALTER TABLE credit_disputes ADD COLUMN IF NOT EXISTS pending_event_id BIGINT GENERATED ALWAYS AS (CASE WHEN status='pending' THEN credit_event_id ELSE NULL END);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_disputes_pending_event ON credit_disputes(pending_event_id);

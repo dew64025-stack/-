@@ -102,8 +102,14 @@ public class MessagingService {
             throw new BusinessException(403, "MESSAGE_BLOCKED", "无法向已拉黑的对象发起会话");
         }
 
-        var existing = jdbc.queryForList("SELECT id FROM conversations WHERE campus_id=? AND context_type=? AND context_id=?",
-                Long.class, actor.campusId(), type, context);
+        // Team conversations are shared by the team; direct conversations must never be shared by
+        // every visitor of the same post. The sorted participant pair is part of the unique key.
+        String participantKey = "team".equals(type) ? ""
+                : participants.stream().sorted().map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(":"));
+        var existing = jdbc.queryForList("SELECT id FROM conversations WHERE campus_id=? AND context_type=?"
+                        + " AND context_id=? AND participant_key=?",
+                Long.class, actor.campusId(), type, context, participantKey);
         if (!existing.isEmpty()) {
             long conversation = existing.getFirst();
             ensureMember(conversation, actor.userId());
@@ -115,12 +121,13 @@ public class MessagingService {
         String conversationType = "team".equals(type) ? "team" : participants.size() == 2 ? "direct" : "group";
         String title = resolved.title() == null || resolved.title().isBlank() ? "会话" : resolved.title();
         try {
-            jdbc.update("INSERT INTO conversations(id,campus_id,type,title,context_type,context_id,created_by,version,created_at,updated_at)"
-                            + " VALUES(?,?,?,?,?,?,?,0,?,?)",
-                    id, actor.campusId(), conversationType, title, type, context, actor.userId(), now, now);
+            jdbc.update("INSERT INTO conversations(id,campus_id,type,title,context_type,context_id,participant_key,"
+                            + "created_by,version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,0,?,?)",
+                    id, actor.campusId(), conversationType, title, type, context, participantKey, actor.userId(), now, now);
         } catch (DuplicateKeyException race) {
-            long conversation = jdbc.queryForObject("SELECT id FROM conversations WHERE campus_id=? AND context_type=? AND context_id=?",
-                    Long.class, actor.campusId(), type, context);
+            long conversation = jdbc.queryForObject("SELECT id FROM conversations WHERE campus_id=? AND context_type=?"
+                            + " AND context_id=? AND participant_key=? FOR UPDATE",
+                    Long.class, actor.campusId(), type, context, participantKey);
             ensureMember(conversation, actor.userId());
             return conversation(actor, conversation);
         }
@@ -142,8 +149,11 @@ public class MessagingService {
             before = MessagingInputs.id(keys.get("id"));
         }
         var found = jdbc.queryForList("SELECT c.id FROM conversations c JOIN conversation_members m ON m.conversation_id=c.id"
-                        + " WHERE m.user_id=? AND c.campus_id=? AND c.id<? ORDER BY c.id DESC LIMIT ?",
-                Long.class, actor.userId(), actor.campusId(), before, size + 1);
+                        + " WHERE m.user_id=? AND c.campus_id=? AND c.id<?"
+                        + " AND (c.context_type IS NULL OR c.context_type<>'team' OR EXISTS ("
+                        + " SELECT 1 FROM team_members tm WHERE tm.team_id=c.context_id AND tm.user_id=? AND tm.status='member'))"
+                        + " ORDER BY c.id DESC LIMIT ?",
+                Long.class, actor.userId(), actor.campusId(), before, actor.userId(), size + 1);
         boolean more = found.size() > size;
         var page = found.stream().limit(size).map(id -> conversation(actor, id)).toList();
         String next = more && !page.isEmpty()
@@ -163,7 +173,7 @@ public class MessagingService {
             if (!keys.keySet().equals(Set.of("id"))) throw MessagingInputs.invalid();
             before = MessagingInputs.id(keys.get("id"));
         }
-        var found = jdbc.query("SELECT id,conversation_id,sender_id,content,created_at FROM messages"
+        var found = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
                         + " WHERE conversation_id=? AND status='sent' AND id<? ORDER BY id DESC LIMIT ?",
                 (rs, i) -> message(rs), conversation, before, size + 1);
         boolean more = found.size() > size;
@@ -183,7 +193,7 @@ public class MessagingService {
         if (!clientId.matches("[\\x20-\\x7E]{1,64}")) throw MessagingInputs.invalid();
         rates.check("message-send:" + actor.userId(), 120, Duration.ofMinutes(1));
 
-        var existing = jdbc.query("SELECT id,conversation_id,sender_id,content,created_at FROM messages"
+        var existing = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
                         + " WHERE conversation_id=? AND sender_id=? AND client_message_id=?",
                 (rs, i) -> message(rs), conversation, actor.userId(), clientId);
         if (!existing.isEmpty()) return existing.getFirst();
@@ -203,8 +213,8 @@ public class MessagingService {
             jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,client_message_id,created_at)"
                     + " VALUES(?,?,?,?,?,?,?)", id, conversation, actor.userId(), content, status, clientId, now);
         } catch (DuplicateKeyException race) {
-            var replay = jdbc.query("SELECT id,conversation_id,sender_id,content,created_at FROM messages"
-                            + " WHERE conversation_id=? AND sender_id=? AND client_message_id=?",
+            var replay = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
+                            + " WHERE conversation_id=? AND sender_id=? AND client_message_id=? FOR UPDATE",
                     (rs, i) -> message(rs), conversation, actor.userId(), clientId);
             if (!replay.isEmpty()) return replay.getFirst();
             throw race;
@@ -217,7 +227,7 @@ public class MessagingService {
             distribute(conversation, actor.userId(), now);
         }
         return new MessagingViews.Message(Long.toString(id), Long.toString(conversation), Long.toString(actor.userId()),
-                content, now.toInstant(ZoneOffset.UTC));
+                content, status, clientId, now.toInstant(ZoneOffset.UTC));
     }
 
     @BusinessWrite
@@ -289,8 +299,10 @@ public class MessagingService {
 
     public int unreadTotal(long userId, long campus) {
         Integer conversations = jdbc.queryForObject("SELECT COALESCE(SUM(m.unread_count),0) FROM conversation_members m"
-                + " JOIN conversations c ON c.id=m.conversation_id WHERE m.user_id=? AND c.campus_id=?",
-                Integer.class, userId, campus);
+                + " JOIN conversations c ON c.id=m.conversation_id WHERE m.user_id=? AND c.campus_id=?"
+                + " AND (c.context_type IS NULL OR c.context_type<>'team' OR EXISTS ("
+                + " SELECT 1 FROM team_members tm WHERE tm.team_id=c.context_id AND tm.user_id=? AND tm.status='member'))",
+                Integer.class, userId, campus, userId);
         Integer notifications = jdbc.queryForObject("SELECT COUNT(*) FROM notifications"
                 + " WHERE user_id=? AND campus_id=? AND read_at IS NULL", Integer.class, userId, campus);
         return (conversations == null ? 0 : conversations) + (notifications == null ? 0 : notifications);
@@ -388,7 +400,6 @@ public class MessagingService {
 
     // ---- realtime ----
 
-    @BusinessWrite
     public MessagingViews.RealtimeTicket realtimeTicket() {
         Actor actor = current.require();
         if (websocketUrl.isEmpty()) {
@@ -420,7 +431,7 @@ public class MessagingService {
         ConversationRow row = rows.getFirst();
         int memberCount = jdbc.queryForObject("SELECT COUNT(*) FROM conversation_members WHERE conversation_id=?",
                 Integer.class, id);
-        var messages = jdbc.query("SELECT id,conversation_id,sender_id,content,created_at FROM messages"
+        var messages = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
                 + " WHERE conversation_id=? AND status='sent' ORDER BY id DESC LIMIT 1", (rs, i) -> message(rs), id);
         return new MessagingViews.Conversation(Long.toString(row.id()), row.type(), row.title(),
                 row.contextType() == null ? null : new MessagingViews.ConversationContext(row.contextType(),
@@ -430,10 +441,20 @@ public class MessagingService {
     }
 
     private void requireMember(Actor actor, long conversation) {
-        int member = jdbc.queryForObject("SELECT COUNT(*) FROM conversations c JOIN conversation_members m"
+        var rows = jdbc.query("SELECT c.context_type,c.context_id FROM conversations c JOIN conversation_members m"
                         + " ON m.conversation_id=c.id WHERE c.id=? AND c.campus_id=? AND m.user_id=?",
-                Integer.class, conversation, actor.campusId(), actor.userId());
-        if (member != 1) throw MessagingInputs.missing();
+                (rs, i) -> new Object[]{rs.getString("context_type"), rs.getObject("context_id", Long.class)},
+                conversation, actor.campusId(), actor.userId());
+        if (rows.isEmpty()) throw MessagingInputs.missing();
+        // Leaving a team revokes the shared team conversation even though the membership row
+        // predates the leave; check the live team membership instead of trusting the stale row.
+        Object contextType = rows.getFirst()[0];
+        Long contextId = (Long) rows.getFirst()[1];
+        if ("team".equals(contextType) && contextId != null) {
+            Integer member = jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=? AND user_id=?"
+                    + " AND status='member'", Integer.class, contextId, actor.userId());
+            if (member == null || member != 1) throw MessagingInputs.missing();
+        }
     }
 
     private void ensureMember(long conversation, long userId) {
@@ -541,7 +562,8 @@ public class MessagingService {
 
     private MessagingViews.Message message(ResultSet rs) throws SQLException {
         return new MessagingViews.Message(Long.toString(rs.getLong("id")), Long.toString(rs.getLong("conversation_id")),
-                Long.toString(rs.getLong("sender_id")), rs.getString("content"), instant(rs, "created_at"));
+                Long.toString(rs.getLong("sender_id")), rs.getString("content"), rs.getString("status"),
+                rs.getString("client_message_id"), instant(rs, "created_at"));
     }
 
     private MessagingViews.Subscription subscription(long id, long userId) {

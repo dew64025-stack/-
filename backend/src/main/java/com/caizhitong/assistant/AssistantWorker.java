@@ -232,7 +232,7 @@ public class AssistantWorker implements Runnable {
     private void fail(Claim claim, String code, boolean retryable) {
         LocalDateTime now = now();
         boolean exhausted = !retryable || claim.attempt() >= claim.max();
-        jdbc.update("UPDATE async_jobs SET status=?,error=?,next_retry_at=?,claim_token=NULL,updated_at=?"
+        jdbc.update("UPDATE async_jobs SET status=?,error=?,next_retry_at=?,result_json=NULL,claim_token=NULL,updated_at=?"
                         + " WHERE id=? AND claim_token=? AND status='running'",
                 exhausted ? "failed" : "pending", code, exhausted ? null : now.plusSeconds(30),
                 now, claim.job(), claim.token());

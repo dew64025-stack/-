@@ -227,7 +227,7 @@ class DiscoveryHttpTest {
         mvc.perform(post("/api/v1/ai/assistant/messages").header("Authorization", unverified)
                         .header("Idempotency-Key", "assistant-verify")
                         .contentType("application/json").content("{\"question\":\"图书馆几点开门\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isAccepted());
 
         JsonNode job = mapper.readTree(mvc.perform(post("/api/v1/ai/assistant/messages")
                         .header("Authorization", student).header("Idempotency-Key", "assistant-ask-1")

@@ -1,6 +1,6 @@
 # D 模块交付记录（Task 10 + 12 + 13）
 
-分支 `feature/messaging`，已推送。范围为 [接口分工](../../backend-接口分工-4人.md) 第 7 节的 45 条计划路由：D 新增 44 条，复用 A 已实现的 `GET /api/v1/jobs/{jobId}`。独立审查缺陷已修复：329 项 H2 隔离测试和打包通过；真实 MySQL、Redis、存储、AI、WebSocket 和学校集成未验收。
+分支 `feature/messaging`，已推送。范围为 [接口分工](../../backend-接口分工-4人.md) 第 7 节的 45 条计划路由：D 新增 44 条，复用 A 已实现的 `GET /api/v1/jobs/{jobId}`。两轮独立审查发现的缺陷已修复（第二轮修复见 `V25` 与下文“第二轮审查修复”）：330 项 H2 隔离测试和打包通过；真实 MySQL、Redis、存储、AI、WebSocket 和学校集成未验收。
 
 ## 实现内容
 
@@ -68,6 +68,7 @@
 | `sql/V22__privacy_authorization_versions.sql` | authorizations.document_version |
 | `sql/V23__active_request_uniqueness.sql` | 数据请求、信用纠错的待处理生成列唯一键，防止并发重复申请；存在历史重复数据时迁移显式失败 |
 | `sql/V24__anonymous_privacy_erasure.sql` | 注销匿名内容清除的 DEFINER 过程；业务账号只需 EXECUTE，不获得映射表 SELECT |
+| `sql/V25__review_repairs.sql` | opportunities 补齐官方来源列并由通知回填；一对一会话参与者键及旧会话回填；审计日志校园回填；修正注销过程的匿名内容定位（以帖子/评论自身的 `pseudo_identity_id` 为准，兼容评论映射的 `comment_id`），DROP/CREATE 后必须重新授予过程 EXECUTE |
 
 `application.yml` 新增 `MESSAGING_*`、`REALTIME_WEBSOCKET_URL`、`ASSISTANT_*`、`WEB_BASE_URL`、`PRIVACY_*`、`INTEGRATIONS_*`。其中 `MESSAGING_TEMPLATE_WHITELIST` 提供默认订阅模板白名单，校园 `campus_configs.messaging.templateWhitelist` 优先且解析失败时拒绝订阅。密钥、AppSecret、AI key 只从本地环境配置读取。
 
@@ -75,7 +76,7 @@
 
 ```text
 JAVA_HOME=/d/Java_jdk <maven> -B -ntp -f backend/pom.xml test
-Tests run: 329, Failures: 0, Errors: 0, Skipped: 32
+Tests run: 330, Failures: 0, Errors: 0, Skipped: 32
 BUILD SUCCESS
 
 JAVA_HOME=/d/Java_jdk <maven> -B -ntp -f backend/pom.xml -DskipTests package
@@ -101,11 +102,21 @@ BUILD SUCCESS
 - official 提供器先以 inactive 保存；连接测试结果绑定 provider/type/endpoint/secretRef/timeout/授权标志指纹，配置变更后旧测试失效，成功后才激活。
 - 导出不返回明文对象键；下载只返回短期签名地址。
 - 集成同步无适配器、实时未配置、AI 未配置均显式失败，不返回伪造成功；消息审核命中时先挂起，不投递。
-- 审计日志只追加；D 服务不提供修改/删除审计的入口。
+- 审计日志只追加；D 服务不提供修改/删除审计的入口。审计操作者以带密钥 HMAC 摘要前缀展示，不再使用取模编号，避免不同管理员碰撞。
+
+## 第二轮审查修复
+
+- 注销导出清理改为事务内写入 `file_cleanup_jobs` 持久队列，不再依赖提交后尽力删除；注销时锁定并取消全部导出请求、清空对象键，最终删除更新带租约校验。
+- 历史记录读取把隐私同意并入同一条 SQL，消除先检查后读取的竞争窗口。
+- 管理端集成连接测试读取并遵守配置的 `timeoutMs`，探测与配置指纹一致。
+- 隐私设置更新校验受影响行数，插入冲突映射为 409，避免并发丢更新或 500。
+- 举报在写入前校验目标存在且属于当前校园；管理端审核目标的状态更新按校园限定，评论/消息使用可移植的 EXISTS 子查询。
+- 通知复核生成机会草稿时复制官方来源字段；AI 任务失败时清空残留结果。
+- V25 修复注销过程误删他人帖子的缺陷：旧评论身份映射的 `post_id` 指向父帖，原过程会把他人帖子一并删除；现仅通过帖子/评论自身的 `pseudo_identity_id` 定位。
 
 ## 未验证的真实依赖
 
-1. MySQL 8.4 上执行 V20～V24、回填、V23 生成列唯一键冲突保护与 V24 DEFINER 过程授权；本轮仅 H2 MySQL 模式，V23 历史重复数据会阻止迁移。
+1. MySQL 8.4 上执行 V20～V25、回填、V23 生成列唯一键冲突保护与 V24/V25 DEFINER 过程授权；本轮仅 H2 MySQL 模式，V23 历史重复数据会阻止迁移。V25 重建 `community_privacy_erase` 会清除既有 EXECUTE 授权，部署后必须按 DATABASE.md 重新授予迁移账号和业务账号。
 2. 真实 Redis 会话、限流、TTL、多实例调度；测试使用 InMemorySessionStore 和固定 RateCounter。
 3. WebSocket 服务端握手与断线补偿；`REALTIME_WEBSOCKET_URL` 为空时接口按设计返回 `REALTIME_UNAVAILABLE`。
 4. 真实 DeepSeek 付费调用、答案质量与超时/限流错误；本轮验证到任务入队和错误映射。

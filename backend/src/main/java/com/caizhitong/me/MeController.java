@@ -70,7 +70,7 @@ public class MeController {
     }
 
     @DeleteMapping("/me/growth-records/{id}")
-    public ApiResponse<MeViews.Cleared> deleteGrowth(@PathVariable String id,
+    public ApiResponse<MeViews.Deleted> deleteGrowth(@PathVariable String id,
                                                      @RequestParam int version,
                                                      HttpServletRequest request) {
         return ok(me.deleteGrowth(id, version), request);

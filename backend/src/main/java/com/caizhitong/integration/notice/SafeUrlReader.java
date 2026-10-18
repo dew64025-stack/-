@@ -62,8 +62,14 @@ public class SafeUrlReader {
     }
 
     public Fetched fetch(String url) {
+        return fetch(url, 15_000);
+    }
+
+    /** Absolute deadline covers DNS validation, connect, TLS, headers and body. */
+    public Fetched fetch(String url, long timeoutMillis) {
         if (url == null || url.length() > 1024) throw new FetchFailure("URL_INVALID", false, "原文链接不合法");
-        long deadline = System.nanoTime() + 15_000_000_000L;
+        if (timeoutMillis <= 0 || timeoutMillis > 120_000) timeoutMillis = 15_000;
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         Target target = validateTarget(url);
         String body = fetch(target, 0, deadline);
         return new Fetched(body, null);

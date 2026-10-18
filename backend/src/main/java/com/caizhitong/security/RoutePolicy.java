@@ -27,6 +27,7 @@ public final class RoutePolicy {
                 || Set.of("/materials/upload-intents", "/files/upload-intents", "/admin/files/upload-intents").contains(route)
                 || route.matches("/(admin/)?files/[0-9]+/download-url")
                 || route.matches("/admin/reservations/[0-9]+/check-in-token")
+                || "/realtime/tickets".equals(route)
                 || binaryUpload(method, path);
     }
     public static boolean adminCredential(String path) { return ADMIN_CREDENTIALS.contains(relative(path)); }

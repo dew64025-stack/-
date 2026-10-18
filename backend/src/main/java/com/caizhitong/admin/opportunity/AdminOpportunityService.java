@@ -284,8 +284,8 @@ public class AdminOpportunityService {
     }
 
     private void audit(Actor actor, String action, long targetId, String reason, Map<String, Object> detail) {
-        jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,?,?,?)",
-                ids.nextId(), actor.userId(), action, "opportunity", targetId, reason,
+        jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,campus_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                ids.nextId(), actor.userId(), actor.campusId(), action, "opportunity", targetId, reason,
                 detail == null ? "{}" : mapper.writeValueAsString(detail), LocalDateTime.now(clock));
     }
 }

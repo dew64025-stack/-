@@ -18,6 +18,7 @@ public final class MeViews {
     public record HistoryPage(List<HistoryItem> items, String nextCursor, boolean hasMore) {}
 
     public record Cleared(boolean cleared) {}
+    public record Deleted(boolean deleted) {}
 
     public record GrowthRecord(String id, String type, String title, String description, String proofFileId,
                                boolean confirmed, Instant occurredAt, int version, Instant createdAt, Instant updatedAt) {}

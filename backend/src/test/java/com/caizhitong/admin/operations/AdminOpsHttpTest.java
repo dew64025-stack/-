@@ -1,9 +1,11 @@
 package com.caizhitong.admin.operations;
 
+import com.caizhitong.common.SensitiveDataCrypto;
 import com.caizhitong.integration.notice.SafeUrlReader;
 import com.caizhitong.security.SessionKind;
 import com.caizhitong.security.SessionTokenService;
 import com.caizhitong.testsupport.InMemorySessionStore;
+import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ class AdminOpsHttpTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
     @Autowired IntegrationWorker worker;
+    @Autowired SensitiveDataCrypto crypto;
     private final tools.jackson.databind.json.JsonMapper mapper = new tools.jackson.databind.json.JsonMapper();
     private String campusAdmin;
     private String platformAdmin;
@@ -151,10 +154,12 @@ class AdminOpsHttpTest {
                 + " VALUES(1002,900,1,'campus.config.update','campus_config',NULL,'第二条','{}',CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,campus_id,action,target_type,target_id,reason,detail_json,created_at)"
                 + " VALUES(1003,900,2,'campus.config.update','campus_config',NULL,'外校','{}',CURRENT_TIMESTAMP)");
+        String expectedOperator = "admin-" + HexFormat.of().formatHex(
+                crypto.searchHash("audit-operator", "900"), 0, 6);
         String body = mvc.perform(get("/api/v1/admin/audit-logs?limit=1").header("Authorization", platformAdmin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.hasMore").value(true))
-                .andExpect(jsonPath("$.data.items[0].operator").value("admin-0900"))
+                .andExpect(jsonPath("$.data.items[0].operator").value(expectedOperator))
                 .andExpect(jsonPath("$.data.items[0].detailJson").doesNotExist())
                 .andExpect(jsonPath("$.data.nextCursor").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
@@ -364,6 +369,9 @@ class AdminOpsHttpTest {
         @Bean @Primary SafeUrlReader safeUrlReader() {
             return new SafeUrlReader() {
                 @Override public Fetched fetch(String url) {
+                    return fetch(url, 15_000);
+                }
+                @Override public Fetched fetch(String url, long timeoutMillis) {
                     if (url.contains("unreachable")) {
                         throw new FetchFailure("UPSTREAM_IO", true, "unreachable");
                     }

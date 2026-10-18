@@ -130,8 +130,9 @@ public class IntegrationWorker implements Runnable {
         if (endpoint.isBlank() || secretRef.isBlank() || !config.path("schoolAuthorized").asBoolean(false)) {
             return Probe.failed("INTEGRATION_CONFIG_INCOMPLETE");
         }
+        long timeoutMs = config.path("timeoutMs").isNumber() ? config.path("timeoutMs").asLong() : 15_000;
         try {
-            reader.fetch(endpoint);
+            reader.fetch(endpoint, timeoutMs);
             return Probe.succeeded(current);
         } catch (SafeUrlReader.FetchFailure failure) {
             return Probe.failed("TIMEOUT".equals(failure.code())
@@ -148,7 +149,9 @@ public class IntegrationWorker implements Runnable {
                         + "claim_token=NULL,updated_at=? WHERE id=? AND status='running' AND claim_token=?",
                 result, now, claim.job(), claim.token());
         if (updated != 1 || !"integration_test".equals(claim.jobType())) return;
-        var systems = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=?",
+        // Lock the row: an admin updating the configuration between the earlier read and this
+        // activation must not be able to activate a configuration that was never tested.
+        var systems = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=? FOR UPDATE",
                 (rs, i) -> new Object[]{rs.getString("provider"), rs.getString("config_json")},
                 claim.campus(), claim.type());
         if (systems.isEmpty()) return;

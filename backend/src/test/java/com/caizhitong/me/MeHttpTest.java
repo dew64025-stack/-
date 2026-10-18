@@ -69,6 +69,8 @@ class MeHttpTest {
                             + "status,version,created_at,updated_at) VALUES(?,?,1,?,?,'verified',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                     user + 3000, user, crypto.encrypt("student", "2026000" + user), "sv" + user);
         }
+        jdbc.update("INSERT INTO privacy_settings(user_id,personalization_enabled,history_enabled,nearby_enabled,"
+                + "version,created_at,updated_at) VALUES(101,TRUE,TRUE,TRUE,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         student = bearer(101);
         other = bearer(102);
     }
@@ -174,7 +176,7 @@ class MeHttpTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(1));
         mvc.perform(delete("/api/v1/me/growth-records/" + id + "?version=1").header("Authorization", student)
                         .header("Idempotency-Key", "growth-delete"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.cleared").value(true));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.deleted").value(true));
         mvc.perform(get("/api/v1/me/growth-records").header("Authorization", student))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
     }

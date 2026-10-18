@@ -59,7 +59,7 @@ public class AttachmentService {
         Attachment a=authorizeRead(actor,id);requireClean(a);
         if(a.scope().purpose().equals("student_roster")) {
             if(actor==null||!fresh(actor).permissions().contains("identity.import"))throw FilePurpose.forbidden();
-            jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,action,target_type,target_id,detail_json,created_at) VALUES(?,?,'file.roster.read','attachment',?,'{}',?)",ids.nextId(),actor.userId(),id,UploadService.utc(clock.instant()));
+            jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,campus_id,action,target_type,target_id,detail_json,created_at) VALUES(?,?,?,'file.roster.read','attachment',?,'{}',?)",ids.nextId(),actor.userId(),actor.campusId(),id,UploadService.utc(clock.instant()));
         }
         String url=storage.sign(crypto.decrypt("file-object-key",a.key()),Duration.ofSeconds(120));
         return new FileViews.Download(url,clock.instant().plusSeconds(120));

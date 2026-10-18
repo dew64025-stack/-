@@ -166,11 +166,15 @@ public class MeService {
             }
             beforeId = id(keys.sortKeys().get("id"));
         }
+        // History is opt-in. The consent check is part of the same statement as the read, so a
+        // concurrent opt-out cannot be overtaken by a stale pre-check.
         // Re-opening an item refreshes viewed_at, so recency and the cursor must both follow it.
-        String sql = "SELECT id,target_type,target_id,title,summary,viewed_at FROM browse_history"
-                + " WHERE user_id=? AND campus_id=?"
-                + (beforeViewed == null ? "" : " AND (viewed_at<? OR (viewed_at=? AND id<?))")
-                + " ORDER BY viewed_at DESC,id DESC LIMIT ?";
+        String sql = "SELECT h.id,h.target_type,h.target_id,h.title,h.summary,h.viewed_at"
+                + " FROM browse_history h JOIN privacy_settings s"
+                + " ON s.user_id=h.user_id AND s.history_enabled=TRUE"
+                + " WHERE h.user_id=? AND h.campus_id=?"
+                + (beforeViewed == null ? "" : " AND (h.viewed_at<? OR (h.viewed_at=? AND h.id<?))")
+                + " ORDER BY h.viewed_at DESC,h.id DESC LIMIT ?";
         List<Object> args = new ArrayList<>();
         args.add(actor.userId());
         args.add(actor.campusId());
@@ -223,10 +227,14 @@ public class MeService {
         String title = item.title() == null ? "" : truncate(item.title(), 256);
         String summary = item.summary() == null ? null : truncate(item.summary(), 512);
         LocalDateTime now = now();
+        // Consent is checked in the insert itself so a concurrent opt-out cannot be overtaken
+        // by a stale pre-check reading history_enabled=TRUE.
         jdbc.update("INSERT INTO browse_history(id,campus_id,user_id,target_type,target_id,title,summary,viewed_at)"
-                        + " VALUES(?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE campus_id=?,title=?,summary=?,viewed_at=?",
+                        + " SELECT ?,?,?,?,?,?,?,? FROM privacy_settings s"
+                        + " WHERE s.user_id=? AND s.history_enabled=TRUE"
+                        + " ON DUPLICATE KEY UPDATE campus_id=?,title=?,summary=?,viewed_at=?",
                 ids.nextId(), actor.campusId(), actor.userId(), targetType, targetId, title, summary, now,
-                actor.campusId(), title, summary, now);
+                actor.userId(), actor.campusId(), title, summary, now);
     }
 
     public MeViews.GrowthPage growthRecords(String type, String cursor, Integer limit) {
@@ -307,7 +315,7 @@ public class MeService {
     }
 
     @BusinessWrite
-    public MeViews.Cleared deleteGrowth(String growthId, int version) {
+    public MeViews.Deleted deleteGrowth(String growthId, int version) {
         Actor actor = current.require();
         MeInputs.nonNegativeVersion(version);
         long record = id(growthId);
@@ -317,7 +325,7 @@ public class MeService {
         int changed = jdbc.update("UPDATE growth_records SET deleted_at=?,version=version+1,updated_at=?"
                 + " WHERE id=? AND version=?", now(), now(), record, version);
         if (changed != 1) throw MeInputs.conflict();
-        return new MeViews.Cleared(true);
+        return new MeViews.Deleted(true);
     }
 
     public MeViews.CreditPage creditEvents(String cursor, Integer limit) {

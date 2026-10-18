@@ -137,9 +137,13 @@ public class DataRightsService {
             personalization = input.personalization() != null && input.personalization().asBoolean();
             history = input.historyEnabled() != null && input.historyEnabled().asBoolean();
             nearby = input.nearbyEnabled() != null && input.nearbyEnabled().asBoolean();
-            jdbc.update("INSERT INTO privacy_settings(user_id,personalization_enabled,history_enabled,nearby_enabled,"
-                            + "version,created_at,updated_at) VALUES(?,?,?,?,1,?,?)",
-                    actor.userId(), personalization, history, nearby, now, now);
+            try {
+                jdbc.update("INSERT INTO privacy_settings(user_id,personalization_enabled,history_enabled,nearby_enabled,"
+                                + "version,created_at,updated_at) VALUES(?,?,?,?,1,?,?)",
+                        actor.userId(), personalization, history, nearby, now, now);
+            } catch (DuplicateKeyException concurrent) {
+                throw conflict();
+            }
         } else {
             Map<String, Object> old = rows.getFirst();
             if (((Number) old.get("version")).intValue() != version) throw conflict();
@@ -149,9 +153,10 @@ public class DataRightsService {
                     ? truth(old.get("history_enabled")) : input.historyEnabled().asBoolean();
             nearby = input.nearbyEnabled() == null
                     ? truth(old.get("nearby_enabled")) : input.nearbyEnabled().asBoolean();
-            jdbc.update("UPDATE privacy_settings SET personalization_enabled=?,history_enabled=?,nearby_enabled=?,"
-                            + "version=version+1,updated_at=? WHERE user_id=? AND version=?",
+            int changed = jdbc.update("UPDATE privacy_settings SET personalization_enabled=?,history_enabled=?,"
+                            + "nearby_enabled=?,version=version+1,updated_at=? WHERE user_id=? AND version=?",
                     personalization, history, nearby, now, actor.userId(), version);
+            if (changed != 1) throw conflict();
         }
         if (!history) {
             jdbc.update("DELETE FROM browse_history WHERE user_id=?", actor.userId());

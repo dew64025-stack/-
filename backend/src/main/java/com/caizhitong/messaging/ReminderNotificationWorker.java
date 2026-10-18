@@ -17,6 +17,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 public class ReminderNotificationWorker implements Runnable {
     private static final int BATCH = 50;
+    private static final int MAX_TITLE = 128;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ReminderNotificationWorker.class);
 
     private final ReminderReadBridge reminders;
     private final MessagingService messaging;
@@ -38,11 +40,21 @@ public class ReminderNotificationWorker implements Runnable {
     public void run() {
         List<ReminderReadBridge.DueReminder> due = reminders.due(clock.instant(), BATCH);
         for (ReminderReadBridge.DueReminder reminder : due) {
-            tx.executeWithoutResult(status -> deliver(reminder));
+            try {
+                tx.executeWithoutResult(status -> deliver(reminder));
+            } catch (RuntimeException failure) {
+                // One malformed row must not starve the rest of the due queue.
+                log.warn("Reminder delivery failed for reminder {}", reminder.id(), failure);
+            }
         }
     }
 
     private void deliver(ReminderReadBridge.DueReminder reminder) {
+        // The batch was read before this transaction. Re-read and lock the reminder so a
+        // cancellation committed in between wins instead of still producing a notification.
+        var current = jdbc.queryForList("SELECT status FROM reminders WHERE id=? AND user_id=? FOR UPDATE",
+                reminder.id(), reminder.userId());
+        if (current.isEmpty() || !"pending".equals(current.getFirst().get("status"))) return;
         Integer delivered = jdbc.queryForObject("SELECT COUNT(*) FROM notifications"
                         + " WHERE user_id=? AND type='deadline' AND target_type='reminder' AND target_id=?",
                 Integer.class, reminder.userId(), reminder.id());
@@ -54,6 +66,7 @@ public class ReminderNotificationWorker implements Runnable {
                 Long.class, reminder.userId());
         if (users.isEmpty()) return;
         String title = reminder.title() == null || reminder.title().isBlank() ? "事项提醒" : reminder.title();
+        if (title.length() > MAX_TITLE) title = title.substring(0, MAX_TITLE);
         String content = "你设置的事项即将到期：" + title;
         if (content.length() > 512) content = content.substring(0, 512);
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);

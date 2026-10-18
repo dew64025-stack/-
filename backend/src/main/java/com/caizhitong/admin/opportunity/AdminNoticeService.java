@@ -228,9 +228,17 @@ public class AdminNoticeService {
     private long createDraft(Actor actor, long noticeId, String noticeTitle, String sourceType, Map<String, String> fields, LocalDateTime now) {
         long opportunity = ids.nextId();
         Instant deadline = fields.containsKey("deadline") ? OpportunityInputs.rfc3339(fields.get("deadline")) : null;
-        jdbc.update("INSERT INTO opportunities(id,campus_id,notice_id,title,category,organizer,summary,deadline,status,source_type,rules_version,version,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,0,0,?,?,?)",
+        // Carry the notice's official source metadata so published opportunities keep their origin.
+        var sources = jdbc.query("SELECT source_name,external_id,official_reference,is_stale FROM notices WHERE id=?",
+                (rs, i) -> new Object[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getBoolean(4)}, noticeId);
+        if (sources.isEmpty()) throw missing();
+        Object[] source = sources.getFirst();
+        jdbc.update("INSERT INTO opportunities(id,campus_id,notice_id,title,category,organizer,summary,deadline,status,"
+                        + "source_type,source_name,external_id,official_reference,is_stale,rules_version,version,"
+                        + "created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,0,0,?,?,?)",
                 opportunity, actor.campusId(), noticeId, fields.get("title"), fields.get("category"), fields.get("organizer"),
-                fields.get("summary"), deadline == null ? null : OpportunityService.utc(deadline), sourceType, actor.userId(), now, now);
+                fields.get("summary"), deadline == null ? null : OpportunityService.utc(deadline), sourceType,
+                source[0], source[1], source[2], source[3], actor.userId(), now, now);
         jdbc.update("INSERT INTO opportunity_rule_snapshots(id,opportunity_id,rules_version,rules_json,material_requirements_json,created_by,created_at) VALUES(?,?,0,'[]','[]',?,?)",
                 ids.nextId(), opportunity, actor.userId(), now);
         return opportunity;
@@ -257,8 +265,8 @@ public class AdminNoticeService {
     }
 
     private void audit(Actor actor, String action, String targetType, long targetId, Map<String, Object> detail) {
-        jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,NULL,?,?)",
-                ids.nextId(), actor.userId(), action, targetType, targetId,
+        jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,campus_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,?,NULL,?,?)",
+                ids.nextId(), actor.userId(), actor.campusId(), action, targetType, targetId,
                 detail == null ? "{}" : mapper.writeValueAsString(detail), LocalDateTime.now(clock));
     }
 

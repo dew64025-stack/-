@@ -43,13 +43,13 @@ GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
 
-### 步骤 3：用迁移账号顺序执行 V1~V24
+### 步骤 3：用迁移账号顺序执行 V1~V25
 
-见第三节迁移与初始化。确认迁移历史到V24后再继续。V23 为数据请求/信用纠错增加生成列唯一键，执行前若已有重复的待处理申请会失败并阻止发布；V24 增加注销时匿名内容的 DEFINER 清除过程。
+见第三节迁移与初始化。确认迁移历史到V25后再继续。V23 为数据请求/信用纠错增加生成列唯一键，执行前若已有重复的待处理申请会失败并阻止发布；V24 增加注销时匿名内容的 DEFINER 清除过程；V25 修正该过程的匿名内容定位、为机会补齐官方来源列并回填、回填一对一会话参与者键和审计校园。V25 会 DROP/CREATE `community_privacy_erase`，清除既有 EXECUTE 授权，执行后必须重新授予迁移账号和业务账号。
 
 ### 步骤 4：业务账号逐表授权（表已存在）
 
-V18 与 V24 必须由长期保留的 schema migrator 执行，过程默认为该账号 DEFINER。迁移完成后若收紧迁移权限，必须保留 `pseudo_identities` 的 SELECT/UPDATE/DELETE、`community_posts` 与 `community_comments` 的 SELECT/UPDATE，以及 `community_owner_check` / `community_owner_posts` / `community_privacy_erase` 各自的 EXECUTE；仅保留 SELECT 会使注销过程以 definer 身份执行时失败。不得删除 definer 账号，不得将其密码配置为业务密码。创建过程只需 schema 的 CREATE ROUTINE/ALTER ROUTINE/EXECUTE，无需全局权限或 root definer。
+V18、V24 与 V25 必须由长期保留的 schema migrator 执行，过程默认为该账号 DEFINER。迁移完成后若收紧迁移权限，必须保留 `pseudo_identities` 的 SELECT/UPDATE/DELETE、`community_posts` 与 `community_comments` 的 SELECT/UPDATE，以及 `community_owner_check` / `community_owner_posts` / `community_privacy_erase` 各自的 EXECUTE；仅保留 SELECT 会使注销过程以 definer 身份执行时失败。V25 的 `DROP PROCEDURE` + `CREATE PROCEDURE` 会同时删除该过程已有的 EXECUTE 授权，执行后必须重新执行下面的迁移账号授权和业务账号授权；否则注销会显式失败。不得删除 definer 账号，不得将其密码配置为业务密码。创建过程只需 schema 的 CREATE ROUTINE/ALTER ROUTINE/EXECUTE，无需全局权限或 root definer。
 
 ```sql
 GRANT SELECT, UPDATE, DELETE ON caizhitong.pseudo_identities TO 'caizhitong_migrator'@'<ip>';
@@ -163,6 +163,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.sync_raw_digests TO 'caizhito
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.sync_errors TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.crowd_observations TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.growth_records TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.privacy_settings TO 'caizhitong_app'@'<ip>';
+GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.browse_history TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.data_requests TO 'caizhitong_app'@'<ip>';
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.async_jobs TO 'caizhitong_app'@'<ip>';
 ```
@@ -203,6 +205,16 @@ sql/V10__opportunity_runtime.sql        机会运行时（负责人A：解析租
 sql/V11__checklist_precheck_runtime.sql 清单预检运行时（负责人A：任务租约、AI 授权依据）
 sql/V14__mutual_aid_ratings.sql         互助评价（负责人C）
 sql/V15__community_governance_runtime.sql 社区治理运行时（负责人C）
+sql/V16__opportunity_review_repairs.sql 机会清单快照与资格复核修复（负责人A）
+sql/V17__service_review_repairs.sql     资源预约模式修复（负责人B）
+sql/V18__community_privacy_repairs.sql  社区隐私检查过程（负责人C）
+sql/V19__mutual_team_review_repairs.sql 互助组队角色修复（负责人C）
+sql/V20__messaging_runtime.sql          会话上下文与消息运行时（负责人D）
+sql/V21__me_privacy_operations.sql      个人数据权利与运维支撑（负责人D）
+sql/V22__privacy_authorization_versions.sql 授权文档版本（负责人D）
+sql/V23__active_request_uniqueness.sql  待处理申请/纠错唯一键（负责人D）
+sql/V24__anonymous_privacy_erasure.sql  注销匿名内容清除过程（负责人D）
+sql/V25__review_repairs.sql             第二轮审查修复（来源列、会话参与者键、审计校园、注销过程定位）
 ```
 
 **演示种子目录** `demo/`（仅演示环境执行，生产 Flyway 不加载）：

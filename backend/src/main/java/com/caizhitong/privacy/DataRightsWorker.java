@@ -29,7 +29,10 @@ public class DataRightsWorker implements Runnable {
     private record Claim(long id, long user, long campus, String type, int version, LocalDateTime requestedAt) {}
     private record ExportResult(String key, String sha256) {}
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DataRightsWorker.class);
+
     private static final String EXPORT_FAILED = "数据导出生成失败，可重新申请";
+    private static final String EXPORT_CANCELLED = "账号已注销，数据导出已终止";
     private static final String DELETION_FAILED = "注销处理失败，请稍后重试或联系管理员";
     private static final String RETAINED = "账号已停用，资料与联系方式已清除；信用、处罚、举报、匿名安全审计记录依法保留。";
 
@@ -67,10 +70,16 @@ public class DataRightsWorker implements Runnable {
                 orphanExport = result.key();
                 tx.executeWithoutResult(s -> completeExport(claim, result));
                 orphanExport = null;
-            } else if (obligations(claim) > 0) {
-                tx.executeWithoutResult(s -> reject(claim, "存在未完成的借用、预约或工单，请处理后再申请注销"));
             } else {
-                tx.executeWithoutResult(s -> completeDeletion(claim));
+                // Obligation re-check and deletion share one transaction; a new borrow between an
+                // earlier check and the deletion must not be missed.
+                tx.executeWithoutResult(s -> {
+                    if (obligations(claim) > 0) {
+                        reject(claim, "存在未完成的借用、预约或工单，请处理后再申请注销");
+                        return;
+                    }
+                    completeDeletion(claim);
+                });
             }
         } catch (RuntimeException error) {
             // The object was written outside the transaction; remove it if the receipt failed.
@@ -107,17 +116,20 @@ public class DataRightsWorker implements Runnable {
 
     private ExportResult export(Claim claim) {
         byte[] body = exporter.build(claim.user(), claim.campus(), claim.requestedAt().toInstant(ZoneOffset.UTC).toString());
-        String key = "data-exports/" + claim.campus() + "/" + claim.user() + "/" + claim.id() + ".json";
+        // Include the claim version so a reclaimed lease can never overwrite an earlier export.
+        String key = "data-exports/" + claim.campus() + "/" + claim.user() + "/" + claim.id()
+                + "-v" + claim.version() + ".json";
         storage.put(key, new ByteArrayInputStream(body), "application/json");
         return new ExportResult(key, sha256(body));
     }
 
     private void completeExport(Claim claim, ExportResult result) {
         LocalDateTime now = now();
-        jdbc.update("UPDATE data_requests SET status='completed',processed_at=?,export_object_key_encrypted=?,"
+        int updated = jdbc.update("UPDATE data_requests SET status='completed',processed_at=?,export_object_key_encrypted=?,"
                         + "export_sha256=?,failure_reason=NULL,result_json=NULL,updated_at=?"
                         + " WHERE id=? AND status='processing' AND version=?",
                 now, crypto.encrypt("data-export-key", result.key()), result.sha256(), now, claim.id(), claim.version());
+        if (updated != 1) throw new IllegalStateException("data export lease was lost");
     }
 
     /** Unfinished obligations must be surfaced before destroying data; never delete silently. */
@@ -138,6 +150,22 @@ public class DataRightsWorker implements Runnable {
     private void completeDeletion(Claim claim) {
         LocalDateTime now = now();
         long user = claim.user();
+        // Lock every export request first. An export completing concurrently must either finish
+        // before this snapshot (its key is collected below) or fail after the cancellation update;
+        // it can never write an uncollected key between the read and the clearing update.
+        List<byte[]> encryptedExports = jdbc.query("SELECT export_object_key_encrypted FROM data_requests"
+                        + " WHERE user_id=? AND type='export' FOR UPDATE",
+                (rs, i) -> rs.getBytes("export_object_key_encrypted"), user);
+        java.util.Set<String> scheduledExports = new java.util.HashSet<>();
+        for (byte[] encrypted : encryptedExports) {
+            if (encrypted == null) continue;
+            try {
+                String key = crypto.decrypt("data-export-key", encrypted);
+                if (scheduledExports.add(key)) enqueueExportCleanup(key, now);
+            } catch (RuntimeException undecryptable) {
+                log.warn("Deleted account {}: an export key could not be decrypted", user);
+            }
+        }
         jdbc.update("UPDATE users SET nickname=NULL,avatar_url=NULL,avatar_attachment_id=NULL,status='disabled',"
                         + "deleted_at=?,version=version+1,updated_at=? WHERE id=?", now, now, user);
         jdbc.update("DELETE FROM user_phones WHERE user_id=?", user);
@@ -155,7 +183,11 @@ public class DataRightsWorker implements Runnable {
         jdbc.update("DELETE FROM conversation_members WHERE user_id=?", user);
         jdbc.update("DELETE FROM notifications WHERE user_id=?", user);
         jdbc.update("DELETE FROM message_send_records WHERE user_id=?", user);
-        jdbc.update("UPDATE messages SET content='[已删除]' WHERE sender_id=? AND status='sent'", user);
+        // Pending and blocked messages can still be shown or released after deletion, so redact
+        // every status rather than only already-delivered messages.
+        jdbc.update("UPDATE messages SET content='[已删除]' WHERE sender_id=?", user);
+        jdbc.update("UPDATE async_jobs SET payload_json='{}',result_json=NULL,error=NULL,owner_user_id=NULL,"
+                + "updated_at=? WHERE owner_user_id=?", now, user);
         jdbc.update("DELETE FROM blocks WHERE blocker_id=?", user);
         jdbc.update("UPDATE growth_records SET deleted_at=?,updated_at=?,version=version+1"
                 + " WHERE user_id=? AND deleted_at IS NULL", now, now, user);
@@ -174,9 +206,25 @@ public class DataRightsWorker implements Runnable {
         jdbc.update("UPDATE material_files SET status='deleted',deleted_at=?,updated_at=?,version=version+1"
                 + " WHERE user_id=? AND deleted_at IS NULL", now, now, user);
         enqueueFileCleanup(user, now);
-        jdbc.update("UPDATE data_requests SET status='completed',processed_at=?,retention_basis=?,updated_at=?,"
-                + "version=version+1 WHERE id=? AND status='processing' AND version=?",
+        // Terminate pending exports and clear every retained key. Export objects are removed by
+        // the durable cleanup queue, never by post-commit best effort (a crash would leak them).
+        jdbc.update("UPDATE data_requests SET status='failed',failure_reason=?,processed_at=?,"
+                        + "export_object_key_encrypted=NULL,export_sha256=NULL,updated_at=?,version=version+1"
+                        + " WHERE user_id=? AND type='export' AND status IN ('pending','processing')",
+                EXPORT_CANCELLED, now, now, user);
+        jdbc.update("UPDATE data_requests SET export_object_key_encrypted=NULL,export_sha256=NULL,updated_at=?"
+                + " WHERE user_id=? AND type='export'", now, user);
+        int completed = jdbc.update("UPDATE data_requests SET status='completed',processed_at=?,retention_basis=?,"
+                        + "updated_at=?,version=version+1 WHERE id=? AND status='processing' AND version=?",
                 now, RETAINED, now, claim.id(), claim.version());
+        if (completed != 1) throw new IllegalStateException("data deletion lease was lost");
+    }
+
+    /** Durable export-object cleanup uses the file cleanup queue keyed by upload_id NULL. */
+    private void enqueueExportCleanup(String objectKey, LocalDateTime now) {
+        jdbc.update("INSERT INTO file_cleanup_jobs(id,object_key_encrypted,upload_id,attachment_id,state,"
+                        + "retry_count,next_retry_at,created_at,updated_at) VALUES(?,?,NULL,NULL,'pending',0,?,?,?)",
+                ids.nextId(), crypto.encrypt("file-object-key", objectKey), now, now, now);
     }
 
     private void enqueueFileCleanup(long user, LocalDateTime now) {

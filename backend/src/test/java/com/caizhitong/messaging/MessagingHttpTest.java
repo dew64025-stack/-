@@ -110,6 +110,27 @@ class MessagingHttpTest {
     }
 
     @Test
+    void sameContextWithDifferentVisitorsKeepsSeparateDirectConversations() throws Exception {
+        String first = mapper.readTree(command("/conversations", sender,
+                "{\"contextType\":\"mutual_aid_post\",\"contextId\":\"501\"}", "msg-pair-1")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        String second = mapper.readTree(command("/conversations", outsider,
+                "{\"contextType\":\"mutual_aid_post\",\"contextId\":\"501\"}", "msg-pair-2")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        org.junit.jupiter.api.Assertions.assertNotEquals(first, second);
+
+        command("/conversations/" + first + "/messages", sender,
+                "{\"content\":\"只给卖家看\",\"clientMessageId\":\"pair-msg\"}", "msg-pair-send")
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/conversations/" + first + "/messages").header("Authorization", outsider))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/conversations").header("Authorization", owner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(2));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(DISTINCT participant_key) FROM conversations"
+                + " WHERE context_type='mutual_aid_post' AND context_id=501", Integer.class));
+    }
+
+    @Test
     void selfConversationAndForeignContextAreRejected() throws Exception {
         command("/conversations", owner, "{\"contextType\":\"mutual_aid_post\",\"contextId\":\"501\"}", "msg-self")
                 .andExpect(status().isConflict());

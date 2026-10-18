@@ -25,9 +25,14 @@ public class GovernanceService {
 
     @BusinessWrite(student=true) public GovernanceViews.Report report(GovernanceInputs.Report input){
         Actor actor=current.requireStudent();
+        String targetType=text(input.targetType(),32,false);
+        long target=IdentityInputs.id(input.targetId());
+        // A report may only reference an existing target in the reporter's campus; otherwise a
+        // campus admin would later act on content they cannot see.
+        if(!targetInCampus(targetType,target,actor.campusId()))throw missing();
         long id=ids.nextId();LocalDateTime now=now();
         jdbc.update("INSERT INTO reports(id,campus_id,reporter_id,target_type,target_id,reason,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'pending',?,?)",
-                id,actor.campusId(),actor.userId(),text(input.targetType(),32,false),IdentityInputs.id(input.targetId()),text(input.reason(),512,false),now,now);
+                id,actor.campusId(),actor.userId(),targetType,target,text(input.reason(),512,false),now,now);
         return report(id);
     }
 
@@ -36,6 +41,17 @@ public class GovernanceService {
         long id=ids.nextId();LocalDateTime now=now();
         jdbc.update("INSERT INTO blocks(id,blocker_id,target_type,target_id,created_at) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id",id,actor.userId(),targetType,targetId,now);
         return new GovernanceViews.Blocked(true);
+    }
+
+    /** Existence and campus check shared by reports and blocks; unknown types are not visible. */
+    private boolean targetInCampus(String targetType,long targetId,long campusId){
+        return switch(targetType){
+            case "mutual_aid_post" -> jdbc.queryForObject("SELECT COUNT(*) FROM mutual_aid_posts WHERE id=? AND campus_id=? AND deleted_at IS NULL",Integer.class,targetId,campusId)==1;
+            case "community_post" -> jdbc.queryForObject("SELECT COUNT(*) FROM community_posts WHERE id=? AND campus_id=? AND deleted_at IS NULL",Integer.class,targetId,campusId)==1;
+            case "community_comment" -> jdbc.queryForObject("SELECT COUNT(*) FROM community_comments c JOIN community_posts p ON p.id=c.post_id WHERE c.id=? AND p.campus_id=? AND p.deleted_at IS NULL",Integer.class,targetId,campusId)==1;
+            case "message" -> jdbc.queryForObject("SELECT COUNT(*) FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE m.id=? AND c.campus_id=?",Integer.class,targetId,campusId)==1;
+            default -> false;
+        };
     }
 
     @BusinessWrite public GovernanceViews.Blocked unblock(String targetType,long targetId){

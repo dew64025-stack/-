@@ -73,7 +73,7 @@ H2、模拟微信和内存Redis测试只证明隔离测试范围。真实微信�
 
 ## D 模块新增依赖（2026-10-18）
 
-- 启动前执行 V20～V24；V20 遇到重复订阅记录会显式失败，V23 遇到重复待处理数据请求/信用纠错也会显式失败，需要先人工核对，不自动删除数据。V24 的 `community_privacy_erase` 由迁移账号创建，需按 [DATABASE.md](../../DATABASE.md) 授予业务账号 EXECUTE；业务账号仍只有 `pseudo_identities` 的 INSERT 权限。
+- 启动前执行 V20～V25；V20 遇到重复订阅记录会显式失败，V23 遇到重复待处理数据请求/信用纠错也会显式失败，需要先人工核对，不自动删除数据。V24 创建、V25 重建的 `community_privacy_erase` 由迁移账号创建/重建；V25 的 DROP/CREATE 会清除既有授权，执行后必须按 [DATABASE.md](../../DATABASE.md) 重新授予迁移账号和业务账号 EXECUTE，否则注销会显式失败。业务账号仍只有 `pseudo_identities` 的 INSERT 权限。V25 还会为 opportunities 增加官方来源列并从 notices 回填、为一对一会话回填参与者键、为审计日志回填校园。
 - 配置 `REALTIME_WEBSOCKET_URL` 后实时凭证才可用；未配置时接口返回 `REALTIME_UNAVAILABLE`。
 - AI 助手需要真实 `DEEPSEEK_API_KEY`；缺失或调用失败时任务记录失败原因，不生成假答案。
 - 数据导出写入既有对象存储；需验证签名下载、桶隔离和对象过期策略。

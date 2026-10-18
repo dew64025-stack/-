@@ -2,6 +2,7 @@ package com.caizhitong.admin.operations;
 
 import com.caizhitong.campus.CampusAdminBridge;
 import com.caizhitong.common.BusinessException;
+import com.caizhitong.common.SensitiveDataCrypto;
 import com.caizhitong.common.SnowflakeIds;
 import com.caizhitong.common.idempotency.BusinessWrite;
 import com.caizhitong.common.pagination.CursorCodec;
@@ -70,6 +71,7 @@ public class AdminOpsService {
     private final Clock clock;
     private final CursorCodec cursors;
     private final JsonMapper mapper;
+    private final SensitiveDataCrypto crypto;
     private final CampusAdminBridge campuses;
     private final IdentityReadBridge identities;
     private final OpportunityReadBridge opportunities;
@@ -80,7 +82,8 @@ public class AdminOpsService {
     private final TeamReadBridge teams;
 
     public AdminOpsService(JdbcTemplate jdbc, CurrentActor current, SnowflakeIds ids, Clock clock, CursorCodec cursors,
-                           JsonMapper mapper, CampusAdminBridge campuses, IdentityReadBridge identities,
+                           JsonMapper mapper, SensitiveDataCrypto crypto, CampusAdminBridge campuses,
+                           IdentityReadBridge identities,
                            OpportunityReadBridge opportunities, IssueReadBridge issues,
                            WorkOrderReadBridge workOrders, ResourceReadBridge resources,
                            MutualAidReadBridge mutualAid, TeamReadBridge teams) {
@@ -90,6 +93,7 @@ public class AdminOpsService {
         this.clock = clock;
         this.cursors = cursors;
         this.mapper = mapper;
+        this.crypto = crypto;
         this.campuses = campuses;
         this.identities = identities;
         this.opportunities = opportunities;
@@ -316,11 +320,21 @@ public class AdminOpsService {
     private boolean officialReady(long campus, String type, String provider, JsonNode config) {
         if (!"official".equals(provider)) return true;
         if (!config.path("schoolAuthorized").asBoolean(false)) return false;
-        String marker = "%\"fingerprint\":\"" + fingerprint(provider, type, config) + "\"%";
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM async_jobs WHERE job_type='integration_test'"
-                + " AND campus_id=? AND access_domain='admin' AND status='succeeded' AND result_json LIKE ?",
-                Integer.class, campus, marker);
-        return count != null && count > 0;
+        String expected = fingerprint(provider, type, config);
+        // MySQL normalises JSON with a space after the colon, so a LIKE over the serialized
+        // text is not portable. Parse the candidate results instead of guessing the spacing.
+        List<String> results = jdbc.queryForList("SELECT result_json FROM async_jobs WHERE job_type='integration_test'"
+                        + " AND campus_id=? AND access_domain='admin' AND status='succeeded' AND result_json IS NOT NULL",
+                String.class, campus);
+        for (String raw : results) {
+            try {
+                JsonNode node = parse(raw);
+                if (node != null && expected.equals(node.path("fingerprint").asString())) return true;
+            } catch (RuntimeException ignored) {
+                // A malformed historical row cannot activate a provider.
+            }
+        }
+        return false;
     }
 
     private OpportunityViews.AsyncJob enqueue(Actor actor, String type, String jobType) {
@@ -416,7 +430,8 @@ public class AdminOpsService {
             try {
                 URI uri = new URI(value);
                 if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
-                        || uri.getRawUserInfo() != null || blockedIntegrationHost(uri.getHost())) throw invalid();
+                        || uri.getRawUserInfo() != null || uri.getPort() != -1 && uri.getPort() != 443
+                        || blockedIntegrationHost(uri.getHost())) throw invalid();
             } catch (URISyntaxException error) {
                 throw invalid();
             }
@@ -484,7 +499,10 @@ public class AdminOpsService {
 
     private AdminOpsViews.AuditLog auditRow(ResultSet rs) throws SQLException {
         long operator = rs.getLong("operator_id");
-        String code = "admin-" + String.format("%04d", operator % 10000);
+        // Keyed pseudonym: the same operator always reads back identically, but unrelated
+        // snowflake ids cannot collide the way an unbounded modulo does.
+        String code = "admin-" + HexFormat.of().formatHex(
+                crypto.searchHash("audit-operator", Long.toString(operator)), 0, 6);
         long target = rs.getLong("target_id");
         boolean hasTarget = !rs.wasNull();
         String reason = rs.getString("reason");
@@ -504,9 +522,9 @@ public class AdminOpsService {
     private JsonNode parse(String raw) {
         if (raw == null) return null;
         try {
-            JsonNode node = mapper.readTree(raw);
-            if (node.isString() && node.asString().startsWith("{")) node = mapper.readTree(node.asString());
-            return node;
+            // MySQL already returns typed JSON. Re-parsing a textual value that happens to start
+            // with '{' would corrupt a legitimate string such as "{2026}".
+            return mapper.readTree(raw);
         } catch (RuntimeException error) {
             return mapper.valueToTree(raw);
         }

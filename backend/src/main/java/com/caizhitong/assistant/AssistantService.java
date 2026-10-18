@@ -38,9 +38,9 @@ public class AssistantService {
         this.rates = rates;
     }
 
-    @BusinessWrite(student = true)
+    @BusinessWrite
     public OpportunityViews.AsyncJob enqueue(String questionValue, String scopeValue) {
-        Actor actor = current.requireStudent();
+        Actor actor = current.require();
         String question = questionValue == null ? "" : questionValue.trim();
         if (question.isEmpty() || question.length() > 2000) {
             throw new BusinessException(400, "VALIDATION_FAILED", "请检查填写的信息");
