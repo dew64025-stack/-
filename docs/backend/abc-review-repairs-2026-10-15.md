@@ -1,5 +1,15 @@
 # A/B/C 审查修复交付记录
 
+## 2026-10-18 最终审查统一修复波（进行中）
+
+最终审查确认 I1–I5 五项问题；本节随真实验证更新，下面原 Task5 的 289 项和旧包散列是历史证据，不能代表本波源码。当前已修复 I1/I5；借用RR、清单并发与撤回再发布仍在处理，尚未交付发布。
+
+I1：固定已验证 IP 的 TCP 连接，再用原逻辑主机创建 layered SSLSocket；JSSE 标准 HTTPS endpoint identification 同时核对证书链/主机，保留 SNI、绝对握手/读取截止、逐跳 SSRF、传输与解压上限。I5：只允许合格 native global IPv6，保守拒绝 site-local、multicast、非2000::/3、IPv4转换范围、2001::/23特殊段及文档地址，保留普通公网 IPv6。
+
+cwd 与 JDK/Maven 环境同下。2026-10-18 16:46:18，`mvn -B -ntp -f backend/pom.xml '-Dtest=SafeUrlReaderTlsTest,SafeUrlReaderTest#nonPublicIpv6IsRejectedBeforeConnectionAndPublicIpv6RemainsUsable' test` exit1：4项/1失败/1错误/0跳过；可信匹配 TLS 在旧生产默认 hostname 路径触发 TLS_HOST，`fec0::1` 校验意外通过。运行期 keytool 创建临时密钥/PKCS12，真实 loopback443 JSSE 服务；测试仅反射提供已验证 Target，使用 null verifier 的生产校验路径，无宽松 verifier、密钥提交或新依赖；这不代表公网 TLS/DNS 验收。
+
+2026-10-18 16:51:10，相同环境执行 `mvn -B -ntp -f backend/pom.xml '-Dtest=SafeUrlReaderTlsTest,SafeUrlReaderTest' test` exit0，15项全部通过：可信匹配正文完整成功、可信错误主机拒绝、系统信任不认可的临时证书拒绝；既有固定地址、SSRF、重定向、解码和握手绝对截止回归保留。已明确延期 M1 清单租约反向锁序与通用附件 JSON 扫描性能，完整 Ruling18–20/cost 会在本波最终证据中补齐。
+
 完成日期：2026-10-17（Asia/Shanghai）。本记录对应隔离分支 `fix/abc-integration-20261015`；原始 main `6e87d5172b9aca6e9885d483be18493ed399a11f`、feature/opportunity `6e560629a7b9f4be2b33860ad90e6b16268aedee`，合并基线 `347adc0`。修复范围是已有 A/B/C 行为；206 条计划接口没有全部实现，未完成模块仍见 [implementation-status.md](implementation-status.md)。
 
 本 Task5 已完成精确授权原生证明、289项完整B+C组合与包核验。独立 Task5 门禁、全分支最终审查、发布前 fetch/integrate 与 atomic 双分支普通推送由控制器完成，此记录不把它们预先标为通过。

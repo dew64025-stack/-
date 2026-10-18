@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * SSRF 防护单元测试:受控地址矩阵与重定向逐跳复验。
  * 本机/私网/环回/链路本地/IPv4映射IPv6/保留地址全部拒绝,不依赖外网探测。
- * TLS 成功路径需要可解析到本机的非保留公网地址,在本机网络不可密闭复现,另行联调验收。
+ * TLS 成功/拒绝由 SafeUrlReaderTlsTest 的受控真实 TLS peer 验证，公网仍须另行联调。
  */
 class SafeUrlReaderTest {
     private final SafeUrlReader reader = new SafeUrlReader();
@@ -92,7 +92,8 @@ class SafeUrlReaderTest {
             throw new AssertionError("TLS handshake began without bounded read timeout");
         }).when(socket).startHandshake();
         var factory = org.mockito.Mockito.mock(javax.net.ssl.SSLSocketFactory.class);
-        org.mockito.Mockito.when(factory.createSocket()).thenReturn(socket);
+        org.mockito.Mockito.when(factory.createSocket(org.mockito.Mockito.any(java.net.Socket.class),
+                org.mockito.Mockito.eq("example.edu"), org.mockito.Mockito.eq(443), org.mockito.Mockito.eq(true))).thenReturn(socket);
         var ssl = org.mockito.Mockito.mock(javax.net.ssl.SSLContext.class);
         org.mockito.Mockito.when(ssl.getSocketFactory()).thenReturn(factory);
         org.mockito.Mockito.when(ssl.getDefaultSSLParameters()).thenReturn(new javax.net.ssl.SSLParameters());
@@ -103,9 +104,14 @@ class SafeUrlReaderTest {
         Object target = constructor.newInstance("https://example.edu/", "example.edu", java.net.InetAddress.getByAddress(new byte[]{8,8,8,8}), "/");
         var connect = SafeUrlReader.class.getDeclaredMethod("connect", targetClass, long.class);
         connect.setAccessible(true);
-        var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
-                () -> connect.invoke(bounded, target, System.nanoTime() + 15_000_000_000L));
-        assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
+        try (var transport = org.mockito.Mockito.mockConstruction(java.net.Socket.class)) {
+            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    () -> connect.invoke(bounded, target, System.nanoTime() + 15_000_000_000L));
+            assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
+            org.mockito.Mockito.verify(transport.constructed().getFirst()).connect(
+                    org.mockito.Mockito.eq(new java.net.InetSocketAddress(java.net.InetAddress.getByAddress(new byte[]{8,8,8,8}),443)),
+                    org.mockito.Mockito.intThat(value -> value > 0 && value <= 2000));
+        }
     }
 
     @Test
@@ -122,7 +128,8 @@ class SafeUrlReaderTest {
             return null;
         }).when(socket).startHandshake();
         var factory = org.mockito.Mockito.mock(javax.net.ssl.SSLSocketFactory.class);
-        org.mockito.Mockito.when(factory.createSocket()).thenReturn(socket);
+        org.mockito.Mockito.when(factory.createSocket(org.mockito.Mockito.any(java.net.Socket.class),
+                org.mockito.Mockito.eq("example.edu"), org.mockito.Mockito.eq(443), org.mockito.Mockito.eq(true))).thenReturn(socket);
         var ssl = org.mockito.Mockito.mock(javax.net.ssl.SSLContext.class);
         org.mockito.Mockito.when(ssl.getSocketFactory()).thenReturn(factory);
         org.mockito.Mockito.when(ssl.getDefaultSSLParameters()).thenReturn(new javax.net.ssl.SSLParameters());
@@ -134,12 +141,15 @@ class SafeUrlReaderTest {
         var connect = SafeUrlReader.class.getDeclaredMethod("connect", targetClass, long.class);
         connect.setAccessible(true);
         long start = System.nanoTime();
-        var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
-                () -> connect.invoke(bounded, target, start + 150_000_000L));
-        long elapsedMs = java.time.Duration.ofNanos(System.nanoTime() - start).toMillis();
-        assertTrue(elapsedMs < 600, "handshake exceeded absolute deadline: " + elapsedMs + "ms");
-        assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
-        assertTrue(closed.get());
+        try (var transport = org.mockito.Mockito.mockConstruction(java.net.Socket.class,
+                (raw, context) -> org.mockito.Mockito.doAnswer(call -> { closed.set(true); return null; }).when(raw).close())) {
+            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    () -> connect.invoke(bounded, target, start + 150_000_000L));
+            long elapsedMs = java.time.Duration.ofNanos(System.nanoTime() - start).toMillis();
+            assertTrue(elapsedMs < 600, "handshake exceeded absolute deadline: " + elapsedMs + "ms");
+            assertTrue(failure.getCause() instanceof java.net.SocketTimeoutException);
+            assertTrue(closed.get());
+        }
     }
 
     private SafeUrlReader.FetchFailure blocked(String url) {
@@ -173,6 +183,16 @@ class SafeUrlReaderTest {
     @Test
     void hostnameResolvingToLoopbackIsBlockedWithoutConnecting() {
         assertEquals("URL_BLOCKED", blocked("https://localhost/notice").code());
+    }
+
+    @Test
+    void nonPublicIpv6IsRejectedBeforeConnectionAndPublicIpv6RemainsUsable() {
+        for (String address : List.of("fec0::1", "febf:ffff::1", "feff:ffff::1", "ff00::1", "ff02::1",
+                "::2", "64:ff9b::808:808", "2001::808:808", "2002:0808:0808::1", "3fff::1")) {
+            assertEquals("URL_BLOCKED", blocked("https://[" + address + "]/notice").code(), address);
+        }
+        for (String address : List.of("2606:4700:4700::1111", "2001:4860:4860::8888"))
+            assertDoesNotThrow(() -> reader.validate("https://[" + address + "]/notice"));
     }
 
     @Test

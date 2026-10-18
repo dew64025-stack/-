@@ -11,7 +11,6 @@ import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -150,19 +149,11 @@ public class SafeUrlReader {
     private void checkAddress(InetAddress address) {
         byte[] bytes = address.getAddress();
         if (bytes.length == 16) {
-            boolean mappedV4 = true;
-            for (int i = 0; i < 10; i++) if (bytes[i] != 0) { mappedV4 = false; break; }
-            if (mappedV4 && bytes[10] == (byte) 0xFF && bytes[11] == (byte) 0xFF) {
-                byte[] v4 = new byte[] { bytes[12], bytes[13], bytes[14], bytes[15] };
-                checkV4(v4);
-                return;
-            }
-            if (bytes[0] == (byte) 0xFE && (bytes[1] & 0xC0) == 0x80) throw block();          // fe80::/10 link-local
-            if ((bytes[0] & 0xFE) == 0xFC) throw block();                                     // fc00::/7 ULA
-            boolean zero = true;
-            for (byte b : bytes) if (b != 0) { zero = false; break; }
-            if (zero) throw block();                                                           // ::
-            if (bytes[15] == 1 && zeroExcept(bytes, 15)) throw block();                       // ::1
+            // Only native global unicast is eligible; conservatively reject transition/special ranges.
+            if ((bytes[0] & 0xE0) != 0x20) throw block();                                    // outside 2000::/3
+            if (bytes[0] == 0x20 && bytes[1] == 0x02) throw block();                          // 6to4 embeds IPv4
+            if (bytes[0] == 0x20 && bytes[1] == 0x01 && (bytes[2] & 0xFE) == 0) throw block(); // 2001::/23 special
+            if (bytes[0] == 0x3F && bytes[1] == (byte) 0xFF && (bytes[2] & 0xF0) == 0) throw block(); // 3fff::/20 documentation
             if (bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0D && bytes[3] == (byte) 0xB8) throw block(); // 2001:db8::/32 文档
             return;
         }
@@ -186,37 +177,35 @@ public class SafeUrlReader {
 
     private FetchFailure block() { return new FetchFailure("URL_BLOCKED", false, "原文链接指向不可访问的地址"); }
 
-    private boolean zeroExcept(byte[] bytes, int except) {
-        for (int i = 0; i < bytes.length; i++) if (i != except && bytes[i] != 0) return false;
-        return true;
-    }
-
     private SSLSocket connect(Target target, long deadline) throws IOException {
         SSLContext context;
         try { context = sslContext != null ? sslContext : SSLContext.getDefault(); }
         catch (Exception e) { throw new FetchFailure("TLS_FAILED", true, "安全连接不可用"); }
         SSLSocketFactory factory = context.getSocketFactory();
-        SSLSocket socket = (SSLSocket) factory.createSocket();
-        SSLParameters parameters = context.getDefaultSSLParameters();
-        parameters.setServerNames(List.of(new SNIHostName(target.host())));
-        socket.setSSLParameters(parameters);
+        java.net.Socket transport = new java.net.Socket();
+        SSLSocket socket = null;
         var expired = new java.util.concurrent.atomic.AtomicBoolean();
         // SO_TIMEOUT bounds each read, not a multi-record TLS handshake. Close at the absolute deadline too.
         var deadlineClose = HANDSHAKE_DEADLINES.schedule(() -> {
             expired.set(true);
-            try { socket.close(); } catch (IOException ignored) { }
+            try { transport.close(); } catch (IOException ignored) { }
         }, Math.max(0, deadline - System.nanoTime()), java.util.concurrent.TimeUnit.NANOSECONDS);
         try {
-            socket.connect(new InetSocketAddress(target.address(), 443), Math.min(2000, remainingMillis(deadline)));
+            transport.connect(new InetSocketAddress(target.address(), 443), Math.min(2000, remainingMillis(deadline)));
+            // Connect to the verified IP, but bind JSSE peer identity and SNI to the logical URL host.
+            socket = (SSLSocket) factory.createSocket(transport, target.host(), 443, true);
+            SSLParameters parameters = context.getDefaultSSLParameters();
+            if (!target.host().contains(":")) parameters.setServerNames(List.of(new SNIHostName(target.host())));
+            if (hostnameVerifier == null) parameters.setEndpointIdentificationAlgorithm("HTTPS");
+            socket.setSSLParameters(parameters);
             socket.setSoTimeout(remainingMillis(deadline));
             socket.startHandshake();
-            javax.net.ssl.HostnameVerifier verifier = hostnameVerifier != null ? hostnameVerifier : HttpsURLConnection.getDefaultHostnameVerifier();
-            if (!verifier.verify(target.host(), socket.getSession()))
+            if (hostnameVerifier != null && !hostnameVerifier.verify(target.host(), socket.getSession()))
                 throw new FetchFailure("TLS_HOST", false, "原文链接证书与主机不匹配");
             remainingMillis(deadline);
             return socket;
         } catch (IOException | RuntimeException failure) {
-            try { socket.close(); } catch (IOException ignored) { }
+            try { if (socket != null) socket.close(); else transport.close(); } catch (IOException ignored) { }
             if (expired.get() || System.nanoTime() >= deadline) {
                 var timeout = new java.net.SocketTimeoutException("handshake deadline exceeded");
                 timeout.initCause(failure);
