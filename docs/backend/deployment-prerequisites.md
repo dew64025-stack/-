@@ -70,3 +70,13 @@ Garage此次仅用单节点开发环境；[维护者明确说明单节点无冗�
 数据库联调使用独立测试库及专用账号。应用账号和迁移账号分开，测试和迁移前备份；不能拿现有业务库当作可清空的临时库。远程连接的内网/VPN、访问白名单和加密连接按原规划的安全要求配置。
 
 H2、模拟微信和内存Redis测试只证明隔离测试范围。真实微信、MySQL、Redis、文件扫描、预约压力和备份恢复须另行执行并记录结果，未执行的项目不算通过。
+
+## D 模块新增依赖（2026-10-18）
+
+- 启动前执行 V20～V22；V20 遇到重复订阅记录会显式失败，需要先人工核对，不自动删除数据。
+- 配置 `REALTIME_WEBSOCKET_URL` 后实时凭证才可用；未配置时接口返回 `REALTIME_UNAVAILABLE`。
+- AI 助手需要真实 `DEEPSEEK_API_KEY`；缺失或调用失败时任务记录失败原因，不生成假答案。
+- 数据导出写入既有对象存储；需验证签名下载、桶隔离和对象过期策略。
+- 学校集成端点只接受 https；official 提供器还需 `schoolAuthorized` 和一次成功的连通测试，密钥通过本地 `secretRef` 指向的配置提供。
+- 调度开关：`MESSAGING_SCHEDULING_ENABLED`、`ASSISTANT_SCHEDULING_ENABLED`、`PRIVACY_SCHEDULING_ENABLED`、`INTEGRATIONS_SCHEDULING_ENABLED`。
+
