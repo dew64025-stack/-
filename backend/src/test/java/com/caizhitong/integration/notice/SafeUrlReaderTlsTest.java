@@ -76,7 +76,8 @@ class SafeUrlReaderTlsTest {
 
     private String fetch(String hostname, SSLContext context) throws Exception {
         try (var server = (SSLServerSocket) serverContext.getServerSocketFactory()
-                .createServerSocket(443, 1, InetAddress.getLoopbackAddress())) {
+                .createServerSocket(0, 1, InetAddress.getLoopbackAddress());
+             var transport = new java.net.Socket()) {
             server.setSoTimeout(5000);
             var served = CompletableFuture.runAsync(() -> {
                 try (var socket = (SSLSocket) server.accept()) {
@@ -90,7 +91,13 @@ class SafeUrlReaderTlsTest {
                             .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
                 } catch (java.io.IOException expectedWhenClientRejects) { }
             });
-            try {
+            try (var routed = org.mockito.Mockito.mockConstruction(java.net.Socket.class,
+                    ignored -> org.mockito.Mockito.withSettings().defaultAnswer(org.mockito.AdditionalAnswers.delegatesTo(transport)),
+                    (socket, ignored) -> org.mockito.Mockito.doAnswer(call -> {
+                        assertEquals(new java.net.InetSocketAddress(InetAddress.getLoopbackAddress(),443), call.getArgument(0));
+                        transport.connect(new java.net.InetSocketAddress(InetAddress.getLoopbackAddress(),server.getLocalPort()), call.getArgument(1));
+                        return null;
+                    }).when(socket).connect(org.mockito.Mockito.any(java.net.SocketAddress.class),org.mockito.Mockito.anyInt()))) {
                 Class<?> targetClass = Class.forName(SafeUrlReader.class.getName() + "$Target");
                 var constructor = targetClass.getDeclaredConstructor(String.class, String.class, InetAddress.class, String.class);
                 constructor.setAccessible(true);

@@ -79,7 +79,7 @@
 | POST | `/api/v1/admin/notice-parse-tasks/{id}/review` | A(notice.review) | 逐字段 review + 人工修正，approve 只生成 draft |
 | GET | `/api/v1/admin/opportunities` | A(opportunity.read) | 分页机会 |
 | POST | `/api/v1/admin/opportunities` | A(opportunity.write) | 创建机会（显式 draft） |
-| POST | `/api/v1/admin/opportunities/{id}/update` | A(opportunity.write) | 编辑；已发布规则撤回后才能改 |
+| POST | `/api/v1/admin/opportunities/{id}/update` | A(opportunity.write) | 编辑；已发布规则撤回后才能改；archived版本编辑后回draft，另需受控发布 |
 | POST | `/api/v1/admin/opportunities/{id}/publish` | A(opportunity.publish) | 人工发布（校验规则快照+通知确认依据） |
 | POST | `/api/v1/admin/opportunities/{id}/unpublish` | A(opportunity.publish) | 撤回（archived） |
 

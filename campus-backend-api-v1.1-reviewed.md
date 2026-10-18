@@ -727,7 +727,7 @@ contextType=mutual_aid_post/borrow_request/team；用户不能任意传成员列
 | POST | /admin/notice-parse-tasks/{id}/review | A(notice.review) | {fields:[{key,value}],decision:approve/reject,reason} | {reviewed:true,opportunityDraftId?} |
 | GET | /admin/opportunities | A(opportunity.read) | status?,category?,cursor,limit | 分页机会 |
 | POST | /admin/opportunities | A(opportunity.write) | OpportunityDraft | 201：Opportunity，draft |
-| POST | /admin/opportunities/{id}/update | A(opportunity.write) | 可编辑字段＋version | Opportunity，撤回公开前不得直接改已发布规则 |
+| POST | /admin/opportunities/{id}/update | A(opportunity.write) | 可编辑字段＋version | Opportunity，已发布/截止先撤回；archived经授权版本校验编辑后回draft，须独立发布 |
 | POST | /admin/opportunities/{id}/publish | A(opportunity.publish) | {version,reason} | Opportunity |
 | POST | /admin/opportunities/{id}/unpublish | A(opportunity.publish) | {version,reason} | Opportunity，archived |
 
@@ -1025,7 +1025,7 @@ jobs 首次2秒后查询，未完成时按2/3/5/10秒退避，最长10秒间隔�
 | /community/posts/{id}/update | title,content | community_posts.version，重新审核 |
 | /me/growth-records/{id}/update | type,title,description,proofFileId,occurredAt,confirmed | growth_records.version |
 | /me/privacy-settings/update | personalization,historyEnabled,nearbyEnabled | 独立隐私设置尚需持久化，不冒用users.version |
-| /admin/opportunities/{id}/update | title,organizer,summary,deadline,eligibilityRules,materialRequirements | opportunities.version与规则快照；已发布内容先撤回 |
+| /admin/opportunities/{id}/update | title,organizer,summary,deadline,eligibilityRules,materialRequirements | opportunities.version与规则快照；已发布内容先撤回，archived编辑后回draft；编辑不自动公开，再发布仍校验publish权限、人工确认依据及结构化确认 |
 | /admin/resources/{id}/update | name,regionId,capacity,equipment,reservationMode,status | resources.version；不更改type |
 | /admin/resource-slots/{id}/update | status,capacity,reason | resource_slots.version；日期和时间创建后不可原位改写 |
 

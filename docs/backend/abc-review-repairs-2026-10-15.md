@@ -1,18 +1,92 @@
 # A/B/C 审查修复交付记录
 
-## 2026-10-18 最终审查统一修复波（进行中）
+## 2026-10-18 最终审查统一修复波
 
-最终审查确认 I1–I5 五项问题；本节随真实验证更新，下面原 Task5 的 289 项和旧包散列是历史证据，不能代表本波源码。当前已修复 I1/I5；借用RR、清单并发与撤回再发布仍在处理，尚未交付发布。
+最终审查确认 I1–I5 五项问题；五项已按真实RED→最小修正通过波及套件、最终B+C组合295项与新包核验。下面原Task5的289项和旧包散列是历史证据，不能代表本波源码。独立限定复查与发布由控制器继续完成，尚未交付发布。
 
 I1：固定已验证 IP 的 TCP 连接，再用原逻辑主机创建 layered SSLSocket；JSSE 标准 HTTPS endpoint identification 同时核对证书链/主机，保留 SNI、绝对握手/读取截止、逐跳 SSRF、传输与解压上限。I5：只允许合格 native global IPv6，保守拒绝 site-local、multicast、非2000::/3、IPv4转换范围、2001::/23特殊段及文档地址，保留普通公网 IPv6。
 
 cwd 与 JDK/Maven 环境同下。2026-10-18 16:46:18，`mvn -B -ntp -f backend/pom.xml '-Dtest=SafeUrlReaderTlsTest,SafeUrlReaderTest#nonPublicIpv6IsRejectedBeforeConnectionAndPublicIpv6RemainsUsable' test` exit1：4项/1失败/1错误/0跳过；可信匹配 TLS 在旧生产默认 hostname 路径触发 TLS_HOST，`fec0::1` 校验意外通过。运行期 keytool 创建临时密钥/PKCS12，真实 loopback443 JSSE 服务；测试仅反射提供已验证 Target，使用 null verifier 的生产校验路径，无宽松 verifier、密钥提交或新依赖；这不代表公网 TLS/DNS 验收。
 
-2026-10-18 16:51:10，相同环境执行 `mvn -B -ntp -f backend/pom.xml '-Dtest=SafeUrlReaderTlsTest,SafeUrlReaderTest' test` exit0，15项全部通过：可信匹配正文完整成功、可信错误主机拒绝、系统信任不认可的临时证书拒绝；既有固定地址、SSRF、重定向、解码和握手绝对截止回归保留。已明确延期 M1 清单租约反向锁序与通用附件 JSON 扫描性能，完整 Ruling18–20/cost 会在本波最终证据中补齐。
+2026-10-18 16:51:10，相同环境执行 `mvn -B -ntp -f backend/pom.xml '-Dtest=SafeUrlReaderTlsTest,SafeUrlReaderTest' test` exit0，15项全部通过：可信匹配正文完整成功、可信错误主机拒绝、系统信任不认可的临时证书拒绝；既有固定地址、SSRF、重定向、解码和握手绝对截止回归保留。已明确延期 M1 清单租约反向锁序与通用附件 JSON 扫描性能；文末完整保留现在21条Ruling/cost。
 
-完成日期：2026-10-17（Asia/Shanghai）。本记录对应隔离分支 `fix/abc-integration-20261015`；原始 main `6e87d5172b9aca6e9885d483be18493ed399a11f`、feature/opportunity `6e560629a7b9f4be2b33860ad90e6b16268aedee`，合并基线 `347adc0`。修复范围是已有 A/B/C 行为；206 条计划接口没有全部实现，未完成模块仍见 [implementation-status.md](implementation-status.md)。
+随后将TLS fixture改为真实临时回环端口，通过仅src/test的Socket construction delegation校验生产目标仍为固定443再路由，保留真实JSSE握手/证书链/默认HTTPS主机校验；不再依赖特权端口空闲，也未增加生产测试开关。16:56:44与原生RR2/URL12/TLS3同跑，17项全部通过。运行期临时keystore与私钥不入源码/JAR。
 
-本 Task5 已完成精确授权原生证明、289项完整B+C组合与包核验。独立 Task5 门禁、全分支最终审查、发布前 fetch/integrate 与 atomic 双分支普通推送由控制器完成，此记录不把它们预先标为通过。
+| Finding | 真实RED（2026-10-18） | 最小修正与最终focused证明 |
+| --- | --- | --- |
+| I1 TLS | 16:46:18，可信匹配peer抛TLS_HOST | 固定IP传输+逻辑host layered TLS，默认JSSE HTTPS端点校验；匹配成功、错误域名/不可信链拒绝 |
+| I2 借用RR | 16:50:24，第二方旧RR快照返回confirmed而非handed_over | 在已持有借用父锁后，事件FOR SHARE当前读并Java去重；两种参与人顺序、交接/归还、同人重复均原生通过；事件仅SELECT/INSERT，UPDATE/DELETE仍拒绝 |
+| I3 清单并发 | 16:50:24服务边界、16:52:42真实IdempotencyExecutor不同键均在重复键回读抛NoSuchElementException | 冲突后按本人/机会唯一键当前锁定读赢家，并对父清单和条目当前读；父→条目锁序，不改全局事务/隔离；同ID/完整条目/唯一一套数据，两键收据重放也返回相同完整结果 |
+| I4 撤回编辑 | 16:54:52，人工/关联通知两条流程编辑后archived≠draft | 仅授权且version一致的archived编辑回draft；独立publish权限、人工依据、结构化确认和不可变旧/新快照保持；错误version、无权与确认缺失仍拒绝 |
+| I5 IPv6 | 16:46:18，fec0::1校验意外通过 | site-local边界、multicast及非公网/转换段在连接前拒绝，普通公网IPv6仍可校验；支持成本见Ruling21 |
+
+原生RED/GREEN统一由 `./backend/run-abc-acceptance.ps1 -Tests '<selector>'` 实际执行；runner重新核验owned容器及当前唯一回环**49417**（原64150已历史失效），拒3306/13306。使用全新czt_abc_c_*和schema migrator V1–V19、独立最低权限app；`@@transaction_isolation=REPEATABLE-READ`。借用两线程先建立旧快照再有序确认；清单协调器只在实际SQL已见空之后放行，两请求经过真实幂等执行器并用不同键。CurrentActor是显式认证替身，协调SQL为spy后调用真实SQL；JDBC、账号权限、事务、锁及收据持久化均真实，不加载H2锁语法替身。原生RED为2项/1失败/1错误，增强executor RED为1项/1错误，均exit1，无夹具错误冒充RED。
+
+`./backend/run-abc-acceptance.ps1 -Tests 'MysqlCommunityPrivacyTest,CommunityHttpTest,OpportunityHttpTest,SafeUrlReaderTest,SafeUrlReaderTlsTest'` 16:58:54 exit0、BUILD SUCCESS，98项/0失败/0错误/0跳过（原生C20+H2社区28+H2机会35+URL12+TLS3）。其余原Task5旧计数/散列/时间见历史证据节。输出含既有integer-display-width/deprecated和预期负例日志，不称warning-free。
+
+17:00:28原生补充命令 `./backend/run-abc-acceptance.ps1 -Tests 'MysqlCommunityPrivacyTest#nativeDifferentKeyFirstChecklistCreationReturnsOneCompleteWinnerAcrossOldSnapshots'` exit0，1项全部通过，增加验证required标记、两个不同键各自complete收据及两键各自重放结果；未改生产代码。最终组合包含这些最终断言。
+
+### 当前最终组合（2026-10-18）
+
+`./backend/run-abc-acceptance.ps1 -Combined -Tests '*'` 内部实际 `mvn -B -ntp -f backend/pom.xml -Dtest=* test`；17:04:46 exit0、BUILD SUCCESS、02:57min。**295项：292通过、0失败、0错误、3跳过**。39份XML全部新鲜，写入时间17:02:02.0545817–17:04:45.3561541+08:00，逐文件汇总与Maven一致。B原生9项与C原生20项同次执行。C合成schema `czt_abc_c_4c1becea298c4901b74ab2d7fbed0a70`，B合成schema `czt_abc_b_22446b8b0afe4440bb5dc2570a519e2c`，owned回环49417。C为最小业务账号/schema migrator/独立investigator真实权限证明；B仍为root运行的SQL/RR证明，不冒称最低权限。
+
+3项跳过是硬编码旧13306的MysqlFileRegressionTest2与依赖外部服务的LiveFileIntegrationTest1，旧flags始终false。默认不启用B/C还会额外跳过29项原生用例，不能把默认运行冒充本次组合。除明确的MySQL/受控JSSE外，Redis/微信/DeepSeek/S3/ClamD用例为测试替身或本地协议端点，不代表这些外部服务实联，公网TLS/负载/备份恢复仍未验收。
+
+当前逐套结果（tests/failures/errors/skips）：
+
+| Suite | Tests | Failures | Errors | Skips |
+| --- | ---: | ---: | ---: | ---: |
+| ai.notice.NoticeParseSchemaTest | 1 | 0 | 0 | 0 |
+| common.ApiBoundaryTest | 4 | 0 | 0 | 0 |
+| common.ConfigurationTest | 3 | 0 | 0 | 0 |
+| common.CryptoTest | 5 | 0 | 0 | 0 |
+| common.idempotency.IdempotencyExecutorTest | 9 | 0 | 0 | 0 |
+| common.pagination.CursorCodecTest | 3 | 0 | 0 | 0 |
+| common.PrivacySafeExceptionLoggingTest | 1 | 0 | 0 | 0 |
+| common.ratelimit.RateLimiterTest | 2 | 0 | 0 | 0 |
+| common.SecurityBoundaryTest | 3 | 0 | 0 | 0 |
+| common.SnowflakeIdsTest | 5 | 0 | 0 | 0 |
+| community.BusinessAttachmentPrivacyTest | 7 | 0 | 0 | 0 |
+| community.CommunityHttpTest | 28 | 0 | 0 | 0 |
+| community.MysqlCommunityPrivacyTest | 20 | 0 | 0 | 0 |
+| identity.IdentityHttpTest | 34 | 0 | 0 | 0 |
+| identity.RedisOneTimeSecretsTest | 2 | 0 | 0 | 0 |
+| integration.ai.DeepSeekClientTest | 5 | 0 | 0 | 0 |
+| integration.notice.SafeUrlReaderTest | 12 | 0 | 0 | 0 |
+| integration.notice.SafeUrlReaderTlsTest | 3 | 0 | 0 | 0 |
+| integration.scanner.ClamdScannerTest | 1 | 0 | 0 | 0 |
+| integration.storage.LegacyFileKeyConverterTest | 2 | 0 | 0 | 0 |
+| integration.storage.StorageProtocolTest | 1 | 0 | 0 | 0 |
+| integration.wechat.JavaWechatTransportTest | 1 | 0 | 0 | 0 |
+| integration.wechat.WechatHttpGatewayTest | 3 | 0 | 0 | 0 |
+| material.files.FileFormatTest | 5 | 0 | 0 | 0 |
+| material.files.FileHttpTest | 13 | 0 | 0 | 0 |
+| material.files.LiveFileIntegrationTest | 1 | 0 | 0 | 1 |
+| material.files.MysqlFileRegressionTest | 2 | 0 | 0 | 2 |
+| material.files.UploadLifecycleTest | 3 | 0 | 0 | 0 |
+| material.precheck.MaterialPrecheckRulesTest | 5 | 0 | 0 | 0 |
+| opportunity.EligibilityEngineTest | 6 | 0 | 0 | 0 |
+| opportunity.OpportunityHttpTest | 35 | 0 | 0 | 0 |
+| resource.ServiceSourcesTest | 1 | 0 | 0 | 0 |
+| security.CurrentActorTest | 5 | 0 | 0 | 0 |
+| security.DatabaseActorLoaderTest | 3 | 0 | 0 | 0 |
+| security.OpaqueSessionTest | 8 | 0 | 0 | 0 |
+| security.RedisSessionStoreTest | 2 | 0 | 0 | 0 |
+| security.SessionHttpBoundaryTest | 10 | 0 | 0 | 0 |
+| service.MysqlServiceRegressionTest | 9 | 0 | 0 | 0 |
+| service.ServiceHttpTest | 32 | 0 | 0 | 0 |
+
+当前源码最终组合后未再修改生产/测试/迁移/pom，后续仅更新证明和文档。相同cwd/JDK/Maven环境执行 `mvn -B -ntp -f backend/pom.xml -DskipTests package`，17:05:45 exit0、BUILD SUCCESS，Surefire明确`Tests are skipped`，未重复跑测试。新JAR `backend/target/backend-0.0.1-SNAPSHOT.jar` SHA256 **`1131575e13e92ac3e967be696b78f5ab8a89cec500014b1be6aae69f35bf7758`**。
+
+再次执行 `./.superpowers/sdd/2026-10-15-abc-review-repairs/task-5-audit.ps1 -Package` exit0：V1–V15对两个原始分支实际存在的26份blob及合并347adc0全部相同，V16–V19对首次新增提交相同；19份迁移Git过滤后检出内容与提交一致，JAR中19份实际字节SHA256与检出源文件一致。旧历史表中每份Git blob/checkout SHA256仍适用于当前未改迁移；CRLF与Git LF区别继续分列。0个application-test/H2/test-classes/.superpowers/CONNECTION.zip测试内部产物；tracked配置扫描2份/0候选，归档未重新跟踪。没有更改历史迁移、SQL授权、依赖、路由或全局事务设置。
+
+额外按JAR条目元数据核对，p12/pfx/jks/pem/key密钥或keystore条目为0；运行期临时TLS私钥未进入提交/包。
+
+本波共13个正式文件：4个生产类（SafeUrlReader、MutualAidService、ChecklistService、AdminOpportunityService），4个测试类（URL、TLS、原生C、机会HTTP），API与4份backend文档。首恢复切片`9d900ae13dcb04d0bfc87bda11f55c820c6391ba`已保存；后续统一修复提交由当前分支历史精确标识。控制器plan/worklog与ignored scratch不在实施者暂存范围。M1清单租约和附件JSON扫描路径未改，实际延期成本见Ruling19/20；全部21条裁定保留。
+
+更新日期：2026-10-18（Asia/Shanghai）；原Task5完成2026-10-17，其证明在以下历史章节保留。本记录对应隔离分支 `fix/abc-integration-20261015`；原始 main `6e87d5172b9aca6e9885d483be18493ed399a11f`、feature/opportunity `6e560629a7b9f4be2b33860ad90e6b16268aedee`，合并基线 `347adc0`。修复范围是已有 A/B/C 行为；206 条计划接口没有全部实现，未完成模块仍见 [implementation-status.md](implementation-status.md)。
+
+原Task5已完成精确授权原生证明、历史289项B+C组合与旧包核验；之后最终全分支审查发现I1–I5，修复及当前证明见上节。独立限定复查、发布前fetch/integrate与atomic双分支普通推送由控制器完成，此记录不把它们预先标为通过。
 
 ## 修复内容与落点
 
@@ -27,9 +101,9 @@ cwd 与 JDK/Maven 环境同下。2026-10-18 16:46:18，`mvn -B -ntp -f backend/p
 | C 互助与团队 | 平坦字段/来源，稳定岗位ID与总容量当前读、历史角色手动修复；失物双方事件、证据保留；regionId 明确400；借用原模型保持 | MutualAidService/Views、TeamService/Views、CommunityHttpTest；V19 |
 | 最终授权与卫生 | 文件三表补齐、版本不可变、borrow_events 追加读取、最小账号原生正反证明；sourceName 字符串/null；移除唯一生成归档 | DATABASE.md、files-and-materials.md、MysqlCommunityPrivacyTest、run-abc-acceptance.ps1、根 .gitignore |
 
-A/B/C 各任务已经过独立任务门禁。最终全分支仍须从原 main 审查全部合并与修复，不能只审查最后一提交。没有更换 Java21 / Spring Boot4.1.1 / Maven / JDBC / MySQL / Redis、依赖、路由或既有命名，没有测试专用生产旁路。
+A/B/C各任务已经过独立任务门禁；唯一最终全分支审查已从原main覆盖全部合并与修复至f121929，提出I1–I5，本波全部修复后由控制器安排限定复查，不重复整分支审查。没有更换Java21 / Spring Boot4.1.1 / Maven / JDBC / MySQL / Redis、依赖、路由或既有命名，没有测试专用生产旁路。
 
-## 本次可复现验证
+## 历史Task5可复现验证（2026-10-17）
 
 cwd：`C:/Users/19683/source/repos/caizhitong-abc-repairs`。进程内 JDK：`C:/Users/19683/AppData/Local/caizhitong-devtools/jdk-21.0.12.1+1`；Maven：`C:/Users/19683/AppData/Local/caizhitong-devtools/apache-maven-3.9.16/bin/mvn.cmd`；`MAVEN_OPTS=-Duser.language=en -Duser.country=US`。
 
@@ -76,9 +150,9 @@ tracked配置扫描仅报脱敏结论：2个yml/properties等配置、0个候选
 
 真实部分：隔离MySQL8.4.11、Connector/J原生UNSIGNED结果、迁移权限/routine definer、数据库授权拒绝、RR锁/并发、独立调查审计。H2 HTTP/会话/限流/reauth仓库、对象存储和AI协议替身/本地HTTP/TLS端点仍是隔离测试；不能算真实Redis、S3/ClamD、DeepSeek付费质量、公网TLS成功链路、微信/学校接口、生产压力/备份恢复验收。官方预约提供器未配置时失败关闭。未实现消息WebSocket、首页成长隐私注销等后续模块。
 
-Task4的sourceName minor已以字符串/null补充断言覆盖。Task3 BusinessLinkedAttachmentPolicy 同校园images_json加载再筛选的性能minor交最终whole-branch reviewer分诊；没有擅自改查询或索引。已知历史迁移 integer-display-width、编译deprecated和预期负例日志继续披露，输出不称warning-free/pristine。
+Task4的sourceName minor已以字符串/null补充断言覆盖。Task3 BusinessLinkedAttachmentPolicy同校园images_json加载再筛选的性能minor已由最终审查/controller按Ruling20明确延期；未改查询或索引，大量数据时仍有查询/内存成本。清单租约反向锁序按Ruling19延期，仍可能死锁回滚/延迟/重试。已知历史迁移integer-display-width、编译deprecated和预期负例日志继续披露，输出不称warning-free/pristine。
 
-## 最终组合、包与字节证明
+## 历史Task5组合、旧包与字节证明（2026-10-17）
 
 2026-10-17 11:13:25，`./backend/run-abc-acceptance.ps1 -Combined -Tests '*'` exit0，BUILD SUCCESS，总289项：286通过、0失败、0错误、3跳过。38份新鲜XML写入时间11:11:18.0445939–11:13:25.1840724+08:00。B原生9/9和C原生18/18在同一次完整运行中同时启用；C schema `czt_abc_c_b39705e6e3d84c6992140ad7f8eaa5f8`，B schema `czt_abc_b_91c45d5b448b4affad0cf737183127d1`。旧文件MySQL2项（硬编码旧13306）和LiveFileIntegration1项（需独立外部服务）显式禁用并跳过，不能算通过。默认不启用B/C时会另跳过这27项原生用例，不能把默认运行误报为本次组合证明。
 
@@ -116,7 +190,7 @@ $env:MAVEN_OPTS='-Duser.language=en -Duser.country=US'
 
 V16–V19首次新增基线依次为：`V16__opportunity_review_repairs.sql: 303bb617d355ab5df2be558dc67ed38d36e8abde`、`V17__service_review_repairs.sql: c52fc6161d63013b886461b03f09827928548262`、`V18__community_privacy_repairs.sql: 4fee18c01a53d41932b96688103ebd6d392e7ba0`、`V19__mutual_team_review_repairs.sql: 3bffbc890f04bb799c89490f274bfa4dd058436e`。
 
-逐套结果（tests/failures/errors/skips）：
+历史Task5逐套结果（tests/failures/errors/skips；不是2026-10-18最终修复源码结果）：
 
 | Suite | Tests | Failures | Errors | Skips |
 | --- | ---: | ---: | ---: | ---: |
@@ -159,11 +233,11 @@ V16–V19首次新增基线依次为：`V16__opportunity_review_repairs.sql: 303
 | service.MysqlServiceRegressionTest | 9 | 0 | 0 | 0 |
 | service.ServiceHttpTest | 32 | 0 | 0 | 0 |
 
-测试覆盖的生产/测试/迁移/pom与检查点9d20202相同，完整证明后只改文档、根ignore、归档及scratch的Git跟踪状态；`git diff --name-only 9d20202 -- backend/src/main backend/src/test sql backend/pom.xml`输出空，sourceChangedAfterProof=false。每项旧文件和live跳过均保留，没有宣称真实存储/扫描重新通过。
+以上历史Task5测试覆盖的生产/测试/迁移/pom当时与检查点9d20202相同，当时完整证明后只改文档、根ignore、归档及scratch的Git跟踪状态；当时`git diff --name-only 9d20202 -- backend/src/main backend/src/test sql backend/pom.xml`输出空，sourceChangedAfterProof=false。2026-10-18已明确修改五项生产/测试，须以上方新证明为准，不能套用这条旧结论。每项旧文件和live跳过均保留，没有宣称真实存储/扫描重新通过。
 
 ## 全部过程裁定与成本
 
-以下原文来自本次恢复台账，完整保留17项Ruling及cost；属于本次范围决定，不代表新增生产功能授权。
+以下原文来自本次恢复台账，完整保留21项Ruling及cost；属于本次范围决定，不代表新增生产功能授权。
 
 - Ruling: Native worktree tool returned Not a git repository for this projectless chat, so use user-approved git worktree fallback — isolates original checkout; cost if wrong: app cannot auto-manage this fallback directory, use Git recovery and manual attachment only if supported.
 - Ruling: Treat user authorization as approval of the two written review repair recommendations and existing API/database contract, not permission to redesign the product — preserve dependencies and routes; cost if wrong: a necessary contract adjustment may need further user review, record it explicitly.
@@ -182,3 +256,7 @@ V16–V19首次新增基线依次为：`V16__opportunity_review_repairs.sql: 303
 - Ruling: Legacy teams use explicit captain versioned role repair, reject the old null-role pending application and let the student reapply to a stable role; unknown legacy members consume total recruitment capacity without fabricated role assignments — preserves real membership/application history and avoids a permanently blocked pending uniqueness slot — cost if wrong: captains/applicants must complete a manual repair/reapplication and legacy occupancy can conservatively reduce vacancies.
 - Ruling: Explicitly reject mutual-aid regionId with 400 and document the unsupported filter, rather than pretend exchangeArea text is a modeled region or add an unrelated schema design — the approved Task4 permits explicit rejection and current storage lacks a region relationship — cost if wrong: location filtering remains unavailable until a separately modeled field and migration are approved.
 - Ruling: Compare V1–V15 committed blob bytes against every original branch where each file exists and the merged347adc0 union, not the plan's impossible single-main inventory; report Windows checkout CRLF separately without editing migrations — originalmain lacksV10/V11 and originalfeature lacksV12/V13, so a single-main lookup fails before any migration proof — cost if wrong: future audits must retain both original SHAs and distinguish committed immutable bytes from checkout line-ending conversion, rather than claiming raw working bytes equal Git LF blobs.
+- Ruling18: 保留撤回返回archived契约，授权且版本一致的编辑成功后回draft，再走原独立审核/发布。cost：管理员必须编辑并显式再发布，客户端需识别draft；编辑不会自动公开。
+- Ruling19: 最终审查M1清单租约锁序优化明确延期，当前事务回滚/fencing和后续轮询可恢复，避免扩大本轮5项修复。cost：租约边界仍可能出现短暂死锁回滚、延迟或重试，不宣称压力/恢复验收。
+- Ruling20: 精确父对象附件授权保持，通用同校园JSON扫描性能优化待实际数据/explain/压力选择SQL或关联索引。cost：数据量大时通用附件读取仍可能慢且占内存；未获得压力验收。
+- Ruling21: IPv6 URL导入采用native2000::/3及特殊/转换范围排除的保守支持边界。cost：部分NAT64/6to4/特殊公网IPv6故意不支持，可用现有人工文本/文档导入；不为兼容转换地址放宽内网拒绝。

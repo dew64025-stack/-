@@ -39,7 +39,7 @@
 | POST | /api/v1/admin/notice-parse-tasks/{id}/review | A(notice.review) | 逐字段复核（固定 Schema 键、每键一次、类型/长度校验）；approve 只生成 draft；reject 退回人工 |
 | GET | /api/v1/admin/opportunities | A(opportunity.read) | 分页机会（全状态） |
 | POST | /api/v1/admin/opportunities | A(opportunity.write) | 创建（显式 draft；规则/材料结构校验并落库初始快照） |
-| POST | /api/v1/admin/opportunities/{id}/update | A(opportunity.write) | 白名单字段 title/organizer/summary/deadline/eligibilityRules/materialRequirements；已发布/已截止先撤回；规则变化独立 rulesVersion+新快照 |
+| POST | /api/v1/admin/opportunities/{id}/update | A(opportunity.write) | 白名单字段 title/organizer/summary/deadline/eligibilityRules/materialRequirements；已发布/已截止先撤回；archived经授权version编辑后回draft，编辑不自动公开；规则变化独立 rulesVersion+新快照，旧快照保留，再发布仍独立核验publish权限和人工结构化确认 |
 | POST | /api/v1/admin/opportunities/{id}/publish | A(opportunity.publish) | 人工发布（校验版本/规则快照/通知人工确认依据）；无 noticeId 人工草稿显式发布并写不可变审计 |
 | POST | /api/v1/admin/opportunities/{id}/unpublish | A(opportunity.publish) | 撤回（archived） |
 
@@ -58,6 +58,7 @@
 ### 2.2 SSRF 防护（integration/notice/SafeUrlReader）
 
 - 仅 HTTPS；拒 userinfo/非 443 端口/片段；逐跳解析并验证全部 A/AAAA（拒内网/环回/链路本地/ULA/保留/文档段/IPv4 映射 IPv6 绕过）；连接固定到已验证地址且 TLS 校验原主机；最多 3 次重定向且每跳重新检查；连接 2s/总读取 15s/正文 2MiB（解压后同样受限）；错误不回显完整上游 URL/响应；不信任系统代理，无测试绕过开关。
+- TLS 先固定IP建立TCP，再将逻辑URL主机绑定至layered SSLSocket，使用JSSE标准HTTPS端点身份与证书链验证。IPv6保守支持native2000::/3并排除2001::/23特殊段、6to4和文档范围；site-local/multicast、NAT64等转换/非公网范围拒绝。部分特殊公网IPv6也可能不受支持，可改用现有人工文本/文档导入，不放宽SSRF校验。
 - 先严格解码 Content-Length/chunked 传输帧，再解 gzip/deflate 内容；压缩前后分别限 2MiB。提前 EOF、缺失零块、非法块边界、冲突长度/传输头及不支持的编码均失败。TLS 握手前设置读取超时，跳转继续使用同一读取期限。
 
 ### 2.3 资格规则引擎（opportunity/EligibilityEngine）
@@ -69,6 +70,7 @@
 
 ### 2.4 材料清单与预检（material/checklist + material/precheck）
 
+- 首次getOrCreate由本人/机会唯一键收口；不同幂等键并发发生重复键时，在原事务对赢家父清单及条目做当前锁定读，返回同一完整清单；不修改全局RR隔离或幂等模型。
 - 单材料基础预检 ≠ 机会材料齐备；预检逐项 results 为 `[{itemKey,level,message,evidence}]`，level=passed/confirm/missing，另有 basicComplete；不声称主办方一定接受。
 - 整清单预检每次保存不可变 inputSnapshot/checklistVersion/rulesVersion/inputDigest 与 AI 授权依据（aiConsentId）；替换材料后旧任务仍可查看但 stale=true。
 - 单材料与清单均从所选 material_versions 的 attachment_id/object_key_encrypted/file_hash 读取，绝不回退到 material_files 最新对象。快照保留附件、散列、名称、类型、大小和有效期；读取时再次检查本人/校园、现行 AI 授权、用途及 clean/active，限量读取并核对散列。无安全附件的历史遗留版本需完成受控转换后才能预检。

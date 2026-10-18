@@ -130,6 +130,95 @@ class MysqlCommunityPrivacyTest {
         return new com.caizhitong.mutualaid.MutualAidInputs.BorrowAction(mapper.valueToTree(action));
     }
 
+    @Test void nativeBorrowBothOrdersAdvanceFromTwoOldRepeatableReadSnapshots()throws Exception {
+        for(long firstUser:new long[]{101,102}){
+            long post=ids.nextId(),request=ids.nextId();
+            jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,source_type,created_at,updated_at) VALUES(?,1,101,'borrow','Synthetic RR borrow','published','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",post);
+            jdbc.update("INSERT INTO borrow_requests(id,post_id,borrower_id,status,created_at,updated_at) VALUES(?,?,102,'confirmed',UTC_TIMESTAMP(),UTC_TIMESTAMP())",request,post);
+            for(String action:List.of("confirm_handover","confirm_return")){
+                String before=action.equals("confirm_handover")?"confirmed":"handed_over";
+                String after=action.equals("confirm_handover")?"handed_over":"returned";
+                var ready=new java.util.concurrent.CountDownLatch(2);
+                var go=new java.util.concurrent.CountDownLatch(1);
+                var firstCommitted=new java.util.concurrent.CountDownLatch(1);
+                try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+                    var first=pool.submit(()->{
+                        try{return new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx->{
+                            oldBorrowSnapshot(request,action,ready,go);
+                            assertEquals(before,mutualService(firstUser).borrowAction(request,borrowAction(action)).status());
+                            return mutualService(firstUser).borrowAction(request,borrowAction(action)).status();
+                        });}finally{firstCommitted.countDown();}
+                    });
+                    var second=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactions).execute(tx->{
+                        oldBorrowSnapshot(request,action,ready,go);
+                        await(firstCommitted);
+                        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM borrow_events WHERE borrow_request_id=? AND action=?",Integer.class,request,action),"Second transaction must retain its old RR snapshot");
+                        return mutualService(firstUser==101?102:101).borrowAction(request,borrowAction(action)).status();
+                    }));
+                    assertTrue(ready.await(8,java.util.concurrent.TimeUnit.SECONDS));go.countDown();
+                    assertEquals(before,first.get(15,java.util.concurrent.TimeUnit.SECONDS));
+                    assertEquals(after,second.get(15,java.util.concurrent.TimeUnit.SECONDS));
+                }finally{go.countDown();}
+                assertEquals(after,jdbc.queryForObject("SELECT status FROM borrow_requests WHERE id=?",String.class,request));
+                assertEquals(2,jdbc.queryForObject("SELECT COUNT(DISTINCT actor_id) FROM borrow_events WHERE borrow_request_id=? AND action=?",Integer.class,request,action));
+                assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM borrow_events WHERE borrow_request_id=? AND action=?",Integer.class,request,action),"One person's retry remains immutable evidence, not a second participant");
+            }
+        }
+    }
+
+    private void oldBorrowSnapshot(long request,String action,java.util.concurrent.CountDownLatch ready,java.util.concurrent.CountDownLatch go){
+        assertEquals("REPEATABLE-READ",jdbc.queryForObject("SELECT @@transaction_isolation",String.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM borrow_events WHERE borrow_request_id=? AND action=?",Integer.class,request,action));
+        ready.countDown();await(go);
+    }
+
+    private void await(java.util.concurrent.CountDownLatch latch){
+        try{if(!latch.await(8,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("Native RR barrier timed out");}
+        catch(InterruptedException failure){Thread.currentThread().interrupt();throw new IllegalStateException(failure);}
+    }
+
+    @Test void nativeDifferentKeyFirstChecklistCreationReturnsOneCompleteWinnerAcrossOldSnapshots()throws Exception {
+        long opportunity=ids.nextId();
+        jdbc.update("INSERT INTO opportunities(id,campus_id,title,category,status,source_type,rules_version,version,created_at,updated_at) VALUES(?,1,'Synthetic checklist race','research','published','manual',0,0,UTC_TIMESTAMP(),UTC_TIMESTAMP())",opportunity);
+        jdbc.update("INSERT INTO opportunity_material_items(id,opportunity_id,name,required,sort_order,created_at) VALUES(?,?,'Transcript',TRUE,0,UTC_TIMESTAMP()),(?,?,'Application',FALSE,1,UTC_TIMESTAMP())",ids.nextId(),opportunity,ids.nextId(),opportunity);
+        var ready=new java.util.concurrent.CountDownLatch(2);var go=new java.util.concurrent.CountDownLatch(1);
+        // Only coordinate after the actual SQL sees no row; all SQL, transactions and locks remain native.
+        var coordinated=org.mockito.Mockito.spy(jdbc);
+        org.mockito.Mockito.doAnswer(call->{
+            var rows=(List<?>)call.callRealMethod();
+            if(rows.isEmpty()){ready.countDown();await(go);}return rows;
+        }).when(coordinated).queryForList("SELECT id FROM material_checklists WHERE user_id=? AND opportunity_id=?",Long.class,101L,opportunity);
+        var actor=nativeActor(101);
+        var opportunities=new com.caizhitong.opportunity.OpportunityService(jdbc,actor,null,null,crypto,mapper);
+        var service=new com.caizhitong.material.checklist.ChecklistService(coordinated,actor,opportunities,ids,java.time.Clock.systemUTC(),mapper);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            var first=pool.submit(()->nativeChecklistCreate(service,opportunity,"first-key"));
+            var second=pool.submit(()->nativeChecklistCreate(service,opportunity,"different-key"));
+            assertTrue(ready.await(8,java.util.concurrent.TimeUnit.SECONDS));go.countDown();
+            var a=first.get(15,java.util.concurrent.TimeUnit.SECONDS);var b=second.get(15,java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(a,b);assertEquals("draft",a.status());assertEquals(0,a.version());
+            assertEquals(Set.of("Transcript","Application"),a.items().stream().map(com.caizhitong.material.checklist.ChecklistService.Item::itemName).collect(java.util.stream.Collectors.toSet()));
+            assertEquals(Map.of("Transcript",true,"Application",false),a.items().stream().collect(java.util.stream.Collectors.toMap(com.caizhitong.material.checklist.ChecklistService.Item::itemName,com.caizhitong.material.checklist.ChecklistService.Item::required)));
+            assertTrue(a.items().stream().allMatch(item->item.materialVersionId()==null&&item.status().equals("missing")));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM material_checklists WHERE user_id=101 AND opportunity_id=?",Integer.class,opportunity));
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM material_checklist_items WHERE checklist_id=?",Integer.class,Long.parseLong(a.id())));
+            assertEquals(a,nativeChecklistCreate(service,opportunity,"first-key"));
+            assertEquals(a,nativeChecklistCreate(service,opportunity,"different-key"));
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM api_idempotency_records WHERE user_id=101 AND request_digest=? AND response_type=? AND status='complete'",Integer.class,"a".repeat(64),com.caizhitong.material.checklist.ChecklistService.Checklist.class.getName()));
+        }finally{go.countDown();}
+    }
+
+    private com.caizhitong.material.checklist.ChecklistService.Checklist nativeChecklistCreate(com.caizhitong.material.checklist.ChecklistService service,long opportunity,String key){
+        var actor=nativeActor(101);
+        var executor=new com.caizhitong.common.idempotency.IdempotencyExecutor(jdbc,transactions,ids,crypto,mapper,actor,java.time.Clock.systemUTC());
+        var command=new com.caizhitong.common.idempotency.IdempotencyContext("PUT","/api/v1/opportunities/"+opportunity+"/checklist",key,"a".repeat(64));
+        return executor.execute(command,com.caizhitong.material.checklist.ChecklistService.Checklist.class,()->{
+            actor.requireStudent();
+            assertEquals("REPEATABLE-READ",jdbc.queryForObject("SELECT @@transaction_isolation",String.class));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id=101",Integer.class));
+        },()->service.getOrCreate(Long.toString(opportunity)));
+    }
+
     @Test void unsignedTeamBoundaryBindsActualApplicantAndSupportsLeaveWithMinimumAppGrants()throws Exception {
         var captain=teamService(101);var applicant=teamService(102);var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
         String team=tx.execute(s->captain.create(new com.caizhitong.team.TeamInputs.Create(mapper.readTree("\"Synthetic unsigned team\""),null,null,mapper.readTree("[{\"role\":\"Writer\",\"quantity\":1}]"))).id());

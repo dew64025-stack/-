@@ -158,7 +158,7 @@ public class AdminOpportunityService {
         if (rules == null) rules = currentRules(opportunity);
         if (requirements == null) requirements = currentRequirements(opportunity);
         LocalDateTime now = LocalDateTime.now(clock);
-        jdbc.update("UPDATE opportunities SET title=?,organizer=?,summary=?,deadline=?,version=version+1,rules_version=?,eligibility_reviewed=CASE WHEN ? THEN TRUE ELSE eligibility_reviewed END,materials_reviewed=CASE WHEN ? THEN TRUE ELSE materials_reviewed END,updated_by=?,updated_at=? WHERE id=?",
+        jdbc.update("UPDATE opportunities SET title=?,organizer=?,summary=?,deadline=?,status=CASE WHEN status='archived' THEN 'draft' ELSE status END,version=version+1,rules_version=?,eligibility_reviewed=CASE WHEN ? THEN TRUE ELSE eligibility_reviewed END,materials_reviewed=CASE WHEN ? THEN TRUE ELSE materials_reviewed END,updated_by=?,updated_at=? WHERE id=?",
                 title, organizer, summary, deadline == null ? null : OpportunityService.utc(deadline),
                 rulesChanged ? ((Number) locked.get("rules_version")).intValue() + 1 : locked.get("rules_version"),
                 input.has("eligibilityRules"), input.has("materialRequirements"), actor.userId(), now, opportunity);

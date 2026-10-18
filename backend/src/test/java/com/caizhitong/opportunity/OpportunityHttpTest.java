@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * H2 隔离库,外部 AI/存储为测试替身;真实 DeepSeek/MySQL 联调另行验收,不把替身当真实联调。
  */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:opportunity_http;MODE=MySQL;DB_CLOSE_DELAY=-1")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(print=org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
 @ActiveProfiles("test")
 @Import(OpportunityHttpTest.Fixtures.class)
 @Sql(scripts = { "/identity-schema.sql", "/files-schema.sql", "/opportunity-schema.sql" }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
@@ -431,12 +431,29 @@ class OpportunityHttpTest {
         mvc.perform(get("/api/v1/opportunities/" + id + "?campusCode=one")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.eligibilityRules.length()").value(1));
         // 撤回后改规则 → rulesVersion 提升 + 新快照,旧快照保留
-        adminCommand("/admin/opportunities/" + id + "/unpublish", admin, "{\"version\":1,\"reason\":\"x\"}", "opp-unpub").andExpect(status().isOk());
+        String oldSnapshot = jdbc.queryForObject("SELECT rules_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=0", String.class, Long.parseLong(id));
+        adminCommand("/admin/opportunities/" + id + "/unpublish", admin, "{\"version\":1,\"reason\":\"x\"}", "opp-unpub")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("archived"));
+        adminCommand("/admin/opportunities/" + id + "/update", admin, "{\"version\":1,\"title\":\"stale\"}", "opp-stale-edit").andExpect(status().isConflict());
+        jdbc.update("INSERT INTO roles(id,code,name) VALUES(8,'business_operator','Operator')");
+        jdbc.update("INSERT INTO user_roles(id,user_id,role_id,campus_id) VALUES(2,102,8,1)");
+        String operator = bearer(102, SessionKind.ADMIN);
+        adminCommand("/admin/opportunities/" + id + "/update", operator, "{\"version\":2,\"title\":\"denied\"}", "opp-denied-edit").andExpect(status().isForbidden());
         adminCommand("/admin/opportunities/" + id + "/update", admin,
                 "{\"version\":2,\"eligibilityRules\":[{\"field\":\"grade\",\"operator\":\"range\",\"value\":{\"min\":\"2024\",\"max\":\"2026\"},\"severity\":\"hard\",\"sortOrder\":0}],\"materialRequirements\":[{\"name\":\"成绩单\",\"required\":true,\"sortOrder\":0}]}",
-                "opp-update-rules").andExpect(status().isOk()).andExpect(jsonPath("$.data.version").value(3));
+                "opp-update-rules").andExpect(status().isOk()).andExpect(jsonPath("$.data.version").value(3))
+                .andExpect(jsonPath("$.data.status").value("draft"));
         Assertions.assertEquals(1, jdbc.queryForObject("SELECT rules_version FROM opportunities WHERE id=?", Integer.class, Long.parseLong(id)));
         Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM opportunity_rule_snapshots WHERE opportunity_id=?", Integer.class, Long.parseLong(id)));
+        mvc.perform(get("/api/v1/opportunities/" + id + "?campusCode=one")).andExpect(status().isNotFound());
+        adminCommand("/admin/opportunities/" + id + "/publish", operator, "{\"version\":3,\"reason\":\"denied\"}", "opp-denied-republish").andExpect(status().isForbidden());
+        adminCommand("/admin/opportunities/" + id + "/publish", admin, "{\"version\":2,\"reason\":\"stale\"}", "opp-stale-republish").andExpect(status().isConflict());
+        adminCommand("/admin/opportunities/" + id + "/publish", admin, "{\"version\":3,\"reason\":\"Rechecked\"}", "opp-republish")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("published"));
+        Assertions.assertEquals(oldSnapshot, jdbc.queryForObject("SELECT rules_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=0", String.class, Long.parseLong(id)));
+        Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='opportunity.publish' AND target_id=?", Integer.class, Long.parseLong(id)));
+        mvc.perform(get("/api/v1/opportunities/" + id + "?campusCode=one")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.eligibilityRules[0].field").value("grade"));
     }
 
     @Test
@@ -743,6 +760,23 @@ class OpportunityHttpTest {
         adminCommand("/admin/opportunities/" + draft + "/update", admin,
                 "{\"version\":0,\"eligibilityRules\":[{\"field\":\"college\",\"operator\":\"eq\",\"value\":\"信息学院\",\"severity\":\"hard\"}],\"materialRequirements\":[{\"name\":\"成绩单\",\"required\":true},{\"name\":\"申请书\",\"required\":true}]}", "structured-confirmed-edit").andExpect(status().isOk());
         adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":1,\"reason\":\"逐项补录\"}", "structured-confirmed-publish").andExpect(status().isOk());
+        String originalRules = jdbc.queryForObject("SELECT rules_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=1", String.class, Long.parseLong(draft));
+        String originalMaterials = jdbc.queryForObject("SELECT material_requirements_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=1", String.class, Long.parseLong(draft));
+        adminCommand("/admin/opportunities/" + draft + "/unpublish", admin, "{\"version\":2,\"reason\":\"Correct requirements\"}", "linked-withdraw")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("archived"));
+        adminCommand("/admin/opportunities/" + draft + "/update", admin,
+                "{\"version\":3,\"eligibilityRules\":[{\"field\":\"grade\",\"operator\":\"eq\",\"value\":\"2024\",\"severity\":\"hard\"}],\"materialRequirements\":[{\"name\":\"Revised transcript\",\"required\":true}]}", "linked-edit")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("draft")).andExpect(jsonPath("$.data.version").value(4));
+        mvc.perform(get("/api/v1/opportunities/" + draft + "?campusCode=one")).andExpect(status().isNotFound());
+        jdbc.update("UPDATE ai_parse_tasks SET review_decision='rejected' WHERE id=1");
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":4,\"reason\":\"Rechecked\"}", "linked-missing-basis").andExpect(status().isUnprocessableEntity());
+        jdbc.update("UPDATE ai_parse_tasks SET review_decision='approved' WHERE id=1");
+        adminCommand("/admin/opportunities/" + draft + "/publish", admin, "{\"version\":4,\"reason\":\"Rechecked\"}", "linked-republish")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("published"));
+        Assertions.assertEquals(originalRules, jdbc.queryForObject("SELECT rules_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=1", String.class, Long.parseLong(draft)));
+        Assertions.assertEquals(originalMaterials, jdbc.queryForObject("SELECT material_requirements_json FROM opportunity_rule_snapshots WHERE opportunity_id=? AND rules_version=1", String.class, Long.parseLong(draft)));
+        Assertions.assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM opportunity_rule_snapshots WHERE opportunity_id=?", Integer.class, Long.parseLong(draft)));
+        Assertions.assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='opportunity.publish' AND target_id=?", Integer.class, Long.parseLong(draft)));
     }
 
     @Test

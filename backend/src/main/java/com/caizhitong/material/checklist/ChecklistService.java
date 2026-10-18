@@ -64,9 +64,9 @@ public class ChecklistService {
                         ids.nextId(), checklist, requirement[0], requirement[2], requirement[3], now, now);
             }
         } catch (DuplicateKeyException e) {
-            var created = jdbc.queryForList("SELECT id FROM material_checklists WHERE user_id=? AND opportunity_id=?",
+            var created = jdbc.queryForList("SELECT id FROM material_checklists WHERE user_id=? AND opportunity_id=? FOR UPDATE",
                     Long.class, actor.userId(), opportunity);
-            return view(created.getFirst());
+            return view(created.getFirst(), true);
         }
         return view(checklist);
     }
@@ -137,9 +137,13 @@ public class ChecklistService {
     }
 
     private Checklist view(long checklist) {
-        var row = jdbc.queryForList("SELECT opportunity_id,status,version FROM material_checklists WHERE id=?", checklist).getFirst();
+        return view(checklist, false);
+    }
+
+    private Checklist view(long checklist, boolean currentRead) {
+        var row = jdbc.queryForList("SELECT opportunity_id,status,version FROM material_checklists WHERE id=?" + (currentRead ? " FOR UPDATE" : ""), checklist).getFirst();
         List<Item> items = new ArrayList<>();
-        for (var item : jdbc.queryForList("SELECT id,item_name,required,material_version_id,status FROM material_checklist_items WHERE checklist_id=? ORDER BY id", checklist)) {
+        for (var item : jdbc.queryForList("SELECT id,item_name,required,material_version_id,status FROM material_checklist_items WHERE checklist_id=? ORDER BY id" + (currentRead ? " FOR UPDATE" : ""), checklist)) {
             Object requiredRaw = item.get("required");
             boolean required = requiredRaw instanceof Boolean b ? b : ((Number) requiredRaw).intValue() == 1;
             items.add(new Item(((Number) item.get("id")).toString(), (String) item.get("item_name"),

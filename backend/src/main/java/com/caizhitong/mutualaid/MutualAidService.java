@@ -125,7 +125,7 @@ public class MutualAidService {
     private boolean confirmedBoth(long request,BorrowRow row,long actorId,String action,LocalDateTime now){
         event(request,actorId,action,now);
         Set<Long> actors=new HashSet<>();
-        jdbc.queryForList("SELECT DISTINCT actor_id FROM borrow_events WHERE borrow_request_id=? AND action=?",Long.class,request,action).forEach(actors::add);
+        jdbc.queryForList("SELECT actor_id FROM borrow_events WHERE borrow_request_id=? AND action=? FOR SHARE",Long.class,request,action).forEach(actors::add);
         return actors.contains(row.ownerId())&&actors.contains(row.borrowerId());
     }
     private void event(long request,long actorId,String action,LocalDateTime now){jdbc.update("INSERT INTO borrow_events(id,borrow_request_id,actor_id,action,created_at) VALUES(?,?,?,?,?)",ids.nextId(),request,actorId,action,now);}
