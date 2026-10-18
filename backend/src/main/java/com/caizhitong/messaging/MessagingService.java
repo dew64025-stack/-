@@ -36,6 +36,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class MessagingService {
@@ -53,13 +55,16 @@ public class MessagingService {
     private final OneTimeSecrets secrets;
     private final MutualAidReadBridge mutualAid;
     private final TeamReadBridge teams;
+    private final JsonMapper mapper;
+    private final Set<String> defaultTemplates;
     private final SecureRandom random = new SecureRandom();
     private final String websocketUrl;
 
     public MessagingService(JdbcTemplate jdbc, CurrentActor current, SnowflakeIds ids, Clock clock, CursorCodec cursors,
                             SensitiveDataCrypto crypto, RateLimiter rates, OneTimeSecrets secrets,
-                            MutualAidReadBridge mutualAid, TeamReadBridge teams,
-                            @Value("${app.realtime.websocket-url:}") String websocketUrl) {
+                            MutualAidReadBridge mutualAid, TeamReadBridge teams, JsonMapper mapper,
+                            @Value("${app.realtime.websocket-url:}") String websocketUrl,
+                            @Value("${app.messaging.template-whitelist:deadline_daily}") String templateWhitelist) {
         this.jdbc = jdbc;
         this.current = current;
         this.ids = ids;
@@ -70,6 +75,9 @@ public class MessagingService {
         this.secrets = secrets;
         this.mutualAid = mutualAid;
         this.teams = teams;
+        this.mapper = mapper;
+        this.defaultTemplates = Set.copyOf(java.util.Arrays.stream(templateWhitelist.split(","))
+                .map(String::trim).filter(value -> !value.isEmpty()).toList());
         this.websocketUrl = websocketUrl == null ? "" : websocketUrl.trim();
     }
 
@@ -186,13 +194,14 @@ public class MessagingService {
         if (blockedBetween(actor.userId(), recipients)) {
             throw new BusinessException(403, "MESSAGE_BLOCKED", "无法向已拉黑的对象发送消息");
         }
-        rejectBlockedContent(content);
+        boolean needsReview = moderationAction(content);
 
         long id = ids.nextId();
         LocalDateTime now = now();
+        String status = needsReview ? "pending" : "sent";
         try {
             jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,client_message_id,created_at)"
-                    + " VALUES(?,?,?,?,'sent',?,?)", id, conversation, actor.userId(), content, clientId, now);
+                    + " VALUES(?,?,?,?,?,?,?)", id, conversation, actor.userId(), content, status, clientId, now);
         } catch (DuplicateKeyException race) {
             var replay = jdbc.query("SELECT id,conversation_id,sender_id,content,created_at FROM messages"
                             + " WHERE conversation_id=? AND sender_id=? AND client_message_id=?",
@@ -200,16 +209,20 @@ public class MessagingService {
             if (!replay.isEmpty()) return replay.getFirst();
             throw race;
         }
-        jdbc.update("UPDATE conversations SET updated_at=?,version=version+1 WHERE id=?", now, conversation);
-        jdbc.update("UPDATE conversation_members SET unread_count=unread_count+1"
-                + " WHERE conversation_id=? AND user_id<>?", conversation, actor.userId());
+        if (needsReview) {
+            jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,created_at,updated_at)"
+                            + " VALUES(?,?,'message',?,'pending',?,?)",
+                    ids.nextId(), actor.campusId(), id, now, now);
+        } else {
+            distribute(conversation, actor.userId(), now);
+        }
         return new MessagingViews.Message(Long.toString(id), Long.toString(conversation), Long.toString(actor.userId()),
                 content, now.toInstant(ZoneOffset.UTC));
     }
 
-    @BusinessWrite(student = true)
+    @BusinessWrite
     public MessagingViews.ReadResult read(String conversationId, String lastReadMessageId) {
-        Actor actor = current.requireStudent();
+        Actor actor = current.require();
         long conversation = MessagingInputs.id(conversationId);
         long lastRead = MessagingInputs.id(lastReadMessageId);
         requireMember(actor, conversation);
@@ -300,10 +313,13 @@ public class MessagingService {
 
     // ---- subscriptions ----
 
-    @BusinessWrite(student = true)
+    @BusinessWrite
     public MessagingViews.Subscription subscribe(String templateId, String scene, String consentResult) {
-        Actor actor = current.requireStudent();
+        Actor actor = current.require();
         String template = MessagingInputs.text(templateId, 128);
+        if (!templateAllowed(actor.campusId(), template)) {
+            throw new BusinessException(400, "VALIDATION_FAILED", "模板不在允许范围内");
+        }
         String targetScene = MessagingInputs.text(scene, 64);
         if (!SCENES.contains(targetScene)) throw MessagingInputs.invalid();
         String consent = MessagingInputs.text(consentResult, 16);
@@ -316,21 +332,29 @@ public class MessagingService {
         long id;
         if (rows.isEmpty()) {
             id = ids.nextId();
-            jdbc.update("INSERT INTO subscription_authorizations(id,user_id,template_id,scene,status,version,granted_at,revoked_at,created_at)"
-                            + " VALUES(?,?,?,?,?,0,?,?,?)",
-                    id, actor.userId(), template, targetScene, accepted ? "granted" : "revoked", now,
-                    accepted ? null : now, now);
+            try {
+                jdbc.update("INSERT INTO subscription_authorizations(id,user_id,template_id,scene,status,version,granted_at,revoked_at,created_at)"
+                                + " VALUES(?,?,?,?,?,0,?,?,?)",
+                        id, actor.userId(), template, targetScene, accepted ? "granted" : "revoked", now,
+                        accepted ? null : now, now);
+            } catch (DuplicateKeyException concurrent) {
+                rows = jdbc.queryForList("SELECT id,version FROM subscription_authorizations"
+                                + " WHERE user_id=? AND template_id=? AND scene=? FOR UPDATE",
+                        actor.userId(), template, targetScene);
+                if (rows.isEmpty()) throw concurrent;
+                id = ((Number) rows.getFirst().get("id")).longValue();
+                updateSubscription(id, accepted, now);
+            }
         } else {
             id = ((Number) rows.getFirst().get("id")).longValue();
-            jdbc.update("UPDATE subscription_authorizations SET status=?,granted_at=?,revoked_at=?,version=version+1 WHERE id=?",
-                    accepted ? "granted" : "revoked", accepted ? now : null, accepted ? null : now, id);
+            updateSubscription(id, accepted, now);
         }
         return subscription(id, actor.userId());
     }
 
-    @BusinessWrite(student = true)
+    @BusinessWrite
     public MessagingViews.Revoked revokeSubscription(String subscriptionId) {
-        Actor actor = current.requireStudent();
+        Actor actor = current.require();
         long id = MessagingInputs.id(subscriptionId);
         int updated = jdbc.update("UPDATE subscription_authorizations SET status='revoked',revoked_at=COALESCE(revoked_at,?),"
                 + "version=version+1 WHERE id=? AND user_id=?", now(), id, actor.userId());
@@ -338,11 +362,35 @@ public class MessagingService {
         return new MessagingViews.Revoked(true);
     }
 
+    /** Campus configuration wins; a malformed campus value fails closed instead of widening access. */
+    private boolean templateAllowed(long campus, String template) {
+        List<String> configured = jdbc.queryForList("SELECT config_value FROM campus_configs"
+                + " WHERE campus_id=? AND config_key='messaging.templateWhitelist'", String.class, campus);
+        if (configured.isEmpty()) return defaultTemplates.contains(template);
+        try {
+            JsonNode node = mapper.readTree(configured.getFirst());
+            if (node.isString()) node = mapper.readTree(node.asString());
+            if (!node.isArray() || node.size() == 0 || node.size() > 50) return false;
+            for (JsonNode item : node) {
+                if (!item.isString() || !template.equals(item.asString())) continue;
+                return true;
+            }
+            return false;
+        } catch (RuntimeException malformed) {
+            return false;
+        }
+    }
+
+    private void updateSubscription(long id, boolean accepted, LocalDateTime now) {
+        jdbc.update("UPDATE subscription_authorizations SET status=?,granted_at=?,revoked_at=?,version=version+1 WHERE id=?",
+                accepted ? "granted" : "revoked", accepted ? now : null, accepted ? null : now, id);
+    }
+
     // ---- realtime ----
 
-    @BusinessWrite(student = true)
+    @BusinessWrite
     public MessagingViews.RealtimeTicket realtimeTicket() {
-        Actor actor = current.requireStudent();
+        Actor actor = current.require();
         if (websocketUrl.isEmpty()) {
             throw new BusinessException(503, "REALTIME_UNAVAILABLE", "实时通道尚未配置");
         }
@@ -431,9 +479,12 @@ public class MessagingService {
         }
     }
 
-    private void rejectBlockedContent(String content) {
-        var rules = jdbc.query("SELECT rule_type,pattern FROM moderation_rules WHERE enabled=TRUE AND action='block'",
-                (rs, i) -> new String[]{rs.getString("rule_type"), rs.getString("pattern")});
+    /** Returns true when the message must wait in the moderation queue instead of being delivered. */
+    private boolean moderationAction(String content) {
+        var rules = jdbc.query("SELECT rule_type,pattern,action FROM moderation_rules"
+                        + " WHERE enabled=TRUE AND action IN ('block','review','restrict')",
+                (rs, i) -> new String[]{rs.getString("rule_type"), rs.getString("pattern"), rs.getString("action")});
+        boolean review = false;
         for (String[] rule : rules) {
             String ruleType = rule[0];
             String pattern = rule[1];
@@ -443,8 +494,17 @@ public class MessagingService {
                 case "regex" -> matchesRegex(content, pattern);
                 default -> false;
             };
-            if (hit) throw new BusinessException(422, "CONTENT_BLOCKED", "消息包含不允许的内容");
+            if (!hit) continue;
+            if ("block".equals(rule[2])) throw new BusinessException(422, "CONTENT_BLOCKED", "消息包含不允许的内容");
+            review = true;
         }
+        return review;
+    }
+
+    private void distribute(long conversation, long sender, LocalDateTime now) {
+        jdbc.update("UPDATE conversations SET updated_at=?,version=version+1 WHERE id=?", now, conversation);
+        jdbc.update("UPDATE conversation_members SET unread_count=unread_count+1"
+                + " WHERE conversation_id=? AND user_id<>?", conversation, sender);
     }
 
     private static boolean matchesRegex(String content, String pattern) {

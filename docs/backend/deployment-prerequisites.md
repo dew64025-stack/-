@@ -73,10 +73,11 @@ H2、模拟微信和内存Redis测试只证明隔离测试范围。真实微信�
 
 ## D 模块新增依赖（2026-10-18）
 
-- 启动前执行 V20～V22；V20 遇到重复订阅记录会显式失败，需要先人工核对，不自动删除数据。
+- 启动前执行 V20～V24；V20 遇到重复订阅记录会显式失败，V23 遇到重复待处理数据请求/信用纠错也会显式失败，需要先人工核对，不自动删除数据。V24 的 `community_privacy_erase` 由迁移账号创建，需按 [DATABASE.md](../../DATABASE.md) 授予业务账号 EXECUTE；业务账号仍只有 `pseudo_identities` 的 INSERT 权限。
 - 配置 `REALTIME_WEBSOCKET_URL` 后实时凭证才可用；未配置时接口返回 `REALTIME_UNAVAILABLE`。
 - AI 助手需要真实 `DEEPSEEK_API_KEY`；缺失或调用失败时任务记录失败原因，不生成假答案。
 - 数据导出写入既有对象存储；需验证签名下载、桶隔离和对象过期策略。
-- 学校集成端点只接受 https；official 提供器还需 `schoolAuthorized` 和一次成功的连通测试，密钥通过本地 `secretRef` 指向的配置提供。
+- 学校集成端点只接受 https，并在连接时再次做 SSRF 地址校验；official 提供器需 `schoolAuthorized`，先以 `inactive` 保存，成功连接测试后才激活，测试结果绑定 endpoint/secretRef/timeout 等配置指纹。当前没有同步适配器，同步任务会显式失败并记录 `sync_errors`，不会伪造学校数据。密钥通过本地 `secretRef` 指向的配置提供。
+- 消息订阅模板需在 `MESSAGING_TEMPLATE_WHITELIST` 或校园配置 `messaging.templateWhitelist` 中；配置格式非法时订阅被拒绝。
 - 调度开关：`MESSAGING_SCHEDULING_ENABLED`、`ASSISTANT_SCHEDULING_ENABLED`、`PRIVACY_SCHEDULING_ENABLED`、`INTEGRATIONS_SCHEDULING_ENABLED`。
 

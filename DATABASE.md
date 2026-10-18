@@ -43,20 +43,21 @@ GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
 
-### 步骤 3：用迁移账号顺序执行 V1~V19
+### 步骤 3：用迁移账号顺序执行 V1~V24
 
-见第三节迁移与初始化。确认迁移历史到V19后再继续。
+见第三节迁移与初始化。确认迁移历史到V24后再继续。V23 为数据请求/信用纠错增加生成列唯一键，执行前若已有重复的待处理申请会失败并阻止发布；V24 增加注销时匿名内容的 DEFINER 清除过程。
 
 ### 步骤 4：业务账号逐表授权（表已存在）
 
-V18 必须由长期保留的 schema migrator 执行，两个过程默认为该账号 DEFINER。迁移完成后若收紧迁移权限，必须保留 `pseudo_identities`、`community_posts`、`community_comments` 的 SELECT，以及 `community_owner_check` / `community_owner_posts` 各自的 EXECUTE；仅保留 SELECT 会使过程以 definer 身份执行时失败。不得删除 definer 账号，不得将其密码配置为业务密码。创建过程只需 schema 的 CREATE ROUTINE/ALTER ROUTINE/EXECUTE，无需全局权限或 root definer。
+V18 与 V24 必须由长期保留的 schema migrator 执行，过程默认为该账号 DEFINER。迁移完成后若收紧迁移权限，必须保留 `pseudo_identities` 的 SELECT/UPDATE/DELETE、`community_posts` 与 `community_comments` 的 SELECT/UPDATE，以及 `community_owner_check` / `community_owner_posts` / `community_privacy_erase` 各自的 EXECUTE；仅保留 SELECT 会使注销过程以 definer 身份执行时失败。不得删除 definer 账号，不得将其密码配置为业务密码。创建过程只需 schema 的 CREATE ROUTINE/ALTER ROUTINE/EXECUTE，无需全局权限或 root definer。
 
 ```sql
-GRANT SELECT ON caizhitong.pseudo_identities TO 'caizhitong_migrator'@'<ip>';
-GRANT SELECT ON caizhitong.community_posts TO 'caizhitong_migrator'@'<ip>';
-GRANT SELECT ON caizhitong.community_comments TO 'caizhitong_migrator'@'<ip>';
+GRANT SELECT, UPDATE, DELETE ON caizhitong.pseudo_identities TO 'caizhitong_migrator'@'<ip>';
+GRANT SELECT, UPDATE ON caizhitong.community_posts TO 'caizhitong_migrator'@'<ip>';
+GRANT SELECT, UPDATE ON caizhitong.community_comments TO 'caizhitong_migrator'@'<ip>';
 GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_check TO 'caizhitong_migrator'@'<ip>';
 GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_posts TO 'caizhitong_migrator'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_privacy_erase TO 'caizhitong_migrator'@'<ip>';
 ```
 
 业务账号按下面逐表白名单授权。材料版本和事件审计仅追加/读取，文件三表允许状态更新但不允许删除；`pseudo_identities` 仅 INSERT；**不授予 `security_investigations` 或 `file_key_migrations`**。上传、扫描和清理与业务使用同一主数据源，不存在另一个上传数据库账号：
@@ -138,6 +139,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.appeals TO 'caizhitong_app'@'
 GRANT INSERT ON caizhitong.pseudo_identities TO 'caizhitong_app'@'<ip>';
 GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_check TO 'caizhitong_app'@'<ip>';
 GRANT EXECUTE ON PROCEDURE caizhitong.community_owner_posts TO 'caizhitong_app'@'<ip>';
+GRANT EXECUTE ON PROCEDURE caizhitong.community_privacy_erase TO 'caizhitong_app'@'<ip>';
 
 -- 消息与治理（审计仅追加，security_investigations 不授予业务账号）
 GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.conversations TO 'caizhitong_app'@'<ip>';

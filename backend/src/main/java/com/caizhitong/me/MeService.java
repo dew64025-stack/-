@@ -21,6 +21,7 @@ import com.caizhitong.security.CurrentActor;
 import com.caizhitong.security.SessionKind;
 import com.caizhitong.team.TeamReadBridge;
 import com.caizhitong.workorder.WorkOrderReadBridge;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import static com.caizhitong.identity.IdentityInputs.id;
@@ -152,23 +154,45 @@ public class MeService {
         Actor actor = current.require();
         int size = PageLimits.resolve(limit);
         String scope = "history:" + actor.campusId() + ":" + actor.userId();
-        long before = Long.MAX_VALUE;
+        Instant beforeViewed = null;
+        long beforeId = Long.MAX_VALUE;
         if (cursor != null) {
             CursorPayload keys = cursors.decode(cursor, scope);
-            if (!keys.sortKeys().keySet().equals(Set.of("id"))) throw invalid();
-            before = id(keys.sortKeys().get("id"));
+            if (!keys.sortKeys().keySet().equals(Set.of("viewed", "id"))) throw invalid();
+            try {
+                beforeViewed = Instant.parse(keys.sortKeys().get("viewed"));
+            } catch (RuntimeException badCursor) {
+                throw invalid();
+            }
+            beforeId = id(keys.sortKeys().get("id"));
         }
-        var rows = jdbc.query("SELECT id,target_type,target_id,title,summary,viewed_at FROM browse_history"
-                        + " WHERE user_id=? AND campus_id=? AND id<? ORDER BY id DESC LIMIT ?",
+        // Re-opening an item refreshes viewed_at, so recency and the cursor must both follow it.
+        String sql = "SELECT id,target_type,target_id,title,summary,viewed_at FROM browse_history"
+                + " WHERE user_id=? AND campus_id=?"
+                + (beforeViewed == null ? "" : " AND (viewed_at<? OR (viewed_at=? AND id<?))")
+                + " ORDER BY viewed_at DESC,id DESC LIMIT ?";
+        List<Object> args = new ArrayList<>();
+        args.add(actor.userId());
+        args.add(actor.campusId());
+        if (beforeViewed != null) {
+            Timestamp viewed = Timestamp.from(beforeViewed);
+            args.add(viewed);
+            args.add(viewed);
+            args.add(beforeId);
+        }
+        args.add(size + 1);
+        var rows = jdbc.query(sql,
                 (rs, i) -> new MeViews.HistoryItem(Long.toString(rs.getLong("id")), rs.getString("target_type"),
                         Long.toString(rs.getLong("target_id")), rs.getString("title"), rs.getString("summary"),
                         rs.getObject("viewed_at", LocalDateTime.class).toInstant(ZoneOffset.UTC)),
-                actor.userId(), actor.campusId(), before, size + 1);
+                args.toArray());
         boolean more = rows.size() > size;
         List<MeViews.HistoryItem> items = rows.stream().limit(size).toList();
         String next = null;
         if (more && !items.isEmpty()) {
-            next = cursors.encode(new CursorPayload(scope, Map.of("id", items.getLast().id())));
+            MeViews.HistoryItem last = items.getLast();
+            next = cursors.encode(new CursorPayload(scope, Map.of(
+                    "viewed", last.viewedAt().toString(), "id", last.id())));
         }
         return new MeViews.HistoryPage(items, next, more);
     }
@@ -334,9 +358,13 @@ public class MeService {
             throw new BusinessException(409, "STATE_CONFLICT", "该信用事件已有待处理的纠错申请");
         }
         long dispute = ids.nextId();
-        jdbc.update("INSERT INTO credit_disputes(id,campus_id,user_id,credit_event_id,reason,status,created_at)"
-                        + " VALUES(?,?,?,?,?,'pending',?)",
-                dispute, actor.campusId(), actor.userId(), event, reason, now());
+        try {
+            jdbc.update("INSERT INTO credit_disputes(id,campus_id,user_id,credit_event_id,reason,status,created_at)"
+                            + " VALUES(?,?,?,?,?,'pending',?)",
+                    dispute, actor.campusId(), actor.userId(), event, reason, now());
+        } catch (DuplicateKeyException concurrent) {
+            throw new BusinessException(409, "STATE_CONFLICT", "该信用事件已有待处理的纠错申请");
+        }
         return new MeViews.Dispute(Long.toString(dispute), "pending");
     }
 

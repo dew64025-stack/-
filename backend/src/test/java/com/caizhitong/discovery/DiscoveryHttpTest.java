@@ -1,6 +1,7 @@
 package com.caizhitong.discovery;
 
 import com.caizhitong.common.ratelimit.RateCounter;
+import com.caizhitong.messaging.ReminderNotificationWorker;
 import com.caizhitong.security.SessionKind;
 import com.caizhitong.security.SessionStore;
 import com.caizhitong.security.SessionTokenService;
@@ -38,6 +39,7 @@ class DiscoveryHttpTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
+    @Autowired ReminderNotificationWorker reminderWorker;
     private final JsonMapper mapper = new JsonMapper();
     private String student;
     private String unverified;
@@ -249,6 +251,34 @@ class DiscoveryHttpTest {
                         .header("Idempotency-Key", "assistant-ask-3").contentType("application/json")
                         .content("{\"question\":\"测试\",\"scope\":\"private\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void reminderWorkerDrainsBacklogAndSkipsInactiveUsers() {
+        jdbc.update("INSERT INTO reminders(id,user_id,target_type,target_id,remind_at,status,created_at)"
+                + " VALUES(9001,102,'opportunity',501,DATEADD('DAY',-2,CURRENT_TIMESTAMP),'pending',CURRENT_TIMESTAMP)");
+        jdbc.update("UPDATE users SET status='disabled' WHERE id=102");
+        for (int i = 0; i < 55; i++) {
+            jdbc.update("INSERT INTO reminders(id,user_id,target_type,target_id,remind_at,status,created_at)"
+                    + " VALUES(?,101,'opportunity',501,DATEADD('SECOND',? ,CURRENT_TIMESTAMP),'pending',CURRENT_TIMESTAMP)",
+                    9002 + i, -3600 + i);
+        }
+
+        reminderWorker.run();
+        assertEquals(50, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notifications WHERE user_id=101 AND type='deadline'", Integer.class));
+        assertEquals(50, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM reminders WHERE user_id=101 AND status='sent'", Integer.class));
+
+        reminderWorker.run();
+        assertEquals(55, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notifications WHERE user_id=101 AND type='deadline'", Integer.class));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM reminders WHERE user_id=101 AND status='pending'", Integer.class));
+        assertEquals("pending", jdbc.queryForObject(
+                "SELECT status FROM reminders WHERE id=9001", String.class));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notifications WHERE user_id=102", Integer.class));
     }
 
     private void studentIdentity(long user, long campus) {

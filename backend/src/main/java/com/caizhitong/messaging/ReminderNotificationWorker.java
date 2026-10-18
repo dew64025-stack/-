@@ -46,7 +46,10 @@ public class ReminderNotificationWorker implements Runnable {
         Integer delivered = jdbc.queryForObject("SELECT COUNT(*) FROM notifications"
                         + " WHERE user_id=? AND type='deadline' AND target_type='reminder' AND target_id=?",
                 Integer.class, reminder.userId(), reminder.id());
-        if (delivered != null && delivered > 0) return;
+        if (delivered != null && delivered > 0) {
+            reminders.markSent(reminder.id());
+            return;
+        }
         var users = jdbc.queryForList("SELECT campus_id FROM users WHERE id=? AND status='active' AND deleted_at IS NULL",
                 Long.class, reminder.userId());
         if (users.isEmpty()) return;
@@ -56,5 +59,6 @@ public class ReminderNotificationWorker implements Runnable {
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         messaging.issueNotification(users.getFirst(), reminder.userId(), "deadline", title, content,
                 "reminder", reminder.id(), "reminder:" + reminder.id(), now);
+        reminders.markSent(reminder.id());
     }
 }

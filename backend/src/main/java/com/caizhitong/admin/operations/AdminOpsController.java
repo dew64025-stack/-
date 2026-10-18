@@ -57,8 +57,9 @@ public class AdminOpsController {
                                                           @RequestParam(required = false) String to,
                                                           @RequestParam(required = false) String cursor,
                                                           @RequestParam(required = false) Integer limit,
+                                                          @RequestParam(required = false) String campusId,
                                                           HttpServletRequest r) {
-        return ok(service.auditLogs(action, from, to, cursor, limit), r);
+        return ok(service.auditLogs(action, from, to, cursor, limit, campusId), r);
     }
 
     @GetMapping("/integrations")

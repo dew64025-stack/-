@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -33,6 +34,8 @@ import static com.caizhitong.identity.IdentityInputs.text;
 @Service
 public class DataRightsService {
     private static final int DOWNLOAD_SECONDS = 120;
+    private static final Set<String> AUTHORIZATION_TYPES =
+            Set.of("privacy", "phone", "subscription", "location", "material_ai");
 
     private final JdbcTemplate jdbc;
     private final CurrentActor current;
@@ -77,6 +80,7 @@ public class DataRightsService {
     public PrivacyViews.Authorization grant(PrivacyInputs.Grant input) {
         Actor actor = current.require();
         String type = text(input.type(), 32, false);
+        if (!AUTHORIZATION_TYPES.contains(type)) throw invalid();
         String scope = text(input.scope(), 128, false);
         String version = text(input.documentVersion(), 64, false);
         String published = publishedVersion(actor.campusId(), type);
@@ -164,9 +168,13 @@ public class DataRightsService {
         }
         long request = ids.nextId();
         LocalDateTime now = now();
-        jdbc.update("INSERT INTO data_requests(id,user_id,campus_id,type,status,requested_at,version,created_at,updated_at)"
-                        + " VALUES(?,?,?,'export','pending',?,0,?,?)",
-                request, actor.userId(), actor.campusId(), now, now, now);
+        try {
+            jdbc.update("INSERT INTO data_requests(id,user_id,campus_id,type,status,requested_at,version,created_at,updated_at)"
+                            + " VALUES(?,?,?,'export','pending',?,0,?,?)",
+                    request, actor.userId(), actor.campusId(), now, now, now);
+        } catch (DuplicateKeyException concurrent) {
+            throw new BusinessException(409, "STATE_CONFLICT", "已有正在处理的数据导出申请");
+        }
         return dataRequest(request, actor, true);
     }
 
@@ -181,11 +189,15 @@ public class DataRightsService {
         long request = ids.nextId();
         LocalDateTime now = now();
         LocalDateTime coolingOff = now.plusDays(days);
-        jdbc.update("INSERT INTO data_requests(id,user_id,campus_id,type,status,requested_at,cooling_off_until,"
-                        + "retention_basis,version,created_at,updated_at)"
-                        + " VALUES(?,?,?,'deletion','pending',?,?,?,0,?,?)",
-                request, actor.userId(), actor.campusId(), now, coolingOff,
-                "冷静期内可撤销；执行前复核未完成借用、预约与工单，依法保留的信用与审计记录不含联系方式。", now, now);
+        try {
+            jdbc.update("INSERT INTO data_requests(id,user_id,campus_id,type,status,requested_at,cooling_off_until,"
+                            + "retention_basis,version,created_at,updated_at)"
+                            + " VALUES(?,?,?,'deletion','pending',?,?,?,0,?,?)",
+                    request, actor.userId(), actor.campusId(), now, coolingOff,
+                    "冷静期内可撤销；执行前复核未完成借用、预约与工单，依法保留的信用与审计记录不含联系方式。", now, now);
+        } catch (DuplicateKeyException concurrent) {
+            throw new BusinessException(409, "STATE_CONFLICT", "已有正在处理的注销申请");
+        }
         return dataRequest(request, actor, true);
     }
 

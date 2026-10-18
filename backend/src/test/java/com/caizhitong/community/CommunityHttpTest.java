@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:community_http;MODE=MySQL;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc(print=org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE) @ActiveProfiles("test") @Import({CommunityHttpTest.Fixtures.class,H2AnonymousOwnership.class})
-@Sql(scripts={"/identity-schema.sql","/community-schema.sql","/mutual-source-schema.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_CLASS)
+@Sql(scripts={"/identity-schema.sql","/community-schema.sql","/mutual-source-schema.sql","/messaging-schema.sql"},executionPhase=Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class CommunityHttpTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
@@ -32,7 +32,7 @@ class CommunityHttpTest {
 
     @BeforeEach void seed(){
         for(String t:List.of("lost_found_events","team_open_roles","external_references","external_systems"))jdbc.update("DELETE FROM "+t);
-        for(String t:List.of("api_idempotency_records","admin_audit_logs","mutual_aid_ratings","borrow_events","borrow_requests","lost_found_matches","mutual_aid_posts","team_members","team_applications","teams","pseudo_identities","community_comments","community_posts","reports","penalties","appeals","moderation_tasks","credit_disputes","blocks","security_investigations"))jdbc.update("DELETE FROM "+t);
+        for(String t:List.of("api_idempotency_records","admin_audit_logs","mutual_aid_ratings","borrow_events","borrow_requests","lost_found_matches","mutual_aid_posts","team_members","team_applications","teams","pseudo_identities","community_comments","community_posts","reports","penalties","appeals","messages","conversation_members","conversations","moderation_rules","moderation_tasks","credit_disputes","blocks","security_investigations"))jdbc.update("DELETE FROM "+t);
         jdbc.update("DELETE FROM user_roles");jdbc.update("DELETE FROM roles");
         jdbc.update("DELETE FROM user_phones");jdbc.update("DELETE FROM authorizations");jdbc.update("DELETE FROM student_verifications");
         jdbc.update("DELETE FROM users");jdbc.update("DELETE FROM campuses");
@@ -244,6 +244,34 @@ class CommunityHttpTest {
         adminCommand("/admin/moderation-tasks/"+task2+"/claim",admin,"{}","md-claim2").andExpect(status().isOk());
         adminCommand("/admin/moderation-tasks/"+task2+"/decision",admin,"{\"decision\":\"reject\",\"reason\":\"x\"}","md-decision2").andExpect(status().isOk());
         assertEquals("deleted",jdbc.queryForObject("SELECT status FROM community_comments WHERE id=?",String.class,comment));
+    }
+
+    @Test void moderationDecisionReleasesOrBlocksHeldMessages() throws Exception {
+        jdbc.update("INSERT INTO conversations(id,campus_id,type,created_by,version,created_at,updated_at)"
+                + " VALUES(7001,1,'direct',101,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at)"
+                + " VALUES(7101,7001,101,0,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at)"
+                + " VALUES(7102,7001,102,0,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,client_message_id,created_at)"
+                + " VALUES(7201,7001,101,'待审核','pending','held-1',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,client_message_id,created_at)"
+                + " VALUES(7202,7001,101,'会被拒绝','pending','held-2',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,created_at,updated_at)"
+                + " VALUES(7301,1,'message',7201,'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO moderation_tasks(id,campus_id,target_type,target_id,status,created_at,updated_at)"
+                + " VALUES(7302,1,'message',7202,'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+
+        adminCommand("/admin/moderation-tasks/7301/claim",admin,"{}","msg-claim-ok").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/7301/decision",admin,"{\"decision\":\"approve\",\"reason\":\"ok\"}","msg-approve").andExpect(status().isOk());
+        assertEquals("sent",jdbc.queryForObject("SELECT status FROM messages WHERE id=7201",String.class));
+        assertEquals(1,jdbc.queryForObject("SELECT unread_count FROM conversation_members WHERE id=7102",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT unread_count FROM conversation_members WHERE id=7101",Integer.class));
+
+        adminCommand("/admin/moderation-tasks/7302/claim",admin,"{}","msg-claim-no").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/7302/decision",admin,"{\"decision\":\"reject\",\"reason\":\"no\"}","msg-reject").andExpect(status().isOk());
+        assertEquals("blocked",jdbc.queryForObject("SELECT status FROM messages WHERE id=7202",String.class));
+        assertEquals(1,jdbc.queryForObject("SELECT unread_count FROM conversation_members WHERE id=7102",Integer.class));
     }
 
     @Test void ratingsInheritPostVisibilityForVisitorsOwnersAndOtherCampuses() throws Exception {

@@ -64,6 +64,7 @@ app:
   messaging:
     scheduling-enabled: ${MESSAGING_SCHEDULING_ENABLED:true}
     reminder-poll-ms: ${MESSAGING_REMINDER_POLL_MS:60000}
+    template-whitelist: ${MESSAGING_TEMPLATE_WHITELIST:deadline_daily}
   realtime:
     websocket-url: ${REALTIME_WEBSOCKET_URL:}
   assistant:

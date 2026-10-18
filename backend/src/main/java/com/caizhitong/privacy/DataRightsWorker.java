@@ -2,6 +2,8 @@ package com.caizhitong.privacy;
 
 import com.caizhitong.common.SensitiveDataCrypto;
 import com.caizhitong.common.SnowflakeIds;
+import com.caizhitong.community.AnonymousErasure;
+import com.caizhitong.community.CommunityService;
 import com.caizhitong.integration.storage.ObjectStorage;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
@@ -37,16 +39,19 @@ public class DataRightsWorker implements Runnable {
     private final SensitiveDataCrypto crypto;
     private final ObjectStorage storage;
     private final DataExportBuilder exporter;
+    private final AnonymousErasure erasure;
     private final TransactionTemplate tx;
 
     public DataRightsWorker(JdbcTemplate jdbc, SnowflakeIds ids, Clock clock, SensitiveDataCrypto crypto,
-                            ObjectStorage storage, DataExportBuilder exporter, PlatformTransactionManager tm) {
+                            ObjectStorage storage, DataExportBuilder exporter, AnonymousErasure erasure,
+                            PlatformTransactionManager tm) {
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
         this.crypto = crypto;
         this.storage = storage;
         this.exporter = exporter;
+        this.erasure = erasure;
         this.tx = new TransactionTemplate(tm);
         this.tx.setTimeout(10);
     }
@@ -55,16 +60,27 @@ public class DataRightsWorker implements Runnable {
     public void run() {
         Claim claim = tx.execute(s -> claim());
         if (claim == null) return;
+        String orphanExport = null;
         try {
             if ("export".equals(claim.type())) {
                 ExportResult result = export(claim);
+                orphanExport = result.key();
                 tx.executeWithoutResult(s -> completeExport(claim, result));
+                orphanExport = null;
             } else if (obligations(claim) > 0) {
                 tx.executeWithoutResult(s -> reject(claim, "存在未完成的借用、预约或工单，请处理后再申请注销"));
             } else {
                 tx.executeWithoutResult(s -> completeDeletion(claim));
             }
         } catch (RuntimeException error) {
+            // The object was written outside the transaction; remove it if the receipt failed.
+            if (orphanExport != null) {
+                try {
+                    storage.delete(orphanExport);
+                } catch (RuntimeException ignored) {
+                    // A failed cleanup leaves an unreferenced object; the request still fails explicitly.
+                }
+            }
             tx.executeWithoutResult(s -> fail(claim));
         }
     }
@@ -106,9 +122,10 @@ public class DataRightsWorker implements Runnable {
 
     /** Unfinished obligations must be surfaced before destroying data; never delete silently. */
     private int obligations(Claim claim) {
+        // A soft-deleted listing can still have an open borrow; the obligation survives hiding it.
         int borrows = jdbc.queryForObject("SELECT COUNT(*) FROM borrow_requests b JOIN mutual_aid_posts p ON p.id=b.post_id"
-                        + " WHERE (b.borrower_id=? OR p.user_id=?) AND b.status IN ('pending','confirmed','handed_over')"
-                        + " AND p.deleted_at IS NULL", Integer.class, claim.user(), claim.user());
+                        + " WHERE (b.borrower_id=? OR p.user_id=?) AND b.status IN ('pending','confirmed','handed_over')",
+                Integer.class, claim.user(), claim.user());
         int reservations = jdbc.queryForObject("SELECT COUNT(*) FROM reservations WHERE user_id=?"
                         + " AND campus_id=? AND status IN ('pending','confirmed','checked_in') AND deleted_at IS NULL",
                 Integer.class, claim.user(), claim.campus());
@@ -148,12 +165,12 @@ public class DataRightsWorker implements Runnable {
         jdbc.update("DELETE FROM team_members WHERE user_id=?", user);
         jdbc.update("UPDATE teams SET status='closed',title='已注销用户的组队',goal=NULL,version=version+1,updated_at=?"
                 + " WHERE leader_id=? AND deleted_at IS NULL", now, user);
-        // Anonymous community content is removed with its per-post identity; no mapping remains.
-        jdbc.update("DELETE FROM community_comments WHERE pseudo_identity_id IN"
-                + " (SELECT id FROM pseudo_identities WHERE user_id=?)", user);
-        jdbc.update("DELETE FROM community_posts WHERE pseudo_identity_id IN"
-                + " (SELECT id FROM pseudo_identities WHERE user_id=?)", user);
-        jdbc.update("DELETE FROM pseudo_identities WHERE user_id=?", user);
+        // Anonymous content is anonymised rather than physically deleted: comments by other users
+        // may reference the posts. The definer routine destroys both legacy and HMAC-only identity
+        // mappings; the business account never reads the mapping directly.
+        String anonymousSearch = HexFormat.of().formatHex(
+                crypto.searchHash(CommunityService.ANONYMOUS_IDENTITY_DOMAIN, Long.toString(user)));
+        erasure.erase(user, anonymousSearch);
         jdbc.update("UPDATE material_files SET status='deleted',deleted_at=?,updated_at=?,version=version+1"
                 + " WHERE user_id=? AND deleted_at IS NULL", now, now, user);
         enqueueFileCleanup(user, now);

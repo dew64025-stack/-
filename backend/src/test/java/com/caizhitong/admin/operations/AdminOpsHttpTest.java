@@ -1,5 +1,6 @@
 package com.caizhitong.admin.operations;
 
+import com.caizhitong.integration.notice.SafeUrlReader;
 import com.caizhitong.security.SessionKind;
 import com.caizhitong.security.SessionTokenService;
 import com.caizhitong.testsupport.InMemorySessionStore;
@@ -76,8 +77,8 @@ class AdminOpsHttpTest {
         adminPlatformPost("/admin/campuses", "{\"name\":\"新校区\",\"code\":\"new-campus\"}", "campus-create-1")
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.code").value("new-campus"));
         assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM campuses", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='campus.create'",
-                Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='campus.create'"
+                + " AND campus_id=1 AND target_id=(SELECT id FROM campuses WHERE code='new-campus')", Integer.class));
         adminPlatformPost("/admin/campuses", "{\"name\":\"重复\",\"code\":\"new-campus\"}", "campus-create-2")
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("CAMPUS_CODE_CONFLICT"));
         adminPlatformPost("/admin/campuses", "{\"name\":\"非法\",\"code\":\"Bad_Code\"}", "campus-create-3")
@@ -170,6 +171,11 @@ class AdminOpsHttpTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
         mvc.perform(get("/api/v1/admin/audit-logs").header("Authorization", campusAdmin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(2));
+        mvc.perform(get("/api/v1/admin/audit-logs").param("campusId", "2").header("Authorization", platformAdmin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value("1003"));
+        mvc.perform(get("/api/v1/admin/audit-logs").param("campusId", "2").header("Authorization", campusAdmin))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -197,8 +203,20 @@ class AdminOpsHttpTest {
                 "integration-notice-bad-key")
                 .andExpect(status().isBadRequest());
         adminPut("/admin/integrations/notice",
+                "{\"provider\":\"vendor\",\"config\":{},\"version\":1,\"reason\":\"未知提供器\"}",
+                "integration-notice-bad-provider")
+                .andExpect(status().isBadRequest());
+        adminPut("/admin/integrations/notice",
                 "{\"provider\":\"manual\",\"config\":{\"endpoint\":\"http://insecure.example.edu\"},"
                         + "\"version\":1,\"reason\":\"非法地址\"}", "integration-notice-bad-url")
+                .andExpect(status().isBadRequest());
+        adminPut("/admin/integrations/notice",
+                "{\"provider\":\"manual\",\"config\":{\"endpoint\":\"https://127.0.0.1/hooks\"},"
+                        + "\"version\":1,\"reason\":\"内网地址\"}", "integration-notice-ssrf")
+                .andExpect(status().isBadRequest());
+        adminPut("/admin/integrations/notice",
+                "{\"provider\":\"manual\",\"config\":{\"endpoint\":\"https://[::1]/hooks\"},"
+                        + "\"version\":1,\"reason\":\"环回地址\"}", "integration-notice-ssrf-v6")
                 .andExpect(status().isBadRequest());
         adminPut("/admin/integrations/library",
                 "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/library\","
@@ -210,8 +228,8 @@ class AdminOpsHttpTest {
                 "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/library\","
                         + "\"secretRef\":\"secrets/library\",\"schoolAuthorized\":true},"
                         + "\"version\":0,\"reason\":\"官方\"}", "integration-library-test")
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("INTEGRATION_TEST_REQUIRED"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("inactive"));
         adminPut("/admin/integrations/notice",
                 "{\"provider\":\"manual\",\"config\":{\"endpoint\":\"https://school.example.edu/hooks/notice2\"},"
                         + "\"version\":0,\"reason\":\"过期版本\"}", "integration-notice-stale")
@@ -248,6 +266,54 @@ class AdminOpsHttpTest {
                 .andExpect(jsonPath("$.data[0].lastError").value("同步失败，请查看错误列表"));
         adminPost("/admin/integrations/repair/test", "{}", "integration-missing-job")
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void officialProviderActivatesOnlyAfterAMatchingConnectionTest() throws Exception {
+        String config = "{\"endpoint\":\"https://school.example.edu/library\",\"secretRef\":\"secrets/library\","
+                + "\"schoolAuthorized\":true}";
+        adminPut("/admin/integrations/library", "{\"provider\":\"official\",\"config\":" + config
+                        + ",\"version\":0,\"reason\":\"官方\"}", "official-create")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("inactive"));
+        adminPost("/admin/integrations/library/test", "{}", "official-test")
+                .andExpect(status().isAccepted());
+        worker.run();
+        assertEquals("succeeded", jdbc.queryForObject(
+                "SELECT status FROM async_jobs WHERE job_type='integration_test'", String.class));
+        assertEquals("active", jdbc.queryForObject(
+                "SELECT status FROM external_systems WHERE campus_id=1 AND type='library'", String.class));
+        adminPut("/admin/integrations/library", "{\"provider\":\"official\",\"config\":" + config
+                        + ",\"version\":1,\"reason\":\"已测试\"}", "official-confirm")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("active"))
+                .andExpect(jsonPath("$.data.version").value(2));
+
+        adminPut("/admin/integrations/library",
+                "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/library-v2\","
+                        + "\"secretRef\":\"secrets/library\",\"schoolAuthorized\":true},"
+                        + "\"version\":2,\"reason\":\"换地址\"}", "official-change")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("inactive"));
+        adminPost("/admin/integrations/library/test", "{}", "official-test-stale")
+                .andExpect(status().isAccepted());
+        adminPut("/admin/integrations/library",
+                "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/library-v3\","
+                        + "\"secretRef\":\"secrets/library\",\"schoolAuthorized\":true},"
+                        + "\"version\":3,\"reason\":\"再次换地址\"}", "official-change-again")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("inactive"));
+        worker.run();
+        assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_test')", String.class));
+        assertEquals("INTEGRATION_CONFIG_CHANGED", jdbc.queryForObject("SELECT error FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_test')", String.class));
+        assertEquals("inactive", jdbc.queryForObject(
+                "SELECT status FROM external_systems WHERE campus_id=1 AND type='library'", String.class));
+
+        adminPost("/admin/integrations/library/sync", "{}", "official-sync")
+                .andExpect(status().isAccepted());
+        worker.run();
+        assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_sync')", String.class));
+        assertEquals("INTEGRATION_PROVIDER_UNAVAILABLE", jdbc.queryForObject("SELECT error FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_sync')", String.class));
     }
 
     private String bearer(long user) {
@@ -292,6 +358,18 @@ class AdminOpsHttpTest {
 
         @Bean @Primary com.caizhitong.common.ratelimit.RateCounter rateCounter() {
             return (bucket, window) -> 1L;
+        }
+
+        /** Network-free connectivity check; production uses the real SSRF-safe reader. */
+        @Bean @Primary SafeUrlReader safeUrlReader() {
+            return new SafeUrlReader() {
+                @Override public Fetched fetch(String url) {
+                    if (url.contains("unreachable")) {
+                        throw new FetchFailure("UPSTREAM_IO", true, "unreachable");
+                    }
+                    return new Fetched("<html>ok</html>", "text/html");
+                }
+            };
         }
     }
 }

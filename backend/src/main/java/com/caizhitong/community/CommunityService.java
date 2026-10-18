@@ -13,7 +13,7 @@ import static com.caizhitong.identity.IdentityInputs.*;
 
 @Service
 public class CommunityService {
-    private static final String ANON = "anonymous-identity";
+    public static final String ANONYMOUS_IDENTITY_DOMAIN = "anonymous-identity";
     private final JdbcTemplate jdbc;
     private final CurrentActor current;
     private final SnowflakeIds ids;
@@ -134,9 +134,9 @@ public class CommunityService {
     // ---- helpers ----
     private void insertPseudo(long pseudoId,Long postId,Long commentId,long userId,String name,LocalDateTime now){
         jdbc.update("INSERT INTO pseudo_identities(id,post_id,user_id,random_name,created_at,comment_id,user_id_encrypted,user_id_search) VALUES(?,?,NULL,?,?,?,?,?)",
-                pseudoId,postId,name,now,commentId,crypto.encrypt(ANON,Long.toString(userId)),searchOf(userId));
+                pseudoId,postId,name,now,commentId,crypto.encrypt(ANONYMOUS_IDENTITY_DOMAIN,Long.toString(userId)),searchOf(userId));
     }
-    private String searchOf(long userId){return HexFormat.of().formatHex(crypto.searchHash(ANON,Long.toString(userId)));}
+    private String searchOf(long userId){return HexFormat.of().formatHex(crypto.searchHash(ANONYMOUS_IDENTITY_DOMAIN,Long.toString(userId)));}
     private boolean isPostAuthor(Actor actor,long postId){return ownership.owns(actor,"community_post",postId);}
     private boolean isCommentAuthor(Actor actor,long commentId){return ownership.owns(actor,"community_comment",commentId);}
     private void authorizePostAuthor(Actor actor,long postId){if(!isPostAuthor(actor,postId))throw missing();}

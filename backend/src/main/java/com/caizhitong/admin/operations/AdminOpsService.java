@@ -18,8 +18,13 @@ import com.caizhitong.security.Actor;
 import com.caizhitong.security.CurrentActor;
 import com.caizhitong.team.TeamReadBridge;
 import com.caizhitong.workorder.WorkOrderReadBridge;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -31,8 +36,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,6 +57,7 @@ import static com.caizhitong.identity.IdentityInputs.text;
 @Service
 public class AdminOpsService {
     private static final Set<String> INTEGRATION_TYPES = Set.of("notice", "library", "classroom", "repair", "crowd");
+    static final Set<String> INTEGRATION_PROVIDERS = Set.of("demo", "manual", "official");
     private static final Set<String> INTEGRATION_CONFIG_KEYS =
             Set.of("endpoint", "secretRef", "timeoutMs", "schoolAuthorized");
     private static final Set<String> DOCUMENT_TYPES =
@@ -99,7 +107,8 @@ public class AdminOpsService {
         String code = text(input.code(), 64, false);
         var created = campuses.create(name, code, now());
         long campus = Long.parseLong(created.id());
-        audit(actor, campus, "campus.create", "campus", campus, "创建校园", "{}");
+        // Recorded in the operator's campus view; the created campus is the target, not the scope.
+        audit(actor, actor.campusId(), "campus.create", "campus", campus, "创建校园", "{}");
         return new AdminOpsViews.Campus(created.id(), created.name(), created.code());
     }
 
@@ -143,14 +152,15 @@ public class AdminOpsService {
     }
 
     public AdminOpsViews.AuditPage auditLogs(String action, String fromParam, String toParam, String cursor,
-                                             Integer limit) {
+                                             Integer limit, String campusParam) {
         Actor actor = current.requirePermission("audit.read");
+        long campus = auditCampus(actor, campusParam);
         String actionFilter = action == null || action.isBlank() ? null : text(mapper.valueToTree(action), 64, false);
         Instant from = instant(fromParam);
         Instant to = instant(toParam);
         if (from != null && to != null && !from.isBefore(to)) throw invalid();
         int size = PageLimits.resolve(limit);
-        String scope = "audit-logs:" + actor.campusId() + ":" + (actionFilter == null ? "" : actionFilter)
+        String scope = "audit-logs:" + campus + ":" + (actionFilter == null ? "" : actionFilter)
                 + ":" + (from == null ? "" : from) + ":" + (to == null ? "" : to);
         long before = Long.MAX_VALUE;
         if (cursor != null) {
@@ -159,7 +169,7 @@ public class AdminOpsService {
             before = id(keys.sortKeys().get("id"));
         }
         String where = " WHERE campus_id=? AND id<?";
-        List<Object> args = new ArrayList<>(List.of(actor.campusId(), before));
+        List<Object> args = new ArrayList<>(List.of(campus, before));
         if (actionFilter != null) {
             where += " AND action=?";
             args.add(actionFilter);
@@ -198,9 +208,13 @@ public class AdminOpsService {
         Actor actor = current.requirePermission("integration.write");
         String kind = integrationType(type);
         String provider = text(input.provider(), 16, false);
+        if (!INTEGRATION_PROVIDERS.contains(provider)) throw invalid();
         String reason = text(input.reason(), 512, false);
         int version = input.version().asInt();
         JsonNode config = validateIntegrationConfig(input.config());
+        if ("official".equals(provider) && !config.path("schoolAuthorized").asBoolean(false)) {
+            throw new BusinessException(409, "INTEGRATION_AUTHORIZATION_REQUIRED", "切换官方提供器需要确认学校授权");
+        }
         String json = mapper.writeValueAsString(config);
         var existing = jdbc.query("SELECT id,provider,version,updated_at FROM external_systems"
                         + " WHERE campus_id=? AND type=? FOR UPDATE",
@@ -209,28 +223,27 @@ public class AdminOpsService {
         long system;
         int nextVersion;
         LocalDateTime now = now();
+        // An official provider is stored but stays inactive until a connection test matching this
+        // exact configuration succeeds; otherwise the provider could never be configured or tested.
+        String status = officialReady(actor.campusId(), kind, provider, config) ? "active" : "inactive";
         if (existing.isEmpty()) {
             if (version != 0) throw conflict();
-            if ("official".equals(provider)) requireOfficialReady(actor.campusId(), kind, config, null);
             system = ids.nextId();
             jdbc.update("INSERT INTO external_systems(id,campus_id,type,provider,config_json,status,version,"
-                            + "created_at,updated_at) VALUES(?,?,?,?,?,'active',1,?,?)",
-                    system, actor.campusId(), kind, provider, json, now, now);
+                            + "created_at,updated_at) VALUES(?,?,?,?,?,?,1,?,?)",
+                    system, actor.campusId(), kind, provider, json, status, now, now);
             nextVersion = 1;
         } else {
             Object[] row = existing.getFirst();
             if (((Number) row[2]).intValue() != version) throw conflict();
-            if ("official".equals(provider)) {
-                requireOfficialReady(actor.campusId(), kind, config, (LocalDateTime) row[3]);
-            }
             system = ((Number) row[0]).longValue();
-            jdbc.update("UPDATE external_systems SET provider=?,config_json=?,version=version+1,updated_at=?"
-                    + " WHERE id=?", provider, json, now, system);
+            jdbc.update("UPDATE external_systems SET provider=?,config_json=?,status=?,version=version+1,updated_at=?"
+                    + " WHERE id=?", provider, json, status, now, system);
             nextVersion = version + 1;
         }
         audit(actor, actor.campusId(), "integration.update", "external_system", system, reason,
                 mapper.writeValueAsString(Map.of("type", kind)));
-        return new AdminOpsViews.IntegrationConfig(kind, provider, "active", sanitized(config), nextVersion,
+        return new AdminOpsViews.IntegrationConfig(kind, provider, status, sanitized(config), nextVersion,
                 now.toInstant(ZoneOffset.UTC));
     }
 
@@ -238,8 +251,17 @@ public class AdminOpsService {
     public OpportunityViews.AsyncJob testIntegration(String type) {
         Actor actor = current.requirePermission("integration.write");
         String kind = integrationType(type);
-        integration(kind, actor.campusId());
-        return enqueue(actor, kind, "integration_test");
+        var system = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=?",
+                (rs, i) -> new Object[]{rs.getString("provider"), rs.getString("config_json")},
+                actor.campusId(), kind);
+        if (system.isEmpty()) throw new BusinessException(404, "NOT_FOUND", "未找到该集成");
+        String provider = (String) system.getFirst()[0];
+        JsonNode config = parse((String) system.getFirst()[1]);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", kind);
+        payload.put("provider", provider);
+        payload.put("fingerprint", fingerprint(provider, kind, config));
+        return enqueue(actor, kind, "integration_test", payload);
     }
 
     @BusinessWrite(permission = "integration.sync")
@@ -272,45 +294,48 @@ public class AdminOpsService {
         return new AdminOpsViews.SyncErrorPage(items, next, more);
     }
 
-    /** Used by the worker to decide an explicit, non-fake terminal error. */
-    public String integrationFailure(long campus, String type) {
-        var rows = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=?",
-                (rs, i) -> new Object[]{rs.getString("provider"), rs.getString("config_json")}, campus, type);
-        if (rows.isEmpty()) return "INTEGRATION_NOT_CONFIGURED";
-        String provider = (String) rows.getFirst()[0];
-        JsonNode config = parse((String) rows.getFirst()[1]);
-        if ("official".equals(provider)
-                && (!config.hasNonNull("endpoint") || !config.hasNonNull("secretRef"))) {
-            return "INTEGRATION_CONFIG_INCOMPLETE";
+    /**
+     * Binds a connection-test result to the exact provider, type, endpoint, secret reference,
+     * timeout and authorization flag. Any configuration change invalidates the earlier marker.
+     */
+    static String fingerprint(String provider, String type, JsonNode config) {
+        String endpoint = config.path("endpoint").isTextual() ? config.path("endpoint").asString() : "";
+        String secretRef = config.path("secretRef").isTextual() ? config.path("secretRef").asString() : "";
+        int timeout = config.path("timeoutMs").isIntegralNumber() ? config.path("timeoutMs").asInt() : 0;
+        boolean authorized = config.path("schoolAuthorized").asBoolean(false);
+        String canonical = provider + "\n" + type + "\n" + endpoint + "\n" + secretRef + "\n"
+                + timeout + "\n" + authorized;
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("SHA-256 unavailable");
         }
-        return "INTEGRATION_PROVIDER_UNAVAILABLE";
     }
 
-    private void requireOfficialReady(long campus, String type, JsonNode config, LocalDateTime since) {
-        if (!config.path("schoolAuthorized").asBoolean(false)) {
-            throw new BusinessException(409, "INTEGRATION_AUTHORIZATION_REQUIRED", "切换官方提供器需要确认学校授权");
-        }
-        String sql = "SELECT COUNT(*) FROM async_jobs WHERE job_type='integration_test' AND campus_id=?"
-                + " AND access_domain='admin' AND status='succeeded' AND result_json LIKE ?";
-        List<Object> args = new ArrayList<>(List.of(campus, "%\"type\":\"" + type + "\"%"));
-        if (since != null) {
-            sql += " AND created_at>=?";
-            args.add(Timestamp.valueOf(since));
-        }
-        Integer count = jdbc.queryForObject(sql, Integer.class, args.toArray());
-        if (count == null || count == 0) {
-            throw new BusinessException(409, "INTEGRATION_TEST_REQUIRED", "切换官方提供器前必须先通过连接测试");
-        }
+    private boolean officialReady(long campus, String type, String provider, JsonNode config) {
+        if (!"official".equals(provider)) return true;
+        if (!config.path("schoolAuthorized").asBoolean(false)) return false;
+        String marker = "%\"fingerprint\":\"" + fingerprint(provider, type, config) + "\"%";
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM async_jobs WHERE job_type='integration_test'"
+                + " AND campus_id=? AND access_domain='admin' AND status='succeeded' AND result_json LIKE ?",
+                Integer.class, campus, marker);
+        return count != null && count > 0;
     }
 
     private OpportunityViews.AsyncJob enqueue(Actor actor, String type, String jobType) {
+        return enqueue(actor, type, jobType, Map.of("type", type));
+    }
+
+    private OpportunityViews.AsyncJob enqueue(Actor actor, String type, String jobType, Map<String, Object> payload) {
         long job = ids.nextId();
         LocalDateTime now = now();
+        String json = mapper.writeValueAsString(payload);
         jdbc.update("INSERT INTO async_jobs(id,job_type,payload_json,status,campus_id,owner_user_id,access_domain,"
                         + "retry_count,max_retries,created_at,updated_at) VALUES(?,?,?,'pending',?,?,'admin',0,1,?,?)",
-                job, jobType, mapper.writeValueAsString(Map.of("type", type)), actor.campusId(), actor.userId(), now, now);
+                job, jobType, json, actor.campusId(), actor.userId(), now, now);
         audit(actor, actor.campusId(), "integration." + ("integration_test".equals(jobType) ? "test" : "sync"),
-                "async_job", job, null, mapper.writeValueAsString(Map.of("type", type)));
+                "async_job", job, null, json);
         Instant nowInstant = now.toInstant(ZoneOffset.UTC);
         return new OpportunityViews.AsyncJob(Long.toString(job), jobType, "pending", null, null, nowInstant, nowInstant);
     }
@@ -319,6 +344,22 @@ public class AdminOpsService {
         var rows = jdbc.queryForList("SELECT id FROM external_systems WHERE campus_id=? AND type=?", Long.class, campus, type);
         if (rows.isEmpty()) throw new BusinessException(404, "NOT_FOUND", "未找到该集成");
         return rows.getFirst();
+    }
+
+    /** Cross-campus audit access is an explicit platform action, never inferred from a query key. */
+    private long auditCampus(Actor actor, String requested) {
+        if (requested == null || requested.isBlank()) return actor.campusId();
+        long campus;
+        try {
+            campus = Long.parseLong(requested.trim());
+            if (campus <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException malformed) {
+            throw invalid();
+        }
+        if (campus != actor.campusId() && !actor.permissions().contains("platform.campus.manage")) {
+            throw new BusinessException(403, "FORBIDDEN", "无权访问其他校园的审计记录");
+        }
+        return campus;
     }
 
     private String integrationType(String type) {
@@ -340,6 +381,11 @@ public class AdminOpsService {
         if ("privacy.deletionCoolingOffDays".equals(key)) {
             if (!value.isIntegralNumber() || !value.canConvertToInt()
                     || value.asInt() < 1 || value.asInt() > 30) throw invalid();
+            return value;
+        }
+        if ("messaging.templateWhitelist".equals(key)) {
+            if (!value.isArray() || value.size() == 0 || value.size() > 50) throw invalid();
+            value.forEach(item -> text(item, 128, false));
             return value;
         }
         if ("privacy.documentVersions".equals(key)) {
@@ -370,7 +416,7 @@ public class AdminOpsService {
             try {
                 URI uri = new URI(value);
                 if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
-                        || uri.getRawUserInfo() != null) throw invalid();
+                        || uri.getRawUserInfo() != null || blockedIntegrationHost(uri.getHost())) throw invalid();
             } catch (URISyntaxException error) {
                 throw invalid();
             }
@@ -386,6 +432,45 @@ public class AdminOpsService {
         }
         if (config.has("schoolAuthorized") && !config.path("schoolAuthorized").isBoolean()) throw invalid();
         return config;
+    }
+
+    /** Reject literal internal targets at config time; DNS names are re-checked when fetched. */
+    private static boolean blockedIntegrationHost(String host) {
+        String value = host.toLowerCase(Locale.ROOT);
+        if (value.startsWith("[") && value.endsWith("]")) value = value.substring(1, value.length() - 1);
+        if (value.equals("localhost") || value.endsWith(".localhost") || value.endsWith(".local")
+                || value.endsWith(".internal")) return true;
+        if (!value.matches("[0-9a-f:.%]+")) return false;
+        String literal = value.contains("%") ? value.substring(0, value.indexOf('%')) : value;
+        try {
+            for (InetAddress address : InetAddress.getAllByName(literal)) {
+                if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
+                        || address.isSiteLocalAddress() || address.isMulticastAddress()
+                        || carrierOrReserved(address.getAddress())) return true;
+            }
+            return false;
+        } catch (UnknownHostException malformedLiteral) {
+            return true;
+        }
+    }
+
+    private static boolean carrierOrReserved(byte[] bytes) {
+        if (bytes.length == 4) {
+            int first = bytes[0] & 0xff;
+            int second = bytes[1] & 0xff;
+            return first == 0 || first >= 240
+                    || (first == 100 && second >= 64 && second <= 127)
+                    || (first == 192 && second == 0 && (bytes[2] & 0xff) == 0)
+                    || (first == 198 && (second == 18 || second == 19))
+                    || (first == 198 && second == 51 && (bytes[2] & 0xff) == 100)
+                    || (first == 203 && second == 0 && (bytes[2] & 0xff) == 113);
+        }
+        if (bytes.length == 16) {
+            int first = bytes[0] & 0xff;
+            return (first & 0xfe) == 0xfc || (first == 0x20 && (bytes[1] & 0xff) == 0x01
+                    && (bytes[2] & 0xff) == 0x0d && (bytes[3] & 0xff) == 0xb8);
+        }
+        return true;
     }
 
     private JsonNode sanitized(JsonNode config) {

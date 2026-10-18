@@ -197,8 +197,20 @@ public class AdminGovernanceService {
             case "mutual_aid_post"->jdbc.update("UPDATE mutual_aid_posts SET status=?,updated_at=? WHERE id=?",status,now(),targetId);
             case "community_post"->jdbc.update("UPDATE community_posts SET status=?,updated_at=? WHERE id=?",status,now(),targetId);
             case "community_comment"->jdbc.update("UPDATE community_comments SET status=? WHERE id=?",status,targetId);
+            case "message"->releaseMessage(targetId,"published".equals(status));
             default->throw invalid();
         }
+    }
+    private void releaseMessage(long message,boolean approved){
+        if(!approved){jdbc.update("UPDATE messages SET status='blocked' WHERE id=? AND status='pending'",message);return;}
+        if(jdbc.update("UPDATE messages SET status='sent' WHERE id=? AND status='pending'",message)!=1)return;
+        var rows=jdbc.queryForList("SELECT conversation_id,sender_id FROM messages WHERE id=?",message);
+        if(rows.isEmpty())return;
+        long conversation=((Number)rows.getFirst().get("conversation_id")).longValue();
+        long sender=((Number)rows.getFirst().get("sender_id")).longValue();
+        LocalDateTime now=now();
+        jdbc.update("UPDATE conversations SET updated_at=?,version=version+1 WHERE id=?",now,conversation);
+        jdbc.update("UPDATE conversation_members SET unread_count=unread_count+1 WHERE conversation_id=? AND user_id<>?",conversation,sender);
     }
     private void audit(Actor actor,String action,String type,long target,String reason){jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,?,'{}',?)",ids.nextId(),actor.userId(),action,type,target,reason,now());}
     private GovernanceViews.ModerationTask moderationTask(long id){var rows=jdbc.query("SELECT id,target_type,target_id,status,result,created_at FROM moderation_tasks WHERE id=?",(rs,i)->new GovernanceViews.ModerationTask(Long.toString(rs.getLong("id")),rs.getString("target_type"),Long.toString(rs.getLong("target_id")),rs.getString("status"),rs.getString("result"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}

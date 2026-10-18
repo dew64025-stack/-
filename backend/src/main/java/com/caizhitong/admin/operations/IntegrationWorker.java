@@ -1,10 +1,11 @@
 package com.caizhitong.admin.operations;
 
 import com.caizhitong.common.SnowflakeIds;
+import com.caizhitong.integration.notice.SafeUrlReader;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,29 +16,35 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Integration jobs finish explicitly: there is no provider adapter, so no job is ever marked
- * succeeded and no school data is fabricated. Each failure is recorded with a stable code.
+ * Integration jobs finish explicitly. A connection test performs a real, SSRF-safe HTTPS fetch
+ * of the configured endpoint and succeeds only for an official provider whose stored configuration
+ * matches the one the job was enqueued for; the result fingerprint gates provider activation.
+ * Sync has no provider adapter and always fails explicitly instead of fabricating data.
  */
 @Component("integrationWorker")
 public class IntegrationWorker implements Runnable {
     private static final Set<String> TYPES = Set.of("notice", "library", "classroom", "repair", "crowd");
 
-    private record Claim(long job, String token, String jobType, String type, long campus) {}
+    private record Claim(long job, String token, String jobType, String type, long campus, String fingerprint) {}
+    private record Probe(boolean success, String code, String fingerprint) {
+        static Probe succeeded(String fingerprint) { return new Probe(true, null, fingerprint); }
+        static Probe failed(String code) { return new Probe(false, code, null); }
+    }
 
     private final JdbcTemplate jdbc;
     private final SnowflakeIds ids;
     private final Clock clock;
     private final JsonMapper mapper;
-    private final AdminOpsService ops;
+    private final SafeUrlReader reader;
     private final TransactionTemplate tx;
 
     public IntegrationWorker(JdbcTemplate jdbc, SnowflakeIds ids, Clock clock, JsonMapper mapper,
-                             AdminOpsService ops, PlatformTransactionManager manager) {
+                             SafeUrlReader reader, PlatformTransactionManager manager) {
         this.jdbc = jdbc;
         this.ids = ids;
         this.clock = clock;
         this.mapper = mapper;
-        this.ops = ops;
+        this.reader = reader;
         this.tx = new TransactionTemplate(manager);
         this.tx.setTimeout(10);
     }
@@ -46,14 +53,12 @@ public class IntegrationWorker implements Runnable {
     public void run() {
         Claim claim = tx.execute(status -> claim());
         if (claim == null) return;
-        String failure;
-        try {
-            failure = ops.integrationFailure(claim.campus(), claim.type());
-        } catch (RuntimeException error) {
-            failure = "INTEGRATION_FAILED";
+        Probe probe = probe(claim);
+        if (probe.success()) {
+            tx.executeWithoutResult(status -> succeed(claim, probe.fingerprint()));
+        } else {
+            tx.executeWithoutResult(status -> fail(claim, probe.code()));
         }
-        String code = failure;
-        tx.executeWithoutResult(status -> fail(claim, code));
     }
 
     private Claim claim() {
@@ -79,27 +84,87 @@ public class IntegrationWorker implements Runnable {
             return null;
         }
         String type;
+        String fingerprint;
         try {
             JsonNode payload = mapper.readTree((String) row[2]);
             type = payload.path("type").isTextual() ? payload.path("type").asString() : "";
+            fingerprint = payload.path("fingerprint").isTextual() ? payload.path("fingerprint").asString() : null;
         } catch (RuntimeException error) {
             type = "";
+            fingerprint = null;
         }
         if (!TYPES.contains(type)) {
             jdbc.update("UPDATE async_jobs SET status='failed',error='JOB_SCOPE_INVALID',updated_at=? WHERE id=?",
                     now, row[0]);
             return null;
         }
-        Claim claim = new Claim(((Long) row[0]), UUID.randomUUID().toString(), (String) row[1], type, campus);
+        Claim claim = new Claim(((Long) row[0]), UUID.randomUUID().toString(), (String) row[1], type, campus,
+                fingerprint);
         jdbc.update("UPDATE async_jobs SET status='running',picked_at=?,claim_token=?,retry_count=retry_count+1,"
                 + "updated_at=? WHERE id=? AND status='pending'", now, claim.token(), now, claim.job());
         return claim;
     }
 
+    /** External I/O runs outside any transaction; only the claim and the terminal write are transactional. */
+    private Probe probe(Claim claim) {
+        var systems = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=?",
+                (rs, i) -> new Object[]{rs.getString("provider"), rs.getString("config_json")},
+                claim.campus(), claim.type());
+        if (systems.isEmpty()) return Probe.failed("INTEGRATION_NOT_CONFIGURED");
+        String provider = (String) systems.getFirst()[0];
+        JsonNode config = parse((String) systems.getFirst()[1]);
+        if (!AdminOpsService.INTEGRATION_PROVIDERS.contains(provider)) {
+            return Probe.failed("INTEGRATION_PROVIDER_UNAVAILABLE");
+        }
+        String current = AdminOpsService.fingerprint(provider, claim.type(), config);
+        if (!"integration_test".equals(claim.jobType())) {
+            // No sync adapter exists; never fabricate school data.
+            return Probe.failed("INTEGRATION_PROVIDER_UNAVAILABLE");
+        }
+        if (claim.fingerprint() == null || !claim.fingerprint().equals(current)) {
+            return Probe.failed("INTEGRATION_CONFIG_CHANGED");
+        }
+        if (!"official".equals(provider)) return Probe.failed("INTEGRATION_PROVIDER_UNAVAILABLE");
+        String endpoint = config.path("endpoint").isTextual() ? config.path("endpoint").asString() : "";
+        String secretRef = config.path("secretRef").isTextual() ? config.path("secretRef").asString() : "";
+        if (endpoint.isBlank() || secretRef.isBlank() || !config.path("schoolAuthorized").asBoolean(false)) {
+            return Probe.failed("INTEGRATION_CONFIG_INCOMPLETE");
+        }
+        try {
+            reader.fetch(endpoint);
+            return Probe.succeeded(current);
+        } catch (SafeUrlReader.FetchFailure failure) {
+            return Probe.failed("TIMEOUT".equals(failure.code())
+                    ? "INTEGRATION_TIMEOUT" : "INTEGRATION_UNREACHABLE");
+        } catch (RuntimeException failure) {
+            return Probe.failed("INTEGRATION_FAILED");
+        }
+    }
+
+    private void succeed(Claim claim, String fingerprint) {
+        LocalDateTime now = now();
+        String result = mapper.writeValueAsString(Map.of("type", claim.type(), "fingerprint", fingerprint));
+        int updated = jdbc.update("UPDATE async_jobs SET status='succeeded',error=NULL,result_json=?,"
+                        + "claim_token=NULL,updated_at=? WHERE id=? AND status='running' AND claim_token=?",
+                result, now, claim.job(), claim.token());
+        if (updated != 1 || !"integration_test".equals(claim.jobType())) return;
+        var systems = jdbc.query("SELECT provider,config_json FROM external_systems WHERE campus_id=? AND type=?",
+                (rs, i) -> new Object[]{rs.getString("provider"), rs.getString("config_json")},
+                claim.campus(), claim.type());
+        if (systems.isEmpty()) return;
+        String provider = (String) systems.getFirst()[0];
+        JsonNode config = parse((String) systems.getFirst()[1]);
+        if (!"official".equals(provider) || !config.path("schoolAuthorized").asBoolean(false)) return;
+        if (!fingerprint.equals(AdminOpsService.fingerprint(provider, claim.type(), config))) return;
+        jdbc.update("UPDATE external_systems SET status='active',updated_at=?"
+                + " WHERE campus_id=? AND type=? AND status<>'active'", now, claim.campus(), claim.type());
+    }
+
     private void fail(Claim claim, String code) {
         LocalDateTime now = now();
-        int updated = jdbc.update("UPDATE async_jobs SET status='failed',error=?,claim_token=NULL,updated_at=?"
-                + " WHERE id=? AND status='running' AND claim_token=?", code, now, claim.job(), claim.token());
+        int updated = jdbc.update("UPDATE async_jobs SET status='failed',error=?,result_json=NULL,"
+                        + "claim_token=NULL,updated_at=? WHERE id=? AND status='running' AND claim_token=?",
+                code, now, claim.job(), claim.token());
         if (updated != 1 || !"integration_sync".equals(claim.jobType())) return;
         var systems = jdbc.queryForList("SELECT id FROM external_systems WHERE campus_id=? AND type=?",
                 Long.class, claim.campus(), claim.type());
@@ -108,12 +173,22 @@ public class IntegrationWorker implements Runnable {
                 ids.nextId(), systems.getFirst(), null, safeError(code), now);
     }
 
+    private JsonNode parse(String raw) {
+        try {
+            return raw == null ? mapper.createObjectNode() : mapper.readTree(raw);
+        } catch (RuntimeException malformed) {
+            return mapper.createObjectNode();
+        }
+    }
+
     private static String safeError(String code) {
         return switch (code) {
             case "INTEGRATION_NOT_CONFIGURED" -> "集成尚未配置";
             case "INTEGRATION_CONFIG_INCOMPLETE" -> "集成配置不完整";
+            case "INTEGRATION_CONFIG_CHANGED" -> "集成配置已变更，请重新测试";
             case "INTEGRATION_PROVIDER_UNAVAILABLE" -> "学校系统提供器不可用";
             case "INTEGRATION_TIMEOUT" -> "集成任务超时";
+            case "INTEGRATION_UNREACHABLE" -> "学校系统连接失败";
             default -> "集成任务失败";
         };
     }

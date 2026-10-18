@@ -1,6 +1,6 @@
 # 后端开发状态
 
-> 当前状态（2026-10-18）：A/B/C 四项任务及Task5门禁已通过；D 模块 Task 10+12+13 已完成 44 条新路由并复用 A 的 `GET /jobs/{jobId}`，全工程 320 项测试通过（0失败/0错误/32跳过）且打包成功，见 [D 模块交付记录](d-module-delivery-2026-10-18.md)。真实 MySQL/Redis/存储/AI/WebSocket/学校集成仍未验收；不是完整后端或上线验收通过版。
+> 当前状态（2026-10-18）：A/B/C 四项任务及Task5门禁已通过；D 模块 Task 10+12+13 已完成 44 条新路由并复用 A 的 `GET /jobs/{jobId}`，独立审查缺陷修复后全工程 329 项测试通过（0失败/0错误/32跳过）且打包成功，见 [D 模块交付记录](d-module-delivery-2026-10-18.md)。真实 MySQL/Redis/存储/AI/WebSocket/学校集成仍未验收；不是完整后端或上线验收通过版。
 > 本次整合基线：main `6e87d51` 与 feature/opportunity `6e56062`；独立修复分支 `fix/abc-integration-20261015`。
 > 用户已授权：合并修复后将同一验证版本正常推送到 main 和 feature/opportunity，保留双方历史，不强推。
 
@@ -22,7 +22,7 @@
 | 10 | 会话、WebSocket、未读、订阅与可靠通知 | 11 条路由已实现并通过 H2 HTTP 测试；真实 Redis/WebSocket 未验收，未配置渠道时显式 503 |
 | 11 | 匿名社区、审核、举报、申诉、加密映射与调查 | C 门禁通过；业务仅INSERT映射+两owner过程、独立调查账号/新reauth/审计失败关闭与receipt-only幂等已原生验证；真实运维授权配置仍需部署 |
 | 12 | 首页聚合、我的、成长、信用纠错、隐私与注销 | 23 条新路由已实现并通过 H2 HTTP 测试，复用 A 的 `/jobs/{jobId}`；真实 MySQL/Redis/存储/DeepSeek 未验收 |
-| 13 | 余下管理/提供器、部署、启动、备份与恢复 | 管理/提供器 10 条路由已实现并通过 H2 HTTP 测试；部署、启动、备份与恢复未完成 |
+| 13 | 余下管理/提供器、部署、启动、备份与恢复 | 管理/提供器 10 条路由已实现并通过 H2 HTTP 测试；official 连接测试采用 SSRF 安全探测并绑定配置指纹，同步仍无适配器时显式失败；部署、启动、备份与恢复未完成 |
 | 14 | 全206接口核对、全链路/安全/并发验证、最终审查 | 本次仅已有A/B/C审查修复，非全部206接口验收；Task5组合、最终审查/推送状态见本次交付记录 |
 
 ## 已确认的安全决定
@@ -41,4 +41,4 @@
 
 **2026-10-15（负责人A，Task 5+6）**：合入 origin/main 后全工程 `mvn test` **172 项 / 0 失败 / 0 错误 / 3 跳过**（3 项跳过为显式 opt-in 的真实 Redis/S3/ClamD/MySQL 集成测试，需环境变量开启）。新增 A 模块测试 44 项：OpportunityHttpTest 17 项（28 路由端到端：公开查询/资格异步/收藏提醒/自行提交/管理通知解析复核发布/清单预检/jobs 收据）、SafeUrlReaderTest 6 项（受控地址矩阵与重定向复验）、DeepSeekClientTest 4 项（协议替身）、EligibilityEngineTest 6 项、MaterialPrecheckRulesTest 4 项，另有 17 项中覆盖的并发/幂等/版本冲突用例。JAR 内 V1～V11 齐全。**未核验项**：真实 DeepSeek 付费调用与解析质量、真实 MySQL 上 V10/V11 迁移与最小权限账号实测、TLS 成功路径的密闭网络测试（本机所有地址均为被拒保留段，需带公网 DNS 的受控环境）、管理员 CSRF 的真实浏览器链路。AI 解析在无 DEEPSEEK_API_KEY 时明确失败转人工，无 fake 成功；解析替身仅存在于 src/test。
 
-**2026-10-18（负责人D，Task 10+12+13）**：`feature/messaging` 本地提交 D 模块 44 条新路由，复用 A 的 `GET /jobs/{jobId}`。全工程 `mvn test` **320 项 / 0 失败 / 0 错误 / 32 跳过**，`-DskipTests package` 成功。新增 H2 测试：MessagingHttpTest 5 项、DiscoveryHttpTest 4 项、MeHttpTest 4 项、PrivacyHttpTest 6 项、AdminOpsHttpTest 5 项。**未核验项**：真实 MySQL 上 V20/V21/V22 迁移与回填、真实 Redis 会话/限流/多实例调度、真实 WebSocket 握手、DeepSeek 付费调用、Garage/S3 导出下载、学校集成提供器、管理员浏览器 CSRF/MFA、生产并发与备份恢复。详见 [D 模块交付记录](d-module-delivery-2026-10-18.md)。
+**2026-10-18（负责人D，Task 10+12+13）**：`feature/messaging` 提交 D 模块 44 条新路由，复用 A 的 `GET /jobs/{jobId}`。独立审查缺陷修复后，全工程 `mvn test` **329 项 / 0 失败 / 0 错误 / 32 跳过**，`-DskipTests package` 成功。新增/修复 H2 测试：MessagingHttpTest 8 项、DiscoveryHttpTest 5 项、MeHttpTest 5 项、PrivacyHttpTest 8 项、AdminOpsHttpTest 7 项，CommunityHttpTest 29 项（含消息审核放行/拦截）。**未核验项**：真实 MySQL 上 V20～V24 迁移与回填、真实 Redis 会话/限流/多实例调度、真实 WebSocket 握手、DeepSeek 付费调用、Garage/S3 导出下载、真实学校集成端点与 SECURITY DEFINER 过程授权、管理员浏览器 CSRF/MFA、生产并发与备份恢复。详见 [D 模块交付记录](d-module-delivery-2026-10-18.md)。

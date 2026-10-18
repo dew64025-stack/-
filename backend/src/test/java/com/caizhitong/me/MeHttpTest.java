@@ -127,6 +127,36 @@ class MeHttpTest {
     }
 
     @Test
+    void historyOrdersByRevisitTimeAndPagesWithACompoundCursor() throws Exception {
+        jdbc.update("INSERT INTO browse_history(id,campus_id,user_id,target_type,target_id,title,viewed_at)"
+                + " VALUES(11,1,101,'opportunity',1,'最早',TIMESTAMP '2026-01-01 00:00:00')");
+        jdbc.update("INSERT INTO browse_history(id,campus_id,user_id,target_type,target_id,title,viewed_at)"
+                + " VALUES(12,1,101,'opportunity',2,'中间',TIMESTAMP '2026-01-02 00:00:00')");
+        jdbc.update("INSERT INTO browse_history(id,campus_id,user_id,target_type,target_id,title,viewed_at)"
+                + " VALUES(13,1,101,'opportunity',3,'最新',TIMESTAMP '2026-01-03 00:00:00')");
+
+        JsonNode first = mapper.readTree(mvc.perform(get("/api/v1/me/history").param("limit", "2")
+                        .header("Authorization", student))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("最新"))
+                .andExpect(jsonPath("$.data.items[1].title").value("中间"))
+                .andReturn().getResponse().getContentAsString()).path("data");
+        JsonNode second = mapper.readTree(mvc.perform(get("/api/v1/me/history").param("limit", "2")
+                        .param("cursor", first.path("nextCursor").asString()).header("Authorization", student))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].title").value("最早"))
+                .andReturn().getResponse().getContentAsString()).path("data");
+        assertEquals(false, second.path("hasMore").asBoolean());
+
+        // A revisit is a new recency value; the row must move to the head rather than keep its old id order.
+        jdbc.update("UPDATE browse_history SET viewed_at=TIMESTAMP '2026-02-01 00:00:00' WHERE id=11");
+        mvc.perform(get("/api/v1/me/history").header("Authorization", student))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("最早"));
+    }
+
+    @Test
     void growthRecordsSupportVersionedUpdateAndSoftDelete() throws Exception {
         JsonNode created = mapper.readTree(command("/me/growth-records", student,
                 "{\"type\":\"competition\",\"title\":\"程序设计竞赛\",\"description\":\"校赛\","

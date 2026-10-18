@@ -1,7 +1,10 @@
 package com.caizhitong.privacy;
 
+import com.caizhitong.common.SensitiveDataCrypto;
+import com.caizhitong.community.CommunityService;
 import com.caizhitong.security.SessionKind;
 import com.caizhitong.security.SessionTokenService;
+import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,14 +32,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:privacy_http;MODE=MySQL;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
-@ActiveProfiles("test") @Import(PrivacyHttpTest.Fixtures.class)
-@Sql(scripts = {"/identity-schema.sql", "/community-schema.sql", "/me-schema.sql", "/me-http-schema.sql"},
-        executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
+@ActiveProfiles("test")
+@Import({com.caizhitong.community.H2AnonymousErasure.class, PrivacyHttpTest.Fixtures.class})
+@Sql(scripts = {"/identity-schema.sql", "/community-schema.sql", "/me-schema.sql", "/me-http-schema.sql",
+        "/privacy-constraints.sql"}, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class PrivacyHttpTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
     @Autowired DataRightsWorker worker;
+    @Autowired SensitiveDataCrypto crypto;
     private final JsonMapper mapper = new JsonMapper();
     private String student;
     private String other;
@@ -45,7 +50,7 @@ class PrivacyHttpTest {
     void seed() {
         for (String table : List.of("api_idempotency_records", "admin_audit_logs", "data_requests",
                 "privacy_settings", "browse_history", "borrow_requests", "mutual_aid_posts", "reservations",
-                "work_orders", "campus_configs")) {
+                "work_orders", "campus_configs", "pseudo_identities", "community_comments", "community_posts")) {
             jdbc.update("DELETE FROM " + table);
         }
         jdbc.update("DELETE FROM user_phones");
@@ -89,6 +94,16 @@ class PrivacyHttpTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("revoked"));
         assertEquals("revoked", jdbc.queryForObject("SELECT status FROM authorizations WHERE id=?",
                 String.class, Long.parseLong(id)));
+    }
+
+    @Test
+    void authorizationTypeMustComeFromTheSupportedSet() throws Exception {
+        command("/me/authorizations", student,
+                "{\"type\":\"marketing\",\"scope\":\"*\",\"documentVersion\":\"v1\"}", "auth-unknown")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE type='marketing'",
+                Integer.class));
     }
 
     @Test
@@ -161,12 +176,55 @@ class PrivacyHttpTest {
                 + " VALUES(501,1,102,'借用','published','user',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO borrow_requests(id,post_id,borrower_id,status,created_at,updated_at)"
                 + " VALUES(601,501,101,'confirmed',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        // Hiding the listing must not hide the unfinished borrow from the deletion check.
+        jdbc.update("UPDATE mutual_aid_posts SET deleted_at=CURRENT_TIMESTAMP WHERE id=501");
         jdbc.update("UPDATE data_requests SET cooling_off_until=DATEADD('DAY',-1,CURRENT_TIMESTAMP) WHERE id=?",
                 Long.parseLong(second));
         worker.run();
         assertEquals("rejected", jdbc.queryForObject("SELECT status FROM data_requests WHERE id=?",
                 String.class, Long.parseLong(second)));
         assertEquals("active", jdbc.queryForObject("SELECT status FROM users WHERE id=101", String.class));
+    }
+
+    @Test
+    void deletionAnonymisesCommunityContentAndRemovesBothIdentityForms() throws Exception {
+        jdbc.update("INSERT INTO community_posts(id,campus_id,pseudo_identity_id,author_name,title,content,status,"
+                + "version,created_at,updated_at) VALUES(701,1,801,'匿名','原帖标题','原帖内容','published',0,"
+                + "CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO community_comments(id,post_id,pseudo_identity_id,author_name,content,status,created_at)"
+                + " VALUES(702,701,802,'匿名','本人评论','published',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO community_comments(id,post_id,pseudo_identity_id,author_name,content,status,created_at)"
+                + " VALUES(703,701,803,'另一位匿名','他人评论','published',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO pseudo_identities(id,post_id,user_id,random_name,created_at,comment_id,"
+                + "user_id_encrypted,user_id_search) VALUES(801,701,101,'匿名',CURRENT_TIMESTAMP,NULL,NULL,NULL)");
+        String search = HexFormat.of().formatHex(
+                crypto.searchHash(CommunityService.ANONYMOUS_IDENTITY_DOMAIN, "101"));
+        jdbc.update("INSERT INTO pseudo_identities(id,post_id,user_id,random_name,created_at,comment_id,"
+                + "user_id_encrypted,user_id_search) VALUES(802,701,NULL,'匿名',CURRENT_TIMESTAMP,702,?,?)",
+                crypto.encrypt(CommunityService.ANONYMOUS_IDENTITY_DOMAIN, "101"), search);
+        jdbc.update("INSERT INTO pseudo_identities(id,post_id,user_id,random_name,created_at,comment_id,"
+                + "user_id_encrypted,user_id_search) VALUES(803,701,102,'另一位匿名',CURRENT_TIMESTAMP,703,NULL,NULL)");
+
+        String id = mapper.readTree(command("/me/account-deletion", student, "{\"confirm\":true}", "deletion-anon")
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString())
+                .path("data").path("id").asString();
+        jdbc.update("UPDATE data_requests SET cooling_off_until=DATEADD('DAY',-1,CURRENT_TIMESTAMP) WHERE id=?",
+                Long.parseLong(id));
+        worker.run();
+
+        assertEquals("completed", jdbc.queryForObject("SELECT status FROM data_requests WHERE id=?",
+                String.class, Long.parseLong(id)));
+        assertEquals("disabled", jdbc.queryForObject("SELECT status FROM users WHERE id=101", String.class));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pseudo_identities WHERE id IN (801,802)", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM pseudo_identities WHERE id=803", Integer.class));
+        assertEquals("deleted", jdbc.queryForObject("SELECT status FROM community_posts WHERE id=701", String.class));
+        assertEquals("[已删除]", jdbc.queryForObject("SELECT title FROM community_posts WHERE id=701", String.class));
+        assertEquals("[已删除]", jdbc.queryForObject("SELECT content FROM community_posts WHERE id=701", String.class));
+        assertEquals("deleted", jdbc.queryForObject("SELECT status FROM community_comments WHERE id=702", String.class));
+        assertEquals("[已删除]", jdbc.queryForObject("SELECT content FROM community_comments WHERE id=702", String.class));
+        assertEquals("published", jdbc.queryForObject("SELECT status FROM community_comments WHERE id=703", String.class));
+        assertEquals("他人评论", jdbc.queryForObject("SELECT content FROM community_comments WHERE id=703", String.class));
     }
 
     private String bearer(long user) {

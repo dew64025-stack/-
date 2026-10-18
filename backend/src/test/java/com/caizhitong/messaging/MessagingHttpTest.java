@@ -46,7 +46,8 @@ class MessagingHttpTest {
     void seed() {
         for (String table : List.of("message_send_records", "subscription_authorizations", "notifications", "messages",
                 "conversation_members", "conversations", "blocks", "mutual_aid_posts", "team_members", "teams",
-                "api_idempotency_records", "admin_audit_logs")) {
+                "moderation_tasks", "moderation_rules", "campus_configs", "api_idempotency_records",
+                "admin_audit_logs")) {
             jdbc.update("DELETE FROM " + table);
         }
         jdbc.update("DELETE FROM user_phones");
@@ -64,6 +65,9 @@ class MessagingHttpTest {
         jdbc.update("INSERT INTO users(id,campus_id,status,version,created_at,updated_at)"
                 + " VALUES(201,2,'active',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         studentIdentity(201, 2);
+        jdbc.update("INSERT INTO users(id,campus_id,status,version,created_at,updated_at)"
+                + " VALUES(104,1,'active',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        verifiedPhone(104, 1);
         jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,content,status,source_type,"
                 + "version,created_at,updated_at) VALUES(501,1,101,'secondhand','转让教材','九成新','published','user',0,"
                 + "CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
@@ -157,14 +161,75 @@ class MessagingHttpTest {
                 .andExpect(jsonPath("$.error.code").value("REALTIME_UNAVAILABLE"));
     }
 
+    @Test
+    void subscriptionTemplatesAreLimitedToTheCampusWhitelistAndFailClosed() throws Exception {
+        command("/subscriptions", owner,
+                "{\"templateId\":\"promo_blast\",\"scene\":\"deadline\",\"consentResult\":\"accept\"}", "sub-unknown")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+        jdbc.update("INSERT INTO campus_configs(id,campus_id,config_key,config_value)"
+                + " VALUES(901,1,'messaging.templateWhitelist','[\"custom_alert\"]')");
+        command("/subscriptions", owner,
+                "{\"templateId\":\"deadline_daily\",\"scene\":\"deadline\",\"consentResult\":\"accept\"}", "sub-default-denied")
+                .andExpect(status().isBadRequest());
+        command("/subscriptions", owner,
+                "{\"templateId\":\"custom_alert\",\"scene\":\"deadline\",\"consentResult\":\"accept\"}", "sub-custom")
+                .andExpect(status().isOk());
+        jdbc.update("UPDATE campus_configs SET config_value='not-json' WHERE id=901");
+        command("/subscriptions", owner,
+                "{\"templateId\":\"custom_alert\",\"scene\":\"deadline\",\"consentResult\":\"accept\"}", "sub-malformed")
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void reviewRuleHoldsMessageInModerationInsteadOfDeliveringIt() throws Exception {
+        jdbc.update("INSERT INTO moderation_rules(id,rule_type,pattern,action,enabled,created_at)"
+                + " VALUES(990,'keyword','敏感词','review',TRUE,CURRENT_TIMESTAMP)");
+        String conversation = mapper.readTree(command("/conversations", sender,
+                "{\"contextType\":\"mutual_aid_post\",\"contextId\":\"501\"}", "mod-conv")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
+                .path("data").path("id").asString();
+        command("/conversations/" + conversation + "/messages", sender,
+                "{\"content\":\"这里有一个敏感词\",\"clientMessageId\":\"mod-msg\"}", "mod-send")
+                .andExpect(status().isCreated());
+
+        assertEquals("pending", jdbc.queryForObject("SELECT status FROM messages WHERE client_message_id='mod-msg'",
+                String.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM moderation_tasks WHERE target_type='message'"
+                + " AND status='pending'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT unread_count FROM conversation_members"
+                + " WHERE conversation_id=? AND user_id=101", Integer.class, Long.parseLong(conversation)));
+        mvc.perform(get("/api/v1/conversations/" + conversation + "/messages").header("Authorization", owner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
+    }
+
+    @Test
+    void subscriptionsAndRealtimeTicketsRequireLoginNotStudentVerification() throws Exception {
+        String loginOnly = bearer(104, 1);
+        String id = mapper.readTree(command("/subscriptions", loginOnly,
+                "{\"templateId\":\"deadline_daily\",\"scene\":\"deadline\",\"consentResult\":\"accept\"}", "sub-login")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .path("data").path("id").asString();
+        mvc.perform(delete("/api/v1/subscriptions/" + id).header("Authorization", loginOnly)
+                        .header("Idempotency-Key", "sub-login-revoke"))
+                .andExpect(status().isOk());
+        command("/realtime/tickets", loginOnly, "{}", "rt-login")
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("REALTIME_UNAVAILABLE"));
+    }
+
     private void studentIdentity(long user, long campus) {
+        verifiedPhone(user, campus);
+        jdbc.update("INSERT INTO student_verifications(id,user_id,campus_id,student_id_encrypted,student_id_search,"
+                + "status,version,created_at,updated_at) VALUES(?,?,?,?,?,'verified',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                user + 3000, user, campus, new byte[]{1}, "sv" + user);
+    }
+
+    private void verifiedPhone(long user, long campus) {
         jdbc.update("INSERT INTO user_phones(id,user_id,phone_encrypted,phone_search,verified,created_at)"
                 + " VALUES(?,?,?,?,1,CURRENT_TIMESTAMP)", user + 1000, user, new byte[]{1}, "ph" + user);
         jdbc.update("INSERT INTO authorizations(id,user_id,type,scope,status,version,granted_at,revoked_at,created_at)"
                 + " VALUES(?,?,'phone','*','granted',0,CURRENT_TIMESTAMP,NULL,CURRENT_TIMESTAMP)", user + 2000, user);
-        jdbc.update("INSERT INTO student_verifications(id,user_id,campus_id,student_id_encrypted,student_id_search,"
-                + "status,version,created_at,updated_at) VALUES(?,?,?,?,?,'verified',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-                user + 3000, user, campus, new byte[]{1}, "sv" + user);
     }
 
     private String bearer(long user, long campus) {
