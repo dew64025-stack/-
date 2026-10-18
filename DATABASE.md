@@ -4,7 +4,7 @@
 
 > 逐表列级说明见 [数据字典 DATA_DICTIONARY.md](./DATA_DICTIONARY.md)。
 
-运行时迁移需按版本继续执行至 V19；上述74张指 V1～V6 初始模型，不含后续运行表。V19 新增 team_open_roles/lost_found_events，并给 team_members/team_applications 增加可空 open_role_id。既有成员、申请、失物匹配和证据原样保留；不推断旧岗位或伪造旧确认。旧团队由队长按接口文档11节完成version更新岗位→拒绝无岗位旧pending→重新申请的修复流程。
+运行时迁移需按版本继续执行至 V27；上述74张指 V1～V6 初始模型，不含后续运行表。V19 新增 team_open_roles/lost_found_events，并给 team_members/team_applications 增加可空 open_role_id。既有成员、申请、失物匹配和证据原样保留；不推断旧岗位或伪造旧确认。旧团队由队长按接口文档11节完成version更新岗位→拒绝无岗位旧pending→重新申请的修复流程。
 
 ## 一、连接信息
 
@@ -14,7 +14,7 @@
 | 数据库名 | `caizhitong` |
 | 主机 | `127.0.0.1`（本机）或远程 MySQL IP |
 | 端口 | `3306` |
-| 迁移工具 | Flyway（生产按顺序执行 `sql/V1__` ~ `sql/V19__`） |
+| 迁移工具 | Flyway（生产按顺序执行 `sql/V1__` ~ `sql/V27__`） |
 | 字符集 / 排序 | `utf8mb4` / `utf8mb4_unicode_ci` |
 
 > 生产环境：MySQL 只允许后端服务器来源 IP，禁止对 `0.0.0.0/0` 开放；连接使用内网/VPN 或加密链路。数据库密码、AppSecret、AI 密钥一律进服务端密钥配置，不进源码。
@@ -43,9 +43,11 @@ GRANT CREATE, ALTER, DROP, INDEX, REFERENCES,
   ON caizhitong.* TO 'caizhitong_migrator'@'<ip>';
 ```
 
-### 步骤 3：用迁移账号顺序执行 V1~V25
+### 步骤 3：用迁移账号顺序执行 V1~V27
 
-见第三节迁移与初始化。确认迁移历史到V25后再继续。V23 为数据请求/信用纠错增加生成列唯一键，执行前若已有重复的待处理申请会失败并阻止发布；V24 增加注销时匿名内容的 DEFINER 清除过程；V25 修正该过程的匿名内容定位、为机会补齐官方来源列并回填、回填一对一会话参与者键和审计校园。V25 会 DROP/CREATE `community_privacy_erase`，清除既有 EXECUTE 授权，执行后必须重新授予迁移账号和业务账号。
+见第三节迁移与初始化。确认迁移历史到V27后再继续。V23 为数据请求/信用纠错增加生成列唯一键，执行前若已有重复的待处理申请会失败并阻止发布；V24 增加注销时匿名内容的 DEFINER 清除过程；V25 修正该过程的匿名内容定位、为机会补齐官方来源列并回填、回填一对一会话参与者键和审计校园。V25 会 DROP/CREATE `community_privacy_erase`，清除既有 EXECUTE 授权，执行后必须重新授予迁移账号和业务账号。V26 增加治理处置理由、待处理申诉唯一键和集成熔断字段。V27 保留旧版混合私聊的成员和消息，仅设置 `access_revoked_at` 撤销其访问，避免升级后仍能查看其他咨询者的历史。
+
+升级 V27 前先备份并停止旧服务写入；执行迁移、补齐本节授权后启用新版本，不能只更新 jar。隔离会话不得直接清空 `access_revoked_at` 恢复访问，须先核对历史归属；用户可按参与者对创建新的独立会话。MySQL DDL 不支持整体事务回滚；迁移失败先检查 Flyway 历史与实际 schema，再按恢复流程处理，不能盲目重复 ALTER。回滚至旧代码会失去该隔离检查，必须配套恢复备份或关闭消息入口。
 
 ### 步骤 4：业务账号逐表授权（表已存在）
 
@@ -215,6 +217,8 @@ sql/V22__privacy_authorization_versions.sql 授权文档版本（负责人D）
 sql/V23__active_request_uniqueness.sql  待处理申请/纠错唯一键（负责人D）
 sql/V24__anonymous_privacy_erasure.sql  注销匿名内容清除过程（负责人D）
 sql/V25__review_repairs.sql             第二轮审查修复（来源列、会话参与者键、审计校园、注销过程定位）
+sql/V26__governance_and_integration_repairs.sql 第三轮治理与集成修复
+sql/V27__messaging_legacy_quarantine.sql 旧版混合私聊保留记录并撤销访问
 ```
 
 **演示种子目录** `demo/`（仅演示环境执行，生产 Flyway 不加载）：

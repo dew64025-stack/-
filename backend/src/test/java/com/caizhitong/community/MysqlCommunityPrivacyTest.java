@@ -324,6 +324,77 @@ class MysqlCommunityPrivacyTest {
     private com.caizhitong.team.TeamService teamService(long user){return new com.caizhitong.team.TeamService(jdbc,nativeActor(user),ids,java.time.Clock.systemUTC(),mapper,null,crypto);}
     private com.caizhitong.mutualaid.MutualAidService mutualService(long user){return new com.caizhitong.mutualaid.MutualAidService(jdbc,nativeActor(user),ids,java.time.Clock.systemUTC(),mapper,null,crypto,null,new com.caizhitong.resource.ServiceSources(jdbc));}
 
+    private com.caizhitong.messaging.MessagingService messagingService(long user) {
+        return new com.caizhitong.messaging.MessagingService(jdbc,nativeActor(user),ids,java.time.Clock.systemUTC(),null,crypto,
+                new com.caizhitong.common.ratelimit.RateLimiter((bucket,window)->1L),secrets,
+                new com.caizhitong.mutualaid.MutualAidReadBridge(jdbc),new com.caizhitong.team.TeamReadBridge(jdbc),mapper,"","deadline_daily");
+    }
+
+    private long messagePost() {
+        long post=ids.nextId();
+        jdbc.update("INSERT INTO mutual_aid_posts(id,campus_id,user_id,category,title,status,source_type,created_at,updated_at) VALUES(?,1,101,'secondhand','Synthetic private offer','published','manual',UTC_TIMESTAMP(),UTC_TIMESTAMP())",post);
+        return post;
+    }
+
+    @Test void nativeConversationReplaySeesCompleteWinnerFromOldSnapshot() {
+        long post=messagePost();
+        var outer=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        var service=messagingService(102);
+        outer.executeWithoutResult(tx->{
+            assertEquals("REPEATABLE-READ",jdbc.queryForObject("SELECT @@transaction_isolation",String.class));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM conversations WHERE context_id=?",Integer.class,post));
+            var winner=inner.execute(s->service.createConversation("mutual_aid_post",Long.toString(post)));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM conversations WHERE context_id=?",Integer.class,post));
+            var replay=service.createConversation("mutual_aid_post",Long.toString(post));
+            assertEquals(winner.id(),replay.id());assertEquals(2,replay.memberCount());
+        });
+    }
+
+    @Test void nativeMessageRetrySeesCommittedWinnerFromOldSnapshot() {
+        long post=messagePost();
+        var outer=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        var service=messagingService(102);
+        String conversation=outer.execute(tx->service.createConversation("mutual_aid_post",Long.toString(post))).id();
+        outer.executeWithoutResult(tx->{
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE conversation_id=?",Integer.class,Long.parseLong(conversation)));
+            var winner=inner.execute(s->service.send(conversation,"Synthetic private message","native-retry"));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE conversation_id=?",Integer.class,Long.parseLong(conversation)));
+            assertEquals(winner.id(),service.send(conversation,"Synthetic retry","native-retry").id());
+        });
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE conversation_id=?",Integer.class,Long.parseLong(conversation)));
+        assertEquals(1,jdbc.queryForObject("SELECT unread_count FROM conversation_members WHERE conversation_id=? AND user_id=101",Integer.class,Long.parseLong(conversation)));
+    }
+
+    @Test void nativeReadCursorCountsMessagesCommittedAfterItsOldSnapshot() {
+        long post=messagePost();
+        var outer=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        var inner=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        String conversation=outer.execute(s->messagingService(102).createConversation("mutual_aid_post",Long.toString(post))).id();
+        outer.executeWithoutResult(tx->{
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE conversation_id=?",Integer.class,Long.parseLong(conversation)));
+            String first=inner.execute(s->{
+                String id=messagingService(102).send(conversation,"First message","first").id();
+                messagingService(102).send(conversation,"Second message","second");return id;
+            });
+            assertEquals(1,messagingService(101).read(conversation,first).unreadCount());
+        });
+        assertEquals(1,jdbc.queryForObject("SELECT unread_count FROM conversation_members WHERE conversation_id=? AND user_id=101",Integer.class,Long.parseLong(conversation)));
+    }
+
+    @Autowired com.caizhitong.messaging.ReminderNotificationWorker reminderWorker;
+    @Test void deliveredReminderBatchNeverStarvesLaterReminders() {
+        long user=801003;nativeUser(user);
+        for(int n=0;n<51;n++)jdbc.update("INSERT INTO reminders(id,user_id,target_type,target_id,remind_at,status,created_at) VALUES(?,?,'opportunity',?,'2020-01-01','pending',UTC_TIMESTAMP())",ids.nextId(),user,n+1);
+        for(int n=0;n<3;n++)reminderWorker.run();
+        assertEquals(51,jdbc.queryForObject("SELECT COUNT(*) FROM notifications WHERE user_id=? AND type='deadline'",Integer.class,user));
+        assertEquals(51,jdbc.queryForObject("SELECT COUNT(*) FROM reminders WHERE user_id=? AND status='sent'",Integer.class,user));
+    }
+
     @BeforeEach void seed(){
         if(jdbc.queryForObject("SELECT COUNT(*) FROM campuses WHERE id=1",Integer.class)>0){jdbc.update("UPDATE student_verifications SET status='verified'");return;}
         jdbc.update("INSERT INTO campuses(id,name,code,created_at,updated_at) VALUES(1,'Synthetic C','c-test',UTC_TIMESTAMP(),UTC_TIMESTAMP()),(2,'Synthetic Other','c-other',UTC_TIMESTAMP(),UTC_TIMESTAMP())");

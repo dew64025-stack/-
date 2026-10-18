@@ -44,6 +44,11 @@ public class MessagingService {
     private static final Set<String> CONTEXT_TYPES = Set.of("mutual_aid_post", "borrow_request", "team");
     private static final Set<String> SCENES = Set.of("deadline", "workorder", "reservation", "borrow");
     private static final Duration REALTIME_TTL = Duration.ofSeconds(30);
+    private static final String ACCESSIBLE_CONVERSATION = " AND c.access_revoked_at IS NULL"
+            + " AND (c.context_type IS NULL OR c.context_type<>'team' OR EXISTS (SELECT 1 FROM teams t"
+            + " WHERE t.id=c.context_id AND t.campus_id=c.campus_id AND t.deleted_at IS NULL"
+            + " AND (t.leader_id=m.user_id OR EXISTS (SELECT 1 FROM team_members tm"
+            + " WHERE tm.team_id=t.id AND tm.user_id=m.user_id AND tm.status='member'))))";
 
     private final JdbcTemplate jdbc;
     private final CurrentActor current;
@@ -107,35 +112,23 @@ public class MessagingService {
         String participantKey = "team".equals(type) ? ""
                 : participants.stream().sorted().map(String::valueOf)
                         .collect(java.util.stream.Collectors.joining(":"));
-        var existing = jdbc.queryForList("SELECT id FROM conversations WHERE campus_id=? AND context_type=?"
-                        + " AND context_id=? AND participant_key=?",
-                Long.class, actor.campusId(), type, context, participantKey);
-        if (!existing.isEmpty()) {
-            long conversation = existing.getFirst();
-            ensureMember(conversation, actor.userId());
-            return conversation(actor, conversation);
-        }
-
         long id = ids.nextId();
         LocalDateTime now = now();
         String conversationType = "team".equals(type) ? "team" : participants.size() == 2 ? "direct" : "group";
         String title = resolved.title() == null || resolved.title().isBlank() ? "会话" : resolved.title();
-        try {
-            jdbc.update("INSERT INTO conversations(id,campus_id,type,title,context_type,context_id,participant_key,"
-                            + "created_by,version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,0,?,?)",
-                    id, actor.campusId(), conversationType, title, type, context, participantKey, actor.userId(), now, now);
-        } catch (DuplicateKeyException race) {
-            long conversation = jdbc.queryForObject("SELECT id FROM conversations WHERE campus_id=? AND context_type=?"
-                            + " AND context_id=? AND participant_key=? FOR UPDATE",
-                    Long.class, actor.campusId(), type, context, participantKey);
-            ensureMember(conversation, actor.userId());
-            return conversation(actor, conversation);
-        }
+        // The upsert serializes creators without a missing-row gap lock. All winner reads must
+        // be current reads: authorization may already have established an older RR snapshot.
+        jdbc.update("INSERT INTO conversations(id,campus_id,type,title,context_type,context_id,participant_key,"
+                        + "created_by,version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,0,?,?)"
+                        + " ON DUPLICATE KEY UPDATE id=id",
+                id, actor.campusId(), conversationType, title, type, context, participantKey, actor.userId(), now, now);
+        long conversation = jdbc.queryForObject("SELECT id FROM conversations WHERE campus_id=? AND context_type=?"
+                        + " AND context_id=? AND participant_key=? FOR UPDATE",
+                Long.class, actor.campusId(), type, context, participantKey);
         for (long participant : participants) {
-            jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at) VALUES(?,?,?,0,?)",
-                    ids.nextId(), id, participant, now);
+            ensureMember(conversation, participant);
         }
-        return conversation(actor, id);
+        return conversation(actor, conversation, true);
     }
 
     public MessagingViews.ConversationPage conversations(String cursor, Integer limit) {
@@ -150,10 +143,9 @@ public class MessagingService {
         }
         var found = jdbc.queryForList("SELECT c.id FROM conversations c JOIN conversation_members m ON m.conversation_id=c.id"
                         + " WHERE m.user_id=? AND c.campus_id=? AND c.id<?"
-                        + " AND (c.context_type IS NULL OR c.context_type<>'team' OR EXISTS ("
-                        + " SELECT 1 FROM team_members tm WHERE tm.team_id=c.context_id AND tm.user_id=? AND tm.status='member'))"
+                        + ACCESSIBLE_CONVERSATION
                         + " ORDER BY c.id DESC LIMIT ?",
-                Long.class, actor.userId(), actor.campusId(), before, actor.userId(), size + 1);
+                Long.class, actor.userId(), actor.campusId(), before, size + 1);
         boolean more = found.size() > size;
         var page = found.stream().limit(size).map(id -> conversation(actor, id)).toList();
         String next = more && !page.isEmpty()
@@ -193,10 +185,11 @@ public class MessagingService {
         String clientId = MessagingInputs.text(clientMessageId, 64);
         if (!clientId.matches("[\\x20-\\x7E]{1,64}")) throw MessagingInputs.invalid();
         rates.check("message-send:" + actor.userId(), 120, Duration.ofMinutes(1));
+        jdbc.queryForObject("SELECT id FROM conversations WHERE id=? FOR UPDATE",Long.class,conversation);
 
         var existing = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
                         + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
-                        + " WHERE m.conversation_id=? AND m.sender_id=? AND m.client_message_id=?",
+                        + " WHERE m.conversation_id=? AND m.sender_id=? AND m.client_message_id=? FOR UPDATE",
                 (rs, i) -> message(rs), conversation, actor.userId(), clientId);
         if (!existing.isEmpty()) return existing.getFirst();
 
@@ -239,25 +232,25 @@ public class MessagingService {
         Actor actor = current.require();
         long conversation = MessagingInputs.id(conversationId);
         long lastRead = MessagingInputs.id(lastReadMessageId);
-        // Lock the member row before the first consistent read. A concurrent sender's
-        // unread_count increment serializes behind this lock, so the snapshot used below cannot
-        // miss a committed message while overwriting the counter.
+        requireMember(actor, conversation);
+        // Same parent-first lock order as send; current reads work even after auth opened an RR snapshot.
+        jdbc.queryForObject("SELECT id FROM conversations WHERE id=? FOR UPDATE",Long.class,conversation);
         var rows = jdbc.queryForList("SELECT m.last_read_message_id FROM conversation_members m"
                 + " JOIN conversations c ON c.id=m.conversation_id"
                 + " WHERE m.conversation_id=? AND m.user_id=? AND c.campus_id=? FOR UPDATE",
                 conversation, actor.userId(), actor.campusId());
         if (rows.isEmpty()) throw MessagingInputs.missing();
-        requireMember(actor, conversation);
-        int exists = jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE id=? AND conversation_id=? AND status='sent'",
-                Integer.class, lastRead, conversation);
-        if (exists == 0) throw MessagingInputs.missing();
+        var exists = jdbc.queryForList("SELECT id FROM messages WHERE id=? AND conversation_id=? AND status='sent' FOR UPDATE",
+                Long.class, lastRead, conversation);
+        if (exists.isEmpty()) throw MessagingInputs.missing();
         Object previous = rows.getFirst().get("last_read_message_id");
         long effective = previous == null ? lastRead : Math.max(((Number) previous).longValue(), lastRead);
         LocalDateTime now = now();
+        int unread = countUnread(conversation, actor.userId(), effective);
         jdbc.update("UPDATE conversation_members SET last_read_message_id=?,last_read_at=?,unread_count=?"
                         + " WHERE conversation_id=? AND user_id=?",
-                effective, now, countUnread(conversation, actor.userId(), effective), conversation, actor.userId());
-        return new MessagingViews.ReadResult(countUnread(conversation, actor.userId(), effective));
+                effective, now, unread, conversation, actor.userId());
+        return new MessagingViews.ReadResult(unread);
     }
 
     // ---- notifications ----
@@ -309,9 +302,8 @@ public class MessagingService {
     public int unreadTotal(long userId, long campus) {
         Integer conversations = jdbc.queryForObject("SELECT COALESCE(SUM(m.unread_count),0) FROM conversation_members m"
                 + " JOIN conversations c ON c.id=m.conversation_id WHERE m.user_id=? AND c.campus_id=?"
-                + " AND (c.context_type IS NULL OR c.context_type<>'team' OR EXISTS ("
-                + " SELECT 1 FROM team_members tm WHERE tm.team_id=c.context_id AND tm.user_id=? AND tm.status='member'))",
-                Integer.class, userId, campus, userId);
+                + ACCESSIBLE_CONVERSATION,
+                Integer.class, userId, campus);
         Integer notifications = jdbc.queryForObject("SELECT COUNT(*) FROM notifications"
                 + " WHERE user_id=? AND campus_id=? AND read_at IS NULL", Integer.class, userId, campus);
         return (conversations == null ? 0 : conversations) + (notifications == null ? 0 : notifications);
@@ -429,20 +421,25 @@ public class MessagingService {
     // ---- helpers ----
 
     private MessagingViews.Conversation conversation(Actor actor, long id) {
+        return conversation(actor,id,false);
+    }
+
+    private MessagingViews.Conversation conversation(Actor actor, long id, boolean currentRead) {
+        String lock=currentRead ? " FOR UPDATE" : "";
         var rows = jdbc.query("SELECT c.id,c.type,c.title,c.context_type,c.context_id,c.created_at,c.updated_at,m.unread_count"
                         + " FROM conversations c JOIN conversation_members m ON m.conversation_id=c.id"
-                        + " WHERE c.id=? AND c.campus_id=? AND m.user_id=?",
+                        + " WHERE c.id=? AND c.campus_id=? AND m.user_id=?" + ACCESSIBLE_CONVERSATION + lock,
                 (rs, i) -> new ConversationRow(rs.getLong("id"), rs.getString("type"), rs.getString("title"),
                         rs.getString("context_type"), rs.getObject("context_id") == null ? null : rs.getLong("context_id"),
                         rs.getInt("unread_count"), local(rs, "created_at"), local(rs, "updated_at")),
                 id, actor.campusId(), actor.userId());
         if (rows.isEmpty()) throw MessagingInputs.missing();
         ConversationRow row = rows.getFirst();
-        int memberCount = jdbc.queryForObject("SELECT COUNT(*) FROM conversation_members WHERE conversation_id=?",
-                Integer.class, id);
+        int memberCount = jdbc.queryForList("SELECT id FROM conversation_members WHERE conversation_id=?"+lock,
+                Long.class, id).size();
         var messages = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
                 + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
-                + " WHERE m.conversation_id=? AND m.status='sent' ORDER BY m.id DESC LIMIT 1", (rs, i) -> message(rs), id);
+                + " WHERE m.conversation_id=? AND m.status='sent' ORDER BY m.id DESC LIMIT 1"+lock, (rs, i) -> message(rs), id);
         return new MessagingViews.Conversation(Long.toString(row.id()), row.type(), row.title(),
                 row.contextType() == null ? null : new MessagingViews.ConversationContext(row.contextType(),
                         row.contextId() == null ? null : Long.toString(row.contextId())),
@@ -452,28 +449,17 @@ public class MessagingService {
 
     private void requireMember(Actor actor, long conversation) {
         var rows = jdbc.query("SELECT c.context_type,c.context_id FROM conversations c JOIN conversation_members m"
-                        + " ON m.conversation_id=c.id WHERE c.id=? AND c.campus_id=? AND m.user_id=?",
+                        + " ON m.conversation_id=c.id WHERE c.id=? AND c.campus_id=? AND m.user_id=?"
+                        + ACCESSIBLE_CONVERSATION,
                 (rs, i) -> new Object[]{rs.getString("context_type"), rs.getObject("context_id", Long.class)},
                 conversation, actor.campusId(), actor.userId());
         if (rows.isEmpty()) throw MessagingInputs.missing();
-        // Leaving a team revokes the shared team conversation even though the membership row
-        // predates the leave; check the live team membership instead of trusting the stale row.
-        Object contextType = rows.getFirst()[0];
-        Long contextId = (Long) rows.getFirst()[1];
-        if ("team".equals(contextType) && contextId != null) {
-            Integer member = jdbc.queryForObject("SELECT COUNT(*) FROM team_members WHERE team_id=? AND user_id=?"
-                    + " AND status='member'", Integer.class, contextId, actor.userId());
-            if (member == null || member != 1) throw MessagingInputs.missing();
-        }
     }
 
     private void ensureMember(long conversation, long userId) {
-        int member = jdbc.queryForObject("SELECT COUNT(*) FROM conversation_members WHERE conversation_id=? AND user_id=?",
-                Integer.class, conversation, userId);
-        if (member == 0) {
-            jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at) VALUES(?,?,?,0,?)",
-                    ids.nextId(), conversation, userId, now());
-        }
+        jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at)"
+                        + " VALUES(?,?,?,0,?) ON DUPLICATE KEY UPDATE id=id",
+                ids.nextId(), conversation, userId, now());
     }
 
     private void requireParticipants(long campus, List<Long> participants) {
@@ -547,9 +533,8 @@ public class MessagingService {
     }
 
     private int countUnread(long conversation, long userId, long lastRead) {
-        Integer value = jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE conversation_id=? AND id>?"
-                        + " AND sender_id<>? AND status='sent'", Integer.class, conversation, lastRead, userId);
-        return value == null ? 0 : value;
+        return jdbc.queryForList("SELECT id FROM messages WHERE conversation_id=? AND id>?"
+                        + " AND sender_id<>? AND status='sent' FOR UPDATE", Long.class, conversation, lastRead, userId).size();
     }
 
     private MessagingViews.Notification notificationById(Actor actor, long id) {

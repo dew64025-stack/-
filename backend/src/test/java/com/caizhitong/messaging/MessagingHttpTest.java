@@ -36,6 +36,7 @@ class MessagingHttpTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired SessionTokenService sessions;
+    @Autowired MessagingService messaging;
     private final JsonMapper mapper = new JsonMapper();
     private String owner;
     private String sender;
@@ -138,6 +139,39 @@ class MessagingHttpTest {
                 .andExpect(status().isNotFound());
         command("/conversations", sender, "{\"contextType\":\"private\",\"contextId\":\"501\"}", "msg-type")
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deletedTeamCannotExposeConversationOrMessages() throws Exception {
+        jdbc.update("INSERT INTO teams(id,campus_id,leader_id,title,status,created_at,updated_at) VALUES(601,1,101,'Team','recruiting',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO team_members(id,team_id,user_id,status,created_at) VALUES(701,601,101,'member',CURRENT_TIMESTAMP),(702,601,102,'member',CURRENT_TIMESTAMP)");
+        String conversation=mapper.readTree(command("/conversations",sender,"{\"contextType\":\"team\",\"contextId\":\"601\"}","deleted-team-create")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        jdbc.update("UPDATE teams SET deleted_at=CURRENT_TIMESTAMP WHERE id=601");
+        mvc.perform(get("/api/v1/conversations").header("Authorization",sender))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
+        mvc.perform(get("/api/v1/conversations/"+conversation+"/messages").header("Authorization",sender))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void quarantinedLegacyPrivateConversationCannotBeListedReadOrWritten() throws Exception {
+        jdbc.update("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS access_revoked_at TIMESTAMP");
+        jdbc.update("INSERT INTO conversations(id,campus_id,type,title,context_type,context_id,participant_key,access_revoked_at,created_at,updated_at) VALUES(901,1,'direct','Legacy','mutual_aid_post',501,'',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at) VALUES(902,901,101,1,CURRENT_TIMESTAMP),(903,901,102,1,CURRENT_TIMESTAMP),(904,901,103,1,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,created_at) VALUES(905,901,102,'Private legacy offer','sent',CURRENT_TIMESTAMP)");
+        mvc.perform(get("/api/v1/conversations").header("Authorization",outsider))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
+        mvc.perform(get("/api/v1/conversations/901/messages").header("Authorization",outsider))
+                .andExpect(status().isNotFound());
+        command("/conversations/901/messages",outsider,"{\"content\":\"No access\",\"clientMessageId\":\"legacy\"}","legacy-quarantine-send")
+                .andExpect(status().isNotFound());
+        command("/conversations/901/read",outsider,"{\"lastReadMessageId\":\"905\"}","legacy-quarantine-read")
+                .andExpect(status().isNotFound());
+        assertEquals(0,messaging.unreadTotal(103,1));
+        assertEquals("Private legacy offer",jdbc.queryForObject("SELECT content FROM messages WHERE id=905",String.class));
+        command("/conversations",outsider,"{\"contextType\":\"mutual_aid_post\",\"contextId\":\"501\"}","legacy-fresh-context")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.memberCount").value(2));
     }
 
     @Test
