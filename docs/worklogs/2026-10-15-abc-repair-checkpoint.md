@@ -131,3 +131,7 @@ Task5从 `204c7b8` 干净门禁检查点接续（已备份并远程核验），�
 Task5首切片 `9d202022359d9a1497cbdddc39332274c0bb312d` 已备份并远程核验。代理在最终文档提交前额度中断，用户18:34继续（已过15:29重置）；已恢复同一实施者，完整报告/正式MD草稿/归档删除/两scratch取消跟踪均保留。主控制器独立读取38份11:11:18至11:13:25的XML，确认组合289项、286执行通过、3跳过、0失败/错误，B原生9+C原生18都执行；3跳过为旧文件2/真实文件1。package11:13:51成功，实际JAR SHA256为 `a4f28ac5a292b1211966e26a621880a0fd79fe2b3798b305937383b9a1509b29`，与报告一致。没有遗留Java进程。恢复后fetch仍main6e87d51/feature6e56062，原工作区9871ff7干净。最终提交/独立门禁/全分支审查和发布尚待完成。
 
 最终Task5实施已保存 `b2af0589d8d1dc703779542c817554963c5ad4dc`。主控制器核对测试后生产/测试/迁移/pom差异为空，文档、ignore及唯一CONNECTION.zip删除为后续变化；归档可从Git历史恢复。错误跟踪的两份本任务scratch仅取消跟踪，保留本地及历史，现在无tracked .sdd文件。正式报告为 `docs/backend/abc-review-repairs-2026-10-15.md`，含17项取舍/部署/精确证明。Task5独立审查 `/root/abc_acceptance_review` 正审包 `review-204c7b8..b2af058.diff`，之后还需全分支审查，不能提前发布或称审查完成。
+
+Task5独立门禁已通过（`task-5-review.md`），没有Critical/Important；主控制器读取完整结论，验证脚本环境继承、退出码与密码清理、最小权限矩阵和历史RED/GREEN均已核对。完整检查点 `f1219298febb70f64a3fa8d3919c46e57b7606a9` 已备份并核验。最终全分支审查 `/root/abc_whole_branch_review` 读取原main6e87d51到f121929的43提交包，覆盖全部生产/测试/迁移文档，已报告完整读至EOF；但最终结论前额度中断。磁盘 `final-review.md` 的9110阅读位置落后于代理最后EOF消息，不应重审整个包。
+
+2026-10-18 16:32用户继续，已过16:07重置，恢复同一最终审查者，只完成最后具名风险判断和结论。已确认Important：SafeUrlReader将JDK默认HostnameVerifier直接用于裸SSLSocket，固定JDK21字节码显示该verify恒false，正常可信HTTPS会TLS_HOST失败；需要真实生产默认验证路径的TLS正反回归。借用RR事件读、清单并发回读等仍待最终判定。没有开始修复，没有merge verdict；须取得完整发现清单后一次统一修复/限定复查，再发布。main/feature仍未提前更新，原工作区不变。
