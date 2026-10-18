@@ -4,6 +4,8 @@
 
 **Goal:** Repair confirmed defects in the existing A/B/C backend, integrate main and feature/opportunity, verify the combined result, and fast-forward both remote branches without losing either history.
 
+**Completion checkpoint (2026-10-18):** Tasks 1–5 implementation and individual reviews complete. Final whole-branch findings I1–I5 repaired at `85186e135653ddd709b76ae3adeb3e83b5c24bdb`; the single scoped re-review approved all five with no new blocking findings. Combined proof: 295 total, 292 passed, 3 skipped, 0 failures/errors; package hash and immutable migrations independently checked. Remaining delivery actions are the already-authorized final fetch/ancestry check, ordinary atomic dual-branch push and remote-ref receipt. Historical step checkboxes below describe the original plan, not outstanding implementation. Current proof, all 21 rulings and deployment requirements are in `docs/backend/abc-review-repairs-2026-10-15.md`; recoverable raw evidence and final publish receipt are at `C:/Users/19683/Documents/caizhitong-abc-evidence-20261018-1718/`.
+
 **Architecture:** Retain Java 21, Spring Boot 4.1.1, Maven, JDBC, MySQL, Redis and the current package layout. Repair behavior at its owning service and keep server-authoritative permissions, immutable input evidence, transactional state transitions and minimum database privileges. Do not implement unrelated planned modules or fake unavailable integrations.
 
 **Tech Stack:** Java 21; Spring Boot 4.1.1; Maven; MySQL 8.x/Flyway; Redis; existing S3/ClamD and DeepSeek adapters.

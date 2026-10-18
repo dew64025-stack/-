@@ -1,4 +1,15 @@
-# A/B/C 修复保存检查点（尚未全部完成）
+# A/B/C 修复保存检查点
+
+## 最新状态（2026-10-18，优先于后文历史记录）
+
+- 任务1–5均已完成并通过各自独立审查。最终全分支审查发现的I1–I5已统一修复为 `9d900ae`、`85186e135653ddd709b76ae3adeb3e83b5c24bdb`，唯一限定独立复查已通过：五项全部ADDRESSED、无新增Critical/Important/Minor、零开放阻断项。
+- 最终组合命令 `./backend/run-abc-acceptance.ps1 -Combined -Tests '*'` 于17:04:46成功：295项，292执行通过、3跳过、0失败/错误；B原生MySQL9项与C原生20项均执行。跳过为旧文件2项和真实外部文件1项，不能计作通过。
+- 17:05:45打包成功；JAR SHA256为 `1131575e13e92ac3e967be696b78f5ab8a89cec500014b1be6aae69f35bf7758`。之后没有生产/测试/迁移/pom改动，主控制器再次核对39份XML及实际包散列。
+- 工作分支远程备份已核验为完整 `85186e135653ddd709b76ae3adeb3e83b5c24bdb`。本检查点随最终文档提交保存；其后的发布动作是fetch核对祖先、普通原子推送main与feature/opportunity到同一提交并核验两条远端ref。保留两边历史、不强推；最终发布状态以远端ref和独立回执为准，不能把提交前记录冒充已推送。
+- 原始证据归档路径：`C:/Users/19683/Documents/caizhitong-abc-evidence-20261018-1718/`。核验复制后只清理本任务ignored过程目录，正式报告逐字保留21项Ruling；原工作区、独立工作区和合成验证库均保留。完整审查为final-review.md与final-rereview.md，发布回执为同目录publish-receipt.md。
+- 正式交付证据见 `docs/backend/abc-review-repairs-2026-10-15.md`。M1清单租约锁序及通用附件JSON扫描性能明确延期，21项处理取舍全部保留；真实外部服务、生产压力和恢复未验收。原工作区仍干净且HEAD为 `9871ff7`，用户数据库未动。
+
+以下恢复入口、表格和接续步骤是过程历史；与本节冲突时以本节为准，不得重复实施已完成任务。
 
 ## 恢复入口
 
@@ -135,3 +146,9 @@ Task5首切片 `9d202022359d9a1497cbdddc39332274c0bb312d` 已备份并远程核�
 Task5独立门禁已通过（`task-5-review.md`），没有Critical/Important；主控制器读取完整结论，验证脚本环境继承、退出码与密码清理、最小权限矩阵和历史RED/GREEN均已核对。完整检查点 `f1219298febb70f64a3fa8d3919c46e57b7606a9` 已备份并核验。最终全分支审查 `/root/abc_whole_branch_review` 读取原main6e87d51到f121929的43提交包，覆盖全部生产/测试/迁移文档，已报告完整读至EOF；但最终结论前额度中断。磁盘 `final-review.md` 的9110阅读位置落后于代理最后EOF消息，不应重审整个包。
 
 2026-10-18 16:32用户继续，已过16:07重置，恢复同一最终审查者，只完成最后具名风险判断和结论。已确认Important：SafeUrlReader将JDK默认HostnameVerifier直接用于裸SSLSocket，固定JDK21字节码显示该verify恒false，正常可信HTTPS会TLS_HOST失败；需要真实生产默认验证路径的TLS正反回归。借用RR事件读、清单并发回读等仍待最终判定。没有开始修复，没有merge verdict；须取得完整发现清单后一次统一修复/限定复查，再发布。main/feature仍未提前更新，原工作区不变。
+
+最终全分支审查已保存完整 `final-review.md`，全包1–11742行读至EOF，结论With fixes：5项Important为TLS默认校验、借用RR双人确认、清单并发重复键完整回读、撤回编辑再发布、IPv6 site-local/multicast内网过滤；0 Critical，另有非阻断M1清单租约反向锁序。主控制器已完整读取并确认修复属既有ABC。当前检查点 `9a5665c` 已工作分支备份并核验；新的统一实施者 `/root/abc_final_fix_wave` 按 `final-fix-brief.md` 全部修复5项，尚无已修复声明，报告 `final-fix-report.md`。
+
+18. 保留撤回返回archived契约，授权且版本一致的编辑成功后回draft，再走原独立审核/发布。影响：管理员必须编辑并显式再发布，客户端需识别draft；编辑不会自动公开。
+19. 最终审查M1清单租约锁序优化明确延期，当前事务回滚/fencing和后续轮询可恢复，避免扩大本轮5项修复。影响：租约边界仍可能出现短暂死锁回滚、延迟或重试，不宣称压力/恢复验收。
+20. 精确父对象附件授权保持，通用同校园JSON扫描性能优化待实际数据/explain/压力选择SQL或关联索引。影响：数据量大时通用附件读取仍可能慢且占内存；未获得压力验收。

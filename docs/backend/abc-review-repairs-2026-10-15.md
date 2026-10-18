@@ -2,7 +2,15 @@
 
 ## 2026-10-18 最终审查统一修复波
 
-最终审查确认 I1–I5 五项问题；五项已按真实RED→最小修正通过波及套件、最终B+C组合295项与新包核验。下面原Task5的289项和旧包散列是历史证据，不能代表本波源码。独立限定复查与发布由控制器继续完成，尚未交付发布。
+最终审查确认 I1–I5 五项问题；五项已按真实RED→最小修正通过波及套件、最终B+C组合295项与新包核验。2026-10-18限定独立复查已通过：五项全部ADDRESSED，无新增Critical/Important/Minor，开放阻断项为零。下面原Task5的289项和旧包散列是历史证据，不能代表本波源码。
+
+### 最终复核与发布定位
+
+- 代码验收提交：`85186e135653ddd709b76ae3adeb3e83b5c24bdb`；修复后只有控制器的交付文档更新，不改变已测试的生产/测试/迁移/pom内容。
+- 最终全分支审查完整读取43提交差异，发现五项Important；统一修复后唯一限定复查完整读取1174行至EOF，逐项核对真实RED、最终GREEN和具体调用边界，没有重开无关模块或重复运行套件。
+- I1可信HTTPS/错误域名/不可信证书、I2双参与人旧RR快照、I3不同幂等键并发创建和完整回放、I4撤回编辑再发布、I5连接前IPv6拒绝均已关闭。M1租约锁序、附件查询规模优化继续按Ruling19/20延期，不等同于生产全量验收。
+- 发布采用用户已批准的普通原子双分支推送，不能强推；必须在推送前fetch并确认两个最新远端头都是本提交的祖先。本文随发布提交保存，远程最终提交号以两分支refs及独立发布回执为准，不把推送前记录冒充推送成功。
+- 完整原始过程证据（含最终两份审查、命令日志、差异包和21项Ruling）保存到本机 `C:/Users/19683/Documents/caizhitong-abc-evidence-20261018-1718/`；复制后逐文件SHA256核验，再清理仅本计划的ignored过程目录。发布核验回执也放在该目录，便于断电后恢复；本机证据不含在Git交付中，正式摘要和全部裁定已保存在本报告。
 
 I1：固定已验证 IP 的 TCP 连接，再用原逻辑主机创建 layered SSLSocket；JSSE 标准 HTTPS endpoint identification 同时核对证书链/主机，保留 SNI、绝对握手/读取截止、逐跳 SSRF、传输与解压上限。I5：只允许合格 native global IPv6，保守拒绝 site-local、multicast、非2000::/3、IPv4转换范围、2001::/23特殊段及文档地址，保留普通公网 IPv6。
 
@@ -86,7 +94,7 @@ cwd 与 JDK/Maven 环境同下。2026-10-18 16:46:18，`mvn -B -ntp -f backend/p
 
 更新日期：2026-10-18（Asia/Shanghai）；原Task5完成2026-10-17，其证明在以下历史章节保留。本记录对应隔离分支 `fix/abc-integration-20261015`；原始 main `6e87d5172b9aca6e9885d483be18493ed399a11f`、feature/opportunity `6e560629a7b9f4be2b33860ad90e6b16268aedee`，合并基线 `347adc0`。修复范围是已有 A/B/C 行为；206 条计划接口没有全部实现，未完成模块仍见 [implementation-status.md](implementation-status.md)。
 
-原Task5已完成精确授权原生证明、历史289项B+C组合与旧包核验；之后最终全分支审查发现I1–I5，修复及当前证明见上节。独立限定复查、发布前fetch/integrate与atomic双分支普通推送由控制器完成，此记录不把它们预先标为通过。
+原Task5已完成精确授权原生证明、历史289项B+C组合与旧包核验；之后最终全分支审查发现I1–I5，统一修复与限定独立复查已通过，当前证明见上节。发布前fetch/integrate与atomic双分支普通推送由控制器执行，最终远程状态另行核验。
 
 ## 修复内容与落点
 
@@ -256,7 +264,7 @@ V16–V19首次新增基线依次为：`V16__opportunity_review_repairs.sql: 303
 - Ruling: Legacy teams use explicit captain versioned role repair, reject the old null-role pending application and let the student reapply to a stable role; unknown legacy members consume total recruitment capacity without fabricated role assignments — preserves real membership/application history and avoids a permanently blocked pending uniqueness slot — cost if wrong: captains/applicants must complete a manual repair/reapplication and legacy occupancy can conservatively reduce vacancies.
 - Ruling: Explicitly reject mutual-aid regionId with 400 and document the unsupported filter, rather than pretend exchangeArea text is a modeled region or add an unrelated schema design — the approved Task4 permits explicit rejection and current storage lacks a region relationship — cost if wrong: location filtering remains unavailable until a separately modeled field and migration are approved.
 - Ruling: Compare V1–V15 committed blob bytes against every original branch where each file exists and the merged347adc0 union, not the plan's impossible single-main inventory; report Windows checkout CRLF separately without editing migrations — originalmain lacksV10/V11 and originalfeature lacksV12/V13, so a single-main lookup fails before any migration proof — cost if wrong: future audits must retain both original SHAs and distinguish committed immutable bytes from checkout line-ending conversion, rather than claiming raw working bytes equal Git LF blobs.
-- Ruling18: 保留撤回返回archived契约，授权且版本一致的编辑成功后回draft，再走原独立审核/发布。cost：管理员必须编辑并显式再发布，客户端需识别draft；编辑不会自动公开。
-- Ruling19: 最终审查M1清单租约锁序优化明确延期，当前事务回滚/fencing和后续轮询可恢复，避免扩大本轮5项修复。cost：租约边界仍可能出现短暂死锁回滚、延迟或重试，不宣称压力/恢复验收。
-- Ruling20: 精确父对象附件授权保持，通用同校园JSON扫描性能优化待实际数据/explain/压力选择SQL或关联索引。cost：数据量大时通用附件读取仍可能慢且占内存；未获得压力验收。
-- Ruling21: IPv6 URL导入采用native2000::/3及特殊/转换范围排除的保守支持边界。cost：部分NAT64/6to4/特殊公网IPv6故意不支持，可用现有人工文本/文档导入；不为兼容转换地址放宽内网拒绝。
+- Ruling: Preserve unpublish returning archived, but move an archived opportunity to draft when an authorized version-checked edit succeeds, then require the existing separate publish/review gates — fixes the documented withdraw-before-edit workflow without making an edit immediately public — cost if wrong: administrators must edit and explicitly republish withdrawn opportunities; clients need to recognize the returned draft state instead of assuming archived is permanent.
+- Ruling: Defer finalreviewM1 checklist lease recovery lock-order optimization to a focused subsequent maintenance task — reviewer classifies it nonblocking because InnoDB rollback/fencing and subsequent polling recover, and changing worker lease coordination would enlarge this five-defect fix wave — cost if wrong: lease-boundary contention can still cause transient deadlocks, rollback and delayed/retried work; no load/recovery certification is claimed.
+- Ruling: Retain the reviewed exact-parent attachment authorization and defer its whole-campus JSON-scan optimization until measured data/explain/loads choose SQL or relation indexing — review found no permission expansion or functional error, and an unmeasured schema/JSON rewrite exceeds the narrow repairs — cost if wrong: generic attachment reads remain linear in visible campus content and can become slow or memory-heavy at scale.
+- Ruling: Accept the explicit conservative IPv6 policy for URL imports: only native global-unicast 2000::/3 is eligible, excluding the implemented transition/special/documentation ranges; IPv4 retains its own validation — closes site-local/multicast and encoded-destination ambiguity without a network-dependent routing classifier or new dependency — cost if wrong: some reachable NAT64/6to4 or special-purpose public IPv6 endpoints are intentionally unsupported, so operators may need the existing manual-text/document import path; this is an address policy, not proof of route ownership.
