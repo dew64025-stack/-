@@ -39,9 +39,13 @@ class SessionHttpBoundaryTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS opportunity_eligibility_rules(id BIGINT PRIMARY KEY,opportunity_id BIGINT,field_key VARCHAR(64),operator VARCHAR(16),value_json VARCHAR(1000),severity VARCHAR(16),sort_order INT DEFAULT 0,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS opportunity_material_items(id BIGINT PRIMARY KEY,opportunity_id BIGINT,name VARCHAR(128),description VARCHAR(512),required BOOLEAN DEFAULT TRUE,sort_order INT DEFAULT 0,created_at TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS teams(id BIGINT PRIMARY KEY,opportunity_id BIGINT)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS campus_configs(id BIGINT PRIMARY KEY,campus_id BIGINT,config_key VARCHAR(128),config_value VARCHAR(4000),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS data_requests(id BIGINT PRIMARY KEY,user_id BIGINT,campus_id BIGINT,type VARCHAR(32),status VARCHAR(32) DEFAULT 'pending',requested_at TIMESTAMP,processed_at TIMESTAMP,retention_basis VARCHAR(255),result_json VARCHAR(4000),cancelled_at TIMESTAMP,cooling_off_until TIMESTAMP,export_object_key_encrypted VARBINARY(2048),export_sha256 CHAR(64),failure_reason VARCHAR(512),version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP)");
         jdbc.execute("DELETE FROM opportunities");
         jdbc.execute("DELETE FROM notices");
         jdbc.execute("DELETE FROM teams");
+        jdbc.execute("DELETE FROM campus_configs");
+        jdbc.execute("DELETE FROM data_requests");
     }
     String bearer(long user, SessionKind kind) { return "Bearer " + sessions.issue(user, 1, kind).accessToken(); }
     org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder adminCsrf(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,boolean valid)throws Exception{
@@ -101,8 +105,9 @@ class SessionHttpBoundaryTest {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/me/penalties").header("Authorization", bearer)).andExpect(status().isOk());
         mvc.perform(get("/api/v1/me/dashboard").header("Authorization", bearer)).andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/me/account-deletion").header("Authorization", bearer).header("Idempotency-Key", "delete-key"))
-                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/me/account-deletion").header("Authorization", bearer).header("Idempotency-Key", "delete-key")
+                        .contentType("application/json").content("{\"confirm\":true}"))
+                .andExpect(status().isAccepted());
     }
     @Test void exactCredentialExceptionsDoNotBecomeClientSelectedBypasses() throws Exception {
         mvc.perform(post("/api/v1/auth/wechat/login")).andExpect(status().isBadRequest());
@@ -155,7 +160,6 @@ class SessionHttpBoundaryTest {
     record Output(boolean accepted) {}
     @Service static class ProbeService {
         @BusinessWrite public Output write(Input input) { return new Output(true); }
-        @BusinessWrite(ownRights = true) public Output deleteAccount() { return new Output(true); }
     }
     @RestController static class ProbeController {
         final CurrentActor current; final ProbeService service;
@@ -167,7 +171,6 @@ class SessionHttpBoundaryTest {
         }
         @PostMapping("/api/v1/admin/probe") public ApiResponse<Output> csrfProbe(HttpServletRequest r) { current.requirePermission("content.review"); return ApiResponse.ok(new Output(true), RequestIdFilter.requestId(r)); }
         @PostMapping("/api/v1/me/probe") public ApiResponse<Output> write(@RequestBody Input input, HttpServletRequest r) { return ApiResponse.ok(service.write(input), RequestIdFilter.requestId(r)); }
-        @PostMapping("/api/v1/me/account-deletion") public Output delete() { return service.deleteAccount(); }
     }
     @TestConfiguration static class Fixtures {
         @Bean @Primary ActorLoader testActorLoader() { return (user, campus, kind) -> {

@@ -22,6 +22,16 @@ app:
     scheduling-enabled: false
   opportunity:
     scheduling-enabled: false
+  messaging:
+    scheduling-enabled: false
+  assistant:
+    scheduling-enabled: false
+  data:
+    scheduling-enabled: false
+  privacy:
+    scheduling-enabled: false
+  integrations:
+    scheduling-enabled: false
   identity:
     roster-scheduling-enabled: false
   ids:
