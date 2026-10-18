@@ -61,6 +61,23 @@ management:
     health:
       show-details: never
 app:
+  messaging:
+    scheduling-enabled: ${MESSAGING_SCHEDULING_ENABLED:true}
+    reminder-poll-ms: ${MESSAGING_REMINDER_POLL_MS:60000}
+  realtime:
+    websocket-url: ${REALTIME_WEBSOCKET_URL:}
+  assistant:
+    scheduling-enabled: ${ASSISTANT_SCHEDULING_ENABLED:true}
+    poll-ms: ${ASSISTANT_POLL_MS:5000}
+    web-base-url: ${WEB_BASE_URL:}
+  privacy:
+    scheduling-enabled: ${PRIVACY_SCHEDULING_ENABLED:true}
+    poll-ms: ${PRIVACY_POLL_MS:5000}
+    document-version: ${PRIVACY_DOCUMENT_VERSION:}
+    deletion-cooling-off-days: ${PRIVACY_DELETION_COOLING_OFF_DAYS:7}
+  integrations:
+    scheduling-enabled: ${INTEGRATIONS_SCHEDULING_ENABLED:true}
+    poll-ms: ${INTEGRATIONS_POLL_MS:5000}
   security:
     investigation:
       url: ${INVESTIGATION_DB_URL:}
