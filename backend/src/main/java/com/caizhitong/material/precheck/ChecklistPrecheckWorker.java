@@ -82,7 +82,7 @@ public class ChecklistPrecheckWorker implements Runnable {
         var task = rows.getFirst();
         long owner = ((Number) task.get("user_id")).longValue();
         if (task.get("ai_consent_id") == null || task.get("campus_id") == null
-                || jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type='ai' AND status='granted'", Integer.class, task.get("ai_consent_id"), owner) != 1)
+                || jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type IN ('ai','material_ai') AND status='granted'", Integer.class, task.get("ai_consent_id"), owner) != 1)
             throw new IllegalStateException("consent revoked");
         long campus = ((Number) task.get("campus_id")).longValue();
         String snapshotText = (String) rows.getFirst().get("input_snapshot");

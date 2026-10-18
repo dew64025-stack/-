@@ -155,7 +155,7 @@ public class PrecheckService {
 
     private Long consentId(JsonNode input, Actor actor) {
         long consent = id(com.caizhitong.identity.IdentityInputs.text(input.get("aiConsentId"), 20, false));
-        int granted = jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type='ai' AND status='granted'",
+        int granted = jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type IN ('ai','material_ai') AND status='granted'",
                 Integer.class, consent, actor.userId());
         if (granted != 1) throw new BusinessException(403, "FORBIDDEN", "缺少 AI 处理授权");
         return consent;

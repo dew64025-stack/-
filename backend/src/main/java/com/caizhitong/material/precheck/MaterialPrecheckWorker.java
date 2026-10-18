@@ -76,7 +76,7 @@ public class MaterialPrecheckWorker implements Runnable {
         long campus = ((Number) row.get("campus_id")).longValue();
         long owner = ((Number) row.get("owner_user_id")).longValue();
         long consent = Long.parseLong(payload.path("aiConsentId").asString());
-        if (jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type='ai' AND status='granted'", Integer.class, consent, owner) != 1)
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM authorizations WHERE id=? AND user_id=? AND type IN ('ai','material_ai') AND status='granted'", Integer.class, consent, owner) != 1)
             throw new IllegalStateException("consent revoked");
         var file = VersionPrecheckFiles.metadata(jdbc, versionId, owner, campus);
         if (file == null || ((Number) file.get("file_id")).longValue() != materialId) {
