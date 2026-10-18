@@ -173,8 +173,9 @@ public class MessagingService {
             if (!keys.keySet().equals(Set.of("id"))) throw MessagingInputs.invalid();
             before = MessagingInputs.id(keys.get("id"));
         }
-        var found = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
-                        + " WHERE conversation_id=? AND status='sent' AND id<? ORDER BY id DESC LIMIT ?",
+        var found = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
+                        + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
+                        + " WHERE m.conversation_id=? AND m.status='sent' AND m.id<? ORDER BY m.id DESC LIMIT ?",
                 (rs, i) -> message(rs), conversation, before, size + 1);
         boolean more = found.size() > size;
         var page = found.stream().limit(size).toList();
@@ -193,8 +194,9 @@ public class MessagingService {
         if (!clientId.matches("[\\x20-\\x7E]{1,64}")) throw MessagingInputs.invalid();
         rates.check("message-send:" + actor.userId(), 120, Duration.ofMinutes(1));
 
-        var existing = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
-                        + " WHERE conversation_id=? AND sender_id=? AND client_message_id=?",
+        var existing = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
+                        + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
+                        + " WHERE m.conversation_id=? AND m.sender_id=? AND m.client_message_id=?",
                 (rs, i) -> message(rs), conversation, actor.userId(), clientId);
         if (!existing.isEmpty()) return existing.getFirst();
 
@@ -213,8 +215,9 @@ public class MessagingService {
             jdbc.update("INSERT INTO messages(id,conversation_id,sender_id,content,status,client_message_id,created_at)"
                     + " VALUES(?,?,?,?,?,?,?)", id, conversation, actor.userId(), content, status, clientId, now);
         } catch (DuplicateKeyException race) {
-            var replay = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
-                            + " WHERE conversation_id=? AND sender_id=? AND client_message_id=? FOR UPDATE",
+            var replay = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
+                            + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
+                            + " WHERE m.conversation_id=? AND m.sender_id=? AND m.client_message_id=? FOR UPDATE",
                     (rs, i) -> message(rs), conversation, actor.userId(), clientId);
             if (!replay.isEmpty()) return replay.getFirst();
             throw race;
@@ -226,7 +229,8 @@ public class MessagingService {
         } else {
             distribute(conversation, actor.userId(), now);
         }
-        return new MessagingViews.Message(Long.toString(id), Long.toString(conversation), Long.toString(actor.userId()),
+        return new MessagingViews.Message(Long.toString(id), Long.toString(conversation),
+                new MessagingViews.Sender(Long.toString(actor.userId()), nickname(actor.userId())),
                 content, status, clientId, now.toInstant(ZoneOffset.UTC));
     }
 
@@ -235,13 +239,18 @@ public class MessagingService {
         Actor actor = current.require();
         long conversation = MessagingInputs.id(conversationId);
         long lastRead = MessagingInputs.id(lastReadMessageId);
+        // Lock the member row before the first consistent read. A concurrent sender's
+        // unread_count increment serializes behind this lock, so the snapshot used below cannot
+        // miss a committed message while overwriting the counter.
+        var rows = jdbc.queryForList("SELECT m.last_read_message_id FROM conversation_members m"
+                + " JOIN conversations c ON c.id=m.conversation_id"
+                + " WHERE m.conversation_id=? AND m.user_id=? AND c.campus_id=? FOR UPDATE",
+                conversation, actor.userId(), actor.campusId());
+        if (rows.isEmpty()) throw MessagingInputs.missing();
         requireMember(actor, conversation);
         int exists = jdbc.queryForObject("SELECT COUNT(*) FROM messages WHERE id=? AND conversation_id=? AND status='sent'",
                 Integer.class, lastRead, conversation);
         if (exists == 0) throw MessagingInputs.missing();
-        var rows = jdbc.queryForList("SELECT last_read_message_id FROM conversation_members"
-                + " WHERE conversation_id=? AND user_id=? FOR UPDATE", conversation, actor.userId());
-        if (rows.isEmpty()) throw MessagingInputs.missing();
         Object previous = rows.getFirst().get("last_read_message_id");
         long effective = previous == null ? lastRead : Math.max(((Number) previous).longValue(), lastRead);
         LocalDateTime now = now();
@@ -431,8 +440,9 @@ public class MessagingService {
         ConversationRow row = rows.getFirst();
         int memberCount = jdbc.queryForObject("SELECT COUNT(*) FROM conversation_members WHERE conversation_id=?",
                 Integer.class, id);
-        var messages = jdbc.query("SELECT id,conversation_id,sender_id,content,status,client_message_id,created_at FROM messages"
-                + " WHERE conversation_id=? AND status='sent' ORDER BY id DESC LIMIT 1", (rs, i) -> message(rs), id);
+        var messages = jdbc.query("SELECT m.id,m.conversation_id,m.sender_id,m.content,m.status,m.client_message_id,m.created_at,"
+                + "u.nickname AS sender_nickname FROM messages m LEFT JOIN users u ON u.id=m.sender_id"
+                + " WHERE m.conversation_id=? AND m.status='sent' ORDER BY m.id DESC LIMIT 1", (rs, i) -> message(rs), id);
         return new MessagingViews.Conversation(Long.toString(row.id()), row.type(), row.title(),
                 row.contextType() == null ? null : new MessagingViews.ConversationContext(row.contextType(),
                         row.contextId() == null ? null : Long.toString(row.contextId())),
@@ -552,18 +562,22 @@ public class MessagingService {
 
     private MessagingViews.Notification notification(ResultSet rs) throws SQLException {
         Long targetId = rs.getObject("target_id") == null ? null : rs.getLong("target_id");
-        String targetType = rs.getString("target_type");
         return new MessagingViews.Notification(Long.toString(rs.getLong("id")), rs.getString("type"),
-                rs.getString("title"), rs.getString("content"),
-                targetType == null ? null : new MessagingViews.NotificationTarget(targetType,
-                        targetId == null ? null : Long.toString(targetId)),
+                rs.getString("title"), rs.getString("content"), rs.getString("target_type"),
+                targetId == null ? null : Long.toString(targetId),
                 instant(rs, "read_at"), instant(rs, "created_at"));
     }
 
     private MessagingViews.Message message(ResultSet rs) throws SQLException {
+        String senderId = Long.toString(rs.getLong("sender_id"));
         return new MessagingViews.Message(Long.toString(rs.getLong("id")), Long.toString(rs.getLong("conversation_id")),
-                Long.toString(rs.getLong("sender_id")), rs.getString("content"), rs.getString("status"),
-                rs.getString("client_message_id"), instant(rs, "created_at"));
+                new MessagingViews.Sender(senderId, rs.getString("sender_nickname")), rs.getString("content"),
+                rs.getString("status"), rs.getString("client_message_id"), instant(rs, "created_at"));
+    }
+
+    private String nickname(long userId) {
+        var rows = jdbc.query("SELECT nickname FROM users WHERE id=?", (rs, i) -> rs.getString(1), userId);
+        return rows.isEmpty() ? null : rows.getFirst();
     }
 
     private MessagingViews.Subscription subscription(long id, long userId) {

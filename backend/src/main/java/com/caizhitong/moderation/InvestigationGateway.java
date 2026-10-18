@@ -42,14 +42,19 @@ public class InvestigationGateway {
         requireAvailable();
         try {
             return transaction.execute(status->{
+                // Join through the content row's own pseudo_identity_id so both V15-era mappings
+                // (post_id/comment_id) and the current mapping layouts resolve to the same identity.
                 String sql=switch(type){
-                    case "community_post"->"SELECT i.user_id_encrypted FROM pseudo_identities i JOIN community_posts p ON p.id=i.post_id WHERE p.campus_id=? AND p.id=? FOR SHARE";
-                    case "community_comment"->"SELECT i.user_id_encrypted FROM pseudo_identities i JOIN community_comments c ON c.id=i.comment_id JOIN community_posts p ON p.id=c.post_id WHERE p.campus_id=? AND c.id=? FOR SHARE";
+                    case "community_post"->"SELECT i.user_id_encrypted,i.user_id FROM pseudo_identities i JOIN community_posts p ON p.pseudo_identity_id=i.id WHERE p.campus_id=? AND p.id=? FOR SHARE";
+                    case "community_comment"->"SELECT i.user_id_encrypted,i.user_id FROM pseudo_identities i JOIN community_comments c ON c.pseudo_identity_id=i.id JOIN community_posts p ON p.id=c.post_id WHERE p.campus_id=? AND c.id=? FOR SHARE";
                     default->throw new BusinessException(400,"VALIDATION_FAILED","请检查填写的信息");
                 };
-                var matches=jdbc.queryForList(sql,byte[].class,actor.campusId(),target);
+                var matches=jdbc.query(sql,(rs,i)->new Object[]{rs.getBytes(1),rs.getObject(2,Long.class)},actor.campusId(),target);
                 if(matches.size()!=1)throw new BusinessException(404,"NOT_FOUND","未找到请求的资源");
-                long user=Long.parseLong(crypto.decrypt("anonymous-identity",matches.getFirst()));
+                Object[] identity=matches.getFirst();
+                long user=identity[0]==null
+                        ? ((Number)identity[1]).longValue()
+                        : Long.parseLong(crypto.decrypt("anonymous-identity",(byte[])identity[0]));
                 Map<String,Object> receipt=new LinkedHashMap<>();receipt.put("investigationId",investigationId);receipt.put("campusId",Long.toString(actor.campusId()));if(report!=null)receipt.put("reportId",Long.toString(report));
                 jdbc.update("INSERT INTO security_investigations(id,investigator_id,reason,target_user_id,target_type,target_id,result_json,created_at) VALUES(?,?,?,?,?,?,?,?)",
                     ids.nextId(),actor.userId(),reason,user,type,target,mapper.writeValueAsString(receipt),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));

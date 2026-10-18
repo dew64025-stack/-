@@ -167,6 +167,13 @@ public class DataRightsService {
     @BusinessWrite(ownRights = true)
     public PrivacyViews.DataRequest exportData() {
         Actor actor = current.requireAuthenticatedIdentity();
+        // Lock the account row before inserting: account deletion takes this lock first, so an
+        // export authorised just before deletion cannot be inserted after deletion completes.
+        var account = jdbc.queryForList("SELECT deleted_at FROM users WHERE id=? FOR UPDATE",
+                actor.userId());
+        if (account.isEmpty() || account.getFirst().get("deleted_at") != null) {
+            throw new BusinessException(409, "STATE_CONFLICT", "账号已注销，无法申请数据导出");
+        }
         if (jdbc.queryForObject("SELECT COUNT(*) FROM data_requests WHERE user_id=? AND type='export'"
                         + " AND status IN ('pending','processing')", Integer.class, actor.userId()) > 0) {
             throw new BusinessException(409, "STATE_CONFLICT", "已有正在处理的数据导出申请");

@@ -13,9 +13,9 @@ CREATE TABLE lost_found_events(id BIGINT PRIMARY KEY,match_id BIGINT,actor_id BI
 CREATE TABLE community_posts(id BIGINT PRIMARY KEY,campus_id BIGINT,pseudo_identity_id BIGINT,author_name VARCHAR(64),title VARCHAR(256),content VARCHAR(4000),status VARCHAR(32),is_high_risk BOOLEAN DEFAULT FALSE,version INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,deleted_at TIMESTAMP);
 CREATE TABLE community_comments(id BIGINT PRIMARY KEY,post_id BIGINT,pseudo_identity_id BIGINT,author_name VARCHAR(64),content VARCHAR(2048),status VARCHAR(32),created_at TIMESTAMP);
 CREATE TABLE pseudo_identities(id BIGINT PRIMARY KEY,post_id BIGINT,user_id BIGINT,random_name VARCHAR(64),created_at TIMESTAMP,comment_id BIGINT,user_id_encrypted VARBINARY(2048),user_id_search CHAR(64));
-CREATE TABLE reports(id BIGINT PRIMARY KEY,campus_id BIGINT,reporter_id BIGINT,target_type VARCHAR(32),target_id BIGINT,reason VARCHAR(512),status VARCHAR(32),created_at TIMESTAMP,updated_at TIMESTAMP);
+CREATE TABLE reports(id BIGINT PRIMARY KEY,campus_id BIGINT,reporter_id BIGINT,target_type VARCHAR(32),target_id BIGINT,reason VARCHAR(512),status VARCHAR(32),resolution VARCHAR(512),resolution_action VARCHAR(32),created_at TIMESTAMP,updated_at TIMESTAMP);
 CREATE TABLE penalties(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_type VARCHAR(32),reason VARCHAR(512),expires_at TIMESTAMP,status VARCHAR(32),created_by BIGINT,created_at TIMESTAMP);
-CREATE TABLE appeals(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_id BIGINT,reason VARCHAR(512),status VARCHAR(32),reviewed_by BIGINT,reviewed_at TIMESTAMP,created_at TIMESTAMP);
+CREATE TABLE appeals(id BIGINT PRIMARY KEY,user_id BIGINT,penalty_id BIGINT,reason VARCHAR(512),status VARCHAR(32),decision_reason VARCHAR(512),reviewed_by BIGINT,reviewed_at TIMESTAMP,created_at TIMESTAMP);
 CREATE TABLE moderation_tasks(id BIGINT PRIMARY KEY,campus_id BIGINT,target_type VARCHAR(32),target_id BIGINT,status VARCHAR(32),assigned_to BIGINT,result VARCHAR(32),created_at TIMESTAMP,updated_at TIMESTAMP);
 CREATE TABLE moderation_rules(id BIGINT PRIMARY KEY,rule_type VARCHAR(32),pattern VARCHAR(1024),action VARCHAR(32),enabled BOOLEAN DEFAULT TRUE,created_at TIMESTAMP);
 CREATE TABLE credit_events(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,event_type VARCHAR(32),reason VARCHAR(512),points INT DEFAULT 0,related_type VARCHAR(32),related_id BIGINT,created_at TIMESTAMP);
@@ -24,3 +24,5 @@ CREATE TABLE blocks(id BIGINT PRIMARY KEY,blocker_id BIGINT,target_type VARCHAR(
 CREATE TABLE security_investigations(id BIGINT PRIMARY KEY,investigator_id BIGINT,reason VARCHAR(512),target_user_id BIGINT,target_type VARCHAR(32),target_id BIGINT,result_json VARCHAR(4000),created_at TIMESTAMP);
 ALTER TABLE credit_disputes ADD COLUMN IF NOT EXISTS pending_event_id BIGINT GENERATED ALWAYS AS (CASE WHEN status='pending' THEN credit_event_id ELSE NULL END);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_disputes_pending_event ON credit_disputes(pending_event_id);
+ALTER TABLE appeals ADD COLUMN IF NOT EXISTS pending_penalty_user VARCHAR(80) GENERATED ALWAYS AS (CASE WHEN status='pending' AND penalty_id IS NOT NULL THEN CONCAT(penalty_id, ':', user_id) ELSE NULL END);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_appeals_pending_penalty ON appeals(pending_penalty_user);

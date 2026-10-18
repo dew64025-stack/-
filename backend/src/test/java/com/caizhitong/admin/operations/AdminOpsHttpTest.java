@@ -274,6 +274,49 @@ class AdminOpsHttpTest {
     }
 
     @Test
+    void transientIntegrationFailuresRetryWithBackoffAndOpenACircuit() throws Exception {
+        adminPut("/admin/integrations/notice",
+                "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/unreachable\","
+                        + "\"secretRef\":\"secrets/notice\",\"schoolAuthorized\":true},"
+                        + "\"version\":0,\"reason\":\"配置通知系统\"}", "retry-notice-create")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("inactive"));
+        adminPost("/admin/integrations/notice/test", "{}", "retry-test-1").andExpect(status().isAccepted());
+        worker.run();
+        assertEquals("pending", jdbc.queryForObject("SELECT status FROM async_jobs WHERE job_type='integration_test'", String.class));
+        assertEquals("INTEGRATION_UNREACHABLE", jdbc.queryForObject("SELECT error FROM async_jobs WHERE job_type='integration_test'", String.class));
+        assertEquals(1, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+
+        jdbc.update("UPDATE async_jobs SET next_retry_at=NULL WHERE job_type='integration_test' AND status='pending'");
+        worker.run();
+        assertEquals(2, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+        jdbc.update("UPDATE async_jobs SET next_retry_at=NULL WHERE job_type='integration_test' AND status='pending'");
+        worker.run();
+        assertEquals("failed", jdbc.queryForObject("SELECT status FROM async_jobs WHERE job_type='integration_test'", String.class));
+        assertEquals("INTEGRATION_UNREACHABLE", jdbc.queryForObject("SELECT error FROM async_jobs WHERE job_type='integration_test'", String.class));
+        assertEquals(3, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+        assertFalse(jdbc.queryForObject("SELECT circuit_open_until IS NULL FROM external_systems WHERE campus_id=1 AND type='notice'", Boolean.class));
+
+        adminPost("/admin/integrations/notice/test", "{}", "retry-test-2").andExpect(status().isAccepted());
+        worker.run();
+        assertEquals("INTEGRATION_CIRCUIT_OPEN", jdbc.queryForObject("SELECT error FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_test')", String.class));
+        assertEquals(4, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+
+        adminPut("/admin/integrations/notice",
+                "{\"provider\":\"official\",\"config\":{\"endpoint\":\"https://school.example.edu/hooks/notice\","
+                        + "\"secretRef\":\"secrets/notice\",\"schoolAuthorized\":true},"
+                        + "\"version\":1,\"reason\":\"更换地址\"}", "retry-notice-fixed")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("inactive"));
+        assertEquals(0, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+        assertEquals(true, jdbc.queryForObject("SELECT circuit_open_until IS NULL FROM external_systems WHERE campus_id=1 AND type='notice'", Boolean.class));
+        adminPost("/admin/integrations/notice/test", "{}", "retry-test-3").andExpect(status().isAccepted());
+        worker.run();
+        assertEquals("succeeded", jdbc.queryForObject("SELECT status FROM async_jobs WHERE id=("
+                + "SELECT MAX(id) FROM async_jobs WHERE job_type='integration_test')", String.class));
+        assertEquals(0, jdbc.queryForObject("SELECT failure_count FROM external_systems WHERE campus_id=1 AND type='notice'", Integer.class));
+    }
+
+    @Test
     void officialProviderActivatesOnlyAfterAMatchingConnectionTest() throws Exception {
         String config = "{\"endpoint\":\"https://school.example.edu/library\",\"secretRef\":\"secrets/library\","
                 + "\"schoolAuthorized\":true}";

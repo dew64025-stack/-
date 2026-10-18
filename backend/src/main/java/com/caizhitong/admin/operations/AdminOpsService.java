@@ -241,8 +241,11 @@ public class AdminOpsService {
             Object[] row = existing.getFirst();
             if (((Number) row[2]).intValue() != version) throw conflict();
             system = ((Number) row[0]).longValue();
-            jdbc.update("UPDATE external_systems SET provider=?,config_json=?,status=?,version=version+1,updated_at=?"
-                    + " WHERE id=?", provider, json, status, now, system);
+            // A changed configuration is a new target: clear the failure streak and circuit so the
+            // next connection test is not short-circuited by failures of the previous endpoint.
+            jdbc.update("UPDATE external_systems SET provider=?,config_json=?,status=?,version=version+1,"
+                    + "failure_count=0,circuit_open_until=NULL,updated_at=? WHERE id=?",
+                    provider, json, status, now, system);
             nextVersion = version + 1;
         }
         audit(actor, actor.campusId(), "integration.update", "external_system", system, reason,
@@ -346,7 +349,7 @@ public class AdminOpsService {
         LocalDateTime now = now();
         String json = mapper.writeValueAsString(payload);
         jdbc.update("INSERT INTO async_jobs(id,job_type,payload_json,status,campus_id,owner_user_id,access_domain,"
-                        + "retry_count,max_retries,created_at,updated_at) VALUES(?,?,?,'pending',?,?,'admin',0,1,?,?)",
+                        + "retry_count,max_retries,created_at,updated_at) VALUES(?,?,?,'pending',?,?,'admin',0,3,?,?)",
                 job, jobType, json, actor.campusId(), actor.userId(), now, now);
         audit(actor, actor.campusId(), "integration." + ("integration_test".equals(jobType) ? "test" : "sync"),
                 "async_job", job, null, json);

@@ -73,7 +73,7 @@ H2、模拟微信和内存Redis测试只证明隔离测试范围。真实微信�
 
 ## D 模块新增依赖（2026-10-18）
 
-- 启动前执行 V20～V25；V20 遇到重复订阅记录会显式失败，V23 遇到重复待处理数据请求/信用纠错也会显式失败，需要先人工核对，不自动删除数据。V24 创建、V25 重建的 `community_privacy_erase` 由迁移账号创建/重建；V25 的 DROP/CREATE 会清除既有授权，执行后必须按 [DATABASE.md](../../DATABASE.md) 重新授予迁移账号和业务账号 EXECUTE，否则注销会显式失败。业务账号仍只有 `pseudo_identities` 的 INSERT 权限。V25 还会为 opportunities 增加官方来源列并从 notices 回填、为一对一会话回填参与者键、为审计日志回填校园。
+- 启动前执行 V20～V26；V20 遇到重复订阅记录会显式失败，V23 遇到重复待处理数据请求/信用纠错也会显式失败，需要先人工核对，不自动删除数据。V26 为 appeals 增加待处理处罚生成列唯一键，历史并发重复申诉会阻止迁移，需先人工核对。V24 创建、V25 重建的 `community_privacy_erase` 由迁移账号创建/重建；V25 的 DROP/CREATE 会清除既有授权，执行后必须按 [DATABASE.md](../../DATABASE.md) 重新授予迁移账号和业务账号 EXECUTE，否则注销会显式失败。业务账号仍只有 `pseudo_identities` 的 INSERT 权限；安全调查账号需 `community_posts`/`community_comments` 的 `pseudo_identity_id` 列权限。V25 还会为 opportunities 增加官方来源列并从 notices 回填、为一对一会话回填参与者键、为审计日志回填校园；V26 为举报/申诉增加处置理由列，为外部系统增加失败计数与熔断列。
 - 配置 `REALTIME_WEBSOCKET_URL` 后实时凭证才可用；未配置时接口返回 `REALTIME_UNAVAILABLE`。
 - AI 助手需要真实 `DEEPSEEK_API_KEY`；缺失或调用失败时任务记录失败原因，不生成假答案。
 - 数据导出写入既有对象存储；需验证签名下载、桶隔离和对象过期策略。

@@ -66,7 +66,12 @@ public class GovernanceService {
         if(jdbc.queryForObject("SELECT COUNT(*) FROM penalties p JOIN users u ON u.id=p.user_id WHERE p.id=? AND p.user_id=? AND u.campus_id=?",Integer.class,penaltyId,actor.userId(),actor.campusId())!=1)throw missing();
         if(jdbc.queryForObject("SELECT COUNT(*) FROM appeals WHERE penalty_id=? AND user_id=? AND status='pending'",Integer.class,penaltyId,actor.userId())>0)throw conflict();
         long id=ids.nextId();LocalDateTime now=now();
-        jdbc.update("INSERT INTO appeals(id,user_id,penalty_id,reason,status,created_at) VALUES(?,?,?,?,'pending',?)",id,actor.userId(),penaltyId,text(input.reason(),512,false),now);
+        try {
+            jdbc.update("INSERT INTO appeals(id,user_id,penalty_id,reason,status,created_at) VALUES(?,?,?,?,'pending',?)",
+                    id,actor.userId(),penaltyId,text(input.reason(),512,false),now);
+        } catch (org.springframework.dao.DuplicateKeyException concurrent) {
+            throw conflict();
+        }
         return appeal(id);
     }
 

@@ -55,7 +55,10 @@ public class AdminGovernanceService {
         var rows=jdbc.queryForList("SELECT status FROM reports WHERE id=? AND campus_id=? FOR UPDATE",id,actor.campusId());
         if(rows.isEmpty())throw missing();
         if(!rows.getFirst().get("status").equals("pending"))throw conflict();
-        jdbc.update("UPDATE reports SET status=?,updated_at=? WHERE id=?",decision.equals("resolve")?"resolved":"dismissed",now(),id);
+        String reason=text(input.reason(),512,false);
+        String action=input.action()==null||input.action().isNull()?null:text(input.action(),32,true);
+        jdbc.update("UPDATE reports SET status=?,resolution=?,resolution_action=?,updated_at=? WHERE id=?",
+                decision.equals("resolve")?"resolved":"dismissed",reason,action,now(),id);
         return report(id);
     }
 
@@ -65,7 +68,7 @@ public class AdminGovernanceService {
         if(jdbc.queryForList("SELECT id FROM users WHERE id=? AND campus_id=? AND deleted_at IS NULL FOR UPDATE",Long.class,userId,actor.campusId()).isEmpty())throw missing();
         if(input.relatedReportId()!=null&&!input.relatedReportId().isNull()&&jdbc.queryForObject("SELECT COUNT(*) FROM reports WHERE id=? AND campus_id=?",Integer.class,IdentityInputs.id(input.relatedReportId()),actor.campusId())!=1)throw missing();
         long id=ids.nextId();LocalDateTime now=now();
-        Instant expires=input.expiresAt()==null||input.expiresAt().isNull()?null:Instant.parse(text(input.expiresAt(),40,false));
+        Instant expires=com.caizhitong.opportunity.OpportunityInputs.optionalRfc3339(input.expiresAt());
         jdbc.update("INSERT INTO penalties(id,user_id,penalty_type,reason,expires_at,status,created_by,created_at) VALUES(?,?,?,?,?,'active',?,?)",
                 id,userId,text(input.type(),32,false),text(input.reason(),512,false),expires==null?null:LocalDateTime.ofInstant(expires,ZoneOffset.UTC),actor.userId(),now);
         audit(actor,"penalty.create","penalty",id,text(input.reason(),512,false));
@@ -89,8 +92,10 @@ public class AdminGovernanceService {
             Object pid=rows.getFirst().get("penalty_id");
             if(pid!=null)jdbc.update("UPDATE penalties SET status='lifted' WHERE id=?",((Number)pid).longValue());
         }
-        jdbc.update("UPDATE appeals SET status=?,reviewed_by=?,reviewed_at=? WHERE id=?",decision.equals("approve")?"approved":"rejected",actor.userId(),now(),id);
-        audit(actor,"appeal.decision","appeal",id,text(input.reason(),512,false));
+        String reason=text(input.reason(),512,false);
+        jdbc.update("UPDATE appeals SET status=?,decision_reason=?,reviewed_by=?,reviewed_at=? WHERE id=?",
+                decision.equals("approve")?"approved":"rejected",reason,actor.userId(),now(),id);
+        audit(actor,"appeal.decision","appeal",id,reason);
         return appeal(id);
     }
 
@@ -218,10 +223,18 @@ public class AdminGovernanceService {
                 + " AND (last_read_message_id IS NULL OR last_read_message_id<?)",conversation,sender,message);
     }
     private void audit(Actor actor,String action,String type,long target,String reason){jdbc.update("INSERT INTO admin_audit_logs(id,operator_id,campus_id,action,target_type,target_id,reason,detail_json,created_at) VALUES(?,?,?,?,?,?,?,'{}',?)",ids.nextId(),actor.userId(),actor.campusId(),action,type,target,reason,now());}
-    private GovernanceViews.ModerationTask moderationTask(long id){var rows=jdbc.query("SELECT t.id,t.target_type,t.target_id,t.status,t.result,m.content,t.created_at FROM moderation_tasks t LEFT JOIN messages m ON t.target_type='message' AND m.id=t.target_id WHERE t.id=?",(rs,i)->new GovernanceViews.ModerationTask(Long.toString(rs.getLong("id")),rs.getString("target_type"),Long.toString(rs.getLong("target_id")),rs.getString("status"),rs.getString("result"),rs.getString("content"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
-    private GovernanceViews.Report report(long id){var rows=jdbc.query("SELECT id,target_type,target_id,reason,status,created_at,updated_at FROM reports WHERE id=?",(rs,i)->new GovernanceViews.Report(Long.toString(rs.getLong("id")),rs.getString("target_type"),Long.toString(rs.getLong("target_id")),rs.getString("reason"),rs.getString("status"),null,rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private GovernanceViews.ModerationTask moderationTask(long id){var rows=jdbc.query("SELECT t.id,t.target_type,t.target_id,t.status,t.result,"
+            + "CASE t.target_type WHEN 'message' THEN m.content WHEN 'community_post' THEN cp.content"
+            + " WHEN 'community_comment' THEN cc.content WHEN 'mutual_aid_post' THEN mp.content END AS content,"
+            + "t.created_at FROM moderation_tasks t"
+            + " LEFT JOIN messages m ON t.target_type='message' AND m.id=t.target_id"
+            + " LEFT JOIN community_posts cp ON t.target_type='community_post' AND cp.id=t.target_id"
+            + " LEFT JOIN community_comments cc ON t.target_type='community_comment' AND cc.id=t.target_id"
+            + " LEFT JOIN mutual_aid_posts mp ON t.target_type='mutual_aid_post' AND mp.id=t.target_id WHERE t.id=?",
+            (rs,i)->new GovernanceViews.ModerationTask(Long.toString(rs.getLong("id")),rs.getString("target_type"),Long.toString(rs.getLong("target_id")),rs.getString("status"),rs.getString("result"),rs.getString("content"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private GovernanceViews.Report report(long id){var rows=jdbc.query("SELECT id,target_type,target_id,reason,status,resolution,created_at,updated_at FROM reports WHERE id=?",(rs,i)->new GovernanceViews.Report(Long.toString(rs.getLong("id")),rs.getString("target_type"),Long.toString(rs.getLong("target_id")),rs.getString("reason"),rs.getString("status"),rs.getString("resolution"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getObject("updated_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private GovernanceViews.Penalty penalty(long id){var rows=jdbc.query("SELECT id,penalty_type,reason,status,expires_at FROM penalties WHERE id=?",(rs,i)->new GovernanceViews.Penalty(Long.toString(rs.getLong("id")),rs.getString("penalty_type"),rs.getString("reason"),rs.getString("status"),rs.getObject("expires_at",LocalDateTime.class)==null?null:rs.getObject("expires_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
-    private GovernanceViews.Appeal appeal(long id){var rows=jdbc.query("SELECT id,penalty_id,reason,status,reviewed_at,created_at FROM appeals WHERE id=?",(rs,i)->new GovernanceViews.Appeal(Long.toString(rs.getLong("id")),rs.getLong("penalty_id")==0?null:Long.toString(rs.getLong("penalty_id")),rs.getString("reason"),rs.getString("status"),rs.getObject("reviewed_at",LocalDateTime.class)==null?null:rs.getObject("reviewed_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),null,rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
+    private GovernanceViews.Appeal appeal(long id){var rows=jdbc.query("SELECT id,penalty_id,reason,status,reviewed_at,decision_reason,created_at FROM appeals WHERE id=?",(rs,i)->new GovernanceViews.Appeal(Long.toString(rs.getLong("id")),rs.getLong("penalty_id")==0?null:Long.toString(rs.getLong("penalty_id")),rs.getString("reason"),rs.getString("status"),rs.getObject("reviewed_at",LocalDateTime.class)==null?null:rs.getObject("reviewed_at",LocalDateTime.class).toInstant(ZoneOffset.UTC),rs.getString("decision_reason"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private GovernanceViews.CreditDispute creditDispute(long id){var rows=jdbc.query("SELECT id,user_id,credit_event_id,reason,status,created_at FROM credit_disputes WHERE id=?",(rs,i)->new GovernanceViews.CreditDispute(Long.toString(rs.getLong("id")),Long.toString(rs.getLong("user_id")),Long.toString(rs.getLong("credit_event_id")),rs.getString("reason"),rs.getString("status"),rs.getObject("created_at",LocalDateTime.class).toInstant(ZoneOffset.UTC)),id);if(rows.isEmpty())throw missing();return rows.getFirst();}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}
     private BusinessException missing(){return new BusinessException(404,"NOT_FOUND","未找到请求的资源");}

@@ -150,7 +150,13 @@ public class DataRightsWorker implements Runnable {
     private void completeDeletion(Claim claim) {
         LocalDateTime now = now();
         long user = claim.user();
-        // Lock every export request first. An export completing concurrently must either finish
+        // Take the account lock first, matching exportData's lock order. This prevents a new
+        // export request from being inserted while deletion is cancelling and clearing exports.
+        var account = jdbc.queryForList("SELECT deleted_at FROM users WHERE id=? FOR UPDATE", user);
+        if (account.isEmpty() || account.getFirst().get("deleted_at") != null) {
+            throw new IllegalStateException("data deletion account state was lost");
+        }
+        // Lock every export request. An export completing concurrently must either finish
         // before this snapshot (its key is collected below) or fail after the cancellation update;
         // it can never write an uncollected key between the read and the clearing update.
         List<byte[]> encryptedExports = jdbc.query("SELECT export_object_key_encrypted FROM data_requests"

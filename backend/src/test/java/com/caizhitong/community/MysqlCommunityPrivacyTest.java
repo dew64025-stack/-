@@ -47,9 +47,9 @@ class MysqlCommunityPrivacyTest {
             // Apply the documented app grants verbatim with only isolated schema/account substitution.
             for(String line:Files.readAllLines(Path.of("..","DATABASE.md")))if(line.startsWith("GRANT ")&&line.contains("TO 'caizhitong_app'@'<ip>';"))
                 statement.execute(line.replace("caizhitong.",schema+".").replace("'caizhitong_app'@'<ip>'","'"+app+"'@'%'"));
-            statement.execute("GRANT SELECT (post_id,comment_id,user_id_encrypted) ON "+schema+".pseudo_identities TO '"+investigator+"'@'%'");
-            statement.execute("GRANT SELECT (id,campus_id) ON "+schema+".community_posts TO '"+investigator+"'@'%'");
-            statement.execute("GRANT SELECT (id,post_id) ON "+schema+".community_comments TO '"+investigator+"'@'%'");
+            statement.execute("GRANT SELECT (id,user_id,user_id_encrypted) ON "+schema+".pseudo_identities TO '"+investigator+"'@'%'");
+            statement.execute("GRANT SELECT (id,campus_id,pseudo_identity_id) ON "+schema+".community_posts TO '"+investigator+"'@'%'");
+            statement.execute("GRANT SELECT (id,post_id,pseudo_identity_id) ON "+schema+".community_comments TO '"+investigator+"'@'%'");
             statement.execute("GRANT SELECT,INSERT ON "+schema+".security_investigations TO '"+investigator+"'@'%'");
             statement.execute("REVOKE CREATE,ALTER,DROP,INDEX,REFERENCES,CREATE TEMPORARY TABLES,CREATE ROUTINE,ALTER ROUTINE,EXECUTE,SELECT,INSERT,UPDATE,DELETE ON "+schema+".* FROM '"+migrator+"'@'%'");
             // The definer needs exactly the DML documented for the erasure routine; SELECT-only
@@ -471,9 +471,11 @@ class MysqlCommunityPrivacyTest {
     @Test void nativeGovernanceKeepsCampusAuditAndUnsignedIdentifiers()throws Exception {
         jdbc.update("INSERT INTO users(id,campus_id,status,created_at,updated_at) VALUES(901,1,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP()),(201,2,'active',UTC_TIMESTAMP(),UTC_TIMESTAMP())");
         jdbc.update("INSERT INTO user_roles(id,user_id,role_id,campus_id,created_at) SELECT 901,901,id,1,UTC_TIMESTAMP() FROM roles WHERE code='campus_admin'");
-        long event=ids.nextId(),dispute=ids.nextId(),otherEvent=ids.nextId(),otherDispute=ids.nextId(),wrongOwner=ids.nextId();
-        jdbc.update("INSERT INTO credit_events(id,campus_id,user_id,event_type,reason,points,created_at) VALUES(?,1,101,'damage','Synthetic',-1,UTC_TIMESTAMP()),(?,2,201,'damage','Synthetic',-1,UTC_TIMESTAMP())",event,otherEvent);
-        jdbc.update("INSERT INTO credit_disputes(id,campus_id,user_id,credit_event_id,reason,created_at) VALUES(?,1,101,?,'Synthetic',UTC_TIMESTAMP()),(?,2,201,?,'Synthetic',UTC_TIMESTAMP()),(?,1,102,?,'Synthetic',UTC_TIMESTAMP())",dispute,event,otherDispute,otherEvent,wrongOwner,event);
+        long event=ids.nextId(),dispute=ids.nextId(),otherEvent=ids.nextId(),otherDispute=ids.nextId(),wrongOwner=ids.nextId(),unownedEvent=ids.nextId();
+        // V23 allows one pending dispute per credit event; the wrong-owner probe uses its own event
+        // (still owned by user 101) so the fixture does not collide with the valid pending dispute.
+        jdbc.update("INSERT INTO credit_events(id,campus_id,user_id,event_type,reason,points,created_at) VALUES(?,1,101,'damage','Synthetic',-1,UTC_TIMESTAMP()),(?,2,201,'damage','Synthetic',-1,UTC_TIMESTAMP()),(?,1,101,'damage','Synthetic',-1,UTC_TIMESTAMP())",event,otherEvent,unownedEvent);
+        jdbc.update("INSERT INTO credit_disputes(id,campus_id,user_id,credit_event_id,reason,created_at) VALUES(?,1,101,?,'Synthetic',UTC_TIMESTAMP()),(?,2,201,?,'Synthetic',UTC_TIMESTAMP()),(?,1,102,?,'Synthetic',UTC_TIMESTAMP())",dispute,event,otherDispute,otherEvent,wrongOwner,unownedEvent);
         String decision="{\"decision\":\"approve\",\"reason\":\"Synthetic correction\"}";
         adminCommand(901,"/credit-disputes/"+otherDispute+"/decision",decision).andExpect(status().isNotFound());
         adminCommand(901,"/credit-disputes/"+wrongOwner+"/decision",decision).andExpect(status().isNotFound());

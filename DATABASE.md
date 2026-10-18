@@ -172,10 +172,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON caizhitong.async_jobs TO 'caizhitong_app
 ### 步骤 5：安全调查账号授权
 
 ```sql
--- 调查只需目标映射密文与校园定位列；无 users/phone/student 权限
-GRANT SELECT (post_id, comment_id, user_id_encrypted) ON caizhitong.pseudo_identities TO 'caizhitong_investigator'@'<ip>';
-GRANT SELECT (id, campus_id) ON caizhitong.community_posts TO 'caizhitong_investigator'@'<ip>';
-GRANT SELECT (id, post_id) ON caizhitong.community_comments TO 'caizhitong_investigator'@'<ip>';
+-- 调查只需目标映射密文/旧版明文用户列与校园定位列；无 users/phone/student 权限
+GRANT SELECT (id, user_id, user_id_encrypted) ON caizhitong.pseudo_identities TO 'caizhitong_investigator'@'<ip>';
+GRANT SELECT (id, campus_id, pseudo_identity_id) ON caizhitong.community_posts TO 'caizhitong_investigator'@'<ip>';
+GRANT SELECT (id, post_id, pseudo_identity_id) ON caizhitong.community_comments TO 'caizhitong_investigator'@'<ip>';
 GRANT SELECT, INSERT ON caizhitong.security_investigations TO 'caizhitong_investigator'@'<ip>';
 ```
 

@@ -216,12 +216,20 @@ class CommunityHttpTest {
         jdbc.update("UPDATE community_posts SET status='published' WHERE id=?",pid);
         // 举报
         String report=mapper.readTree(command("/reports",student,"{\"targetType\":\"community_post\",\"targetId\":\""+pid+"\",\"reason\":\"违规\"}","rp-create").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
+        String auditReason="已核实并下架";
+        adminCommand("/admin/reports/"+report+"/decision",admin,"{\"decision\":\"resolve\",\"reason\":\""+auditReason+"\",\"action\":\"remove\"}","rp-decide").andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("resolved")).andExpect(jsonPath("$.data.resolution").value(auditReason));
+        assertEquals("remove",jdbc.queryForObject("SELECT resolution_action FROM reports WHERE id=?",String.class,Long.parseLong(report)));
         // 处罚
         String penalty=mapper.readTree(adminCommand("/admin/penalties",admin,"{\"userId\":\"101\",\"type\":\"mute\",\"reason\":\"违规发言\"}","rp-penalty").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM penalties WHERE id=?",Integer.class,Long.parseLong(penalty)));
         // 申诉
-        command("/appeals",student,"{\"penaltyId\":\""+penalty+"\",\"reason\":\"误判\"}","rp-appeal").andExpect(status().isCreated());
+        String appeal=mapper.readTree(command("/appeals",student,"{\"penaltyId\":\""+penalty+"\",\"reason\":\"误判\"}","rp-appeal").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM appeals WHERE penalty_id=?",Integer.class,Long.parseLong(penalty)));
+        command("/appeals",student,"{\"penaltyId\":\""+penalty+"\",\"reason\":\"重复申诉\"}","rp-appeal-again").andExpect(status().isConflict());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM appeals WHERE penalty_id=?",Integer.class,Long.parseLong(penalty)));
+        String decision="经复核维持原处罚";
+        adminCommand("/admin/appeals/"+appeal+"/decision",admin,"{\"decision\":\"reject\",\"reason\":\""+decision+"\"}","rp-appeal-decide").andExpect(status().isOk()).andExpect(jsonPath("$.data.decisionReason").value(decision));
+        assertEquals(decision,jdbc.queryForObject("SELECT decision_reason FROM appeals WHERE id=?",String.class,Long.parseLong(appeal)));
     }
 
     @Test void blockUnblockIsIdempotent() throws Exception {
@@ -232,16 +240,16 @@ class CommunityHttpTest {
     }
 
     @Test void moderationDecisionMapsStatusPerTargetType() throws Exception {
-        long post1=Long.parseLong(mapper.readTree(command("/mutual-aid/posts",student,"{\"category\":\"secondhand\",\"title\":\"A\"}","md-post1").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
+        long post1=Long.parseLong(mapper.readTree(command("/mutual-aid/posts",student,"{\"category\":\"secondhand\",\"title\":\"A\",\"content\":\"A\"}","md-post1").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
         long task1=jdbc.queryForObject("SELECT id FROM moderation_tasks WHERE target_id=?",Long.class,post1);
-        adminCommand("/admin/moderation-tasks/"+task1+"/claim",admin,"{}","md-claim1").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/"+task1+"/claim",admin,"{}","md-claim1").andExpect(status().isOk()).andExpect(jsonPath("$.data.content").value("A"));
         adminCommand("/admin/moderation-tasks/"+task1+"/decision",admin,"{\"decision\":\"restrict\",\"reason\":\"x\"}","md-decision1").andExpect(status().isOk());
         assertEquals("rejected",jdbc.queryForObject("SELECT status FROM mutual_aid_posts WHERE id=?",String.class,post1));
         long post2=Long.parseLong(mapper.readTree(command("/community/posts",student,"{\"title\":\"B\",\"content\":\"b\"}","md-post2").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
         jdbc.update("UPDATE community_posts SET status='published' WHERE id=?",post2);
         long comment=Long.parseLong(mapper.readTree(command("/community/posts/"+post2+"/comments",student,"{\"content\":\"c\"}","md-comment").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString());
         long task2=jdbc.queryForObject("SELECT id FROM moderation_tasks WHERE target_id=?",Long.class,comment);
-        adminCommand("/admin/moderation-tasks/"+task2+"/claim",admin,"{}","md-claim2").andExpect(status().isOk());
+        adminCommand("/admin/moderation-tasks/"+task2+"/claim",admin,"{}","md-claim2").andExpect(status().isOk()).andExpect(jsonPath("$.data.content").value("c"));
         adminCommand("/admin/moderation-tasks/"+task2+"/decision",admin,"{\"decision\":\"reject\",\"reason\":\"x\"}","md-decision2").andExpect(status().isOk());
         assertEquals("deleted",jdbc.queryForObject("SELECT status FROM community_comments WHERE id=?",String.class,comment));
     }
