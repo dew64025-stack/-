@@ -1,0 +1,6 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page bind-page api-page">
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view class="card col gap-md"><text class="headline-sm primary-text">手机号绑定</text><text class="body-sm muted">绑定后可继续学生认证，并使用发布、预约与互助功能。</text><text class="headline-sm">{{phoneBound ? phoneMasked : '尚未绑定手机号'}}</text><button class="btn wechat-bind-btn" open-type="getPhoneNumber" bindgetphonenumber="onWechatBind" disabled="{{busy || needsLogin}}" loading="{{wechatBinding}}">授权微信手机号并绑定</button><button wx:if="{{phoneBound}}" class="btn btn-primary" bindtap="goVerify">继续学生认证</button></view>
+  <button class="btn skip-btn" bindtap="onSkip">稍后绑定，浏览公开内容</button>
+</view>

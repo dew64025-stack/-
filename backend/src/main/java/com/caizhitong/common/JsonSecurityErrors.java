@@ -21,12 +21,12 @@ public class JsonSecurityErrors implements AuthenticationEntryPoint, AccessDenie
 
     @Override public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException error)
             throws IOException {
-        write(request, response, 401, "UNAUTHENTICATED", "请先登录");
+        write(request, response, 401, "AUTH_REQUIRED", "请先登录");
     }
 
     @Override public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException error)
             throws IOException {
-        write(request, response, 403, "FORBIDDEN", "无权执行此操作");
+        write(request, response, 403, "PERMISSION_DENIED", "无权执行此操作");
     }
 
     private void write(HttpServletRequest request, HttpServletResponse response, int status, String code, String message)
@@ -35,6 +35,7 @@ public class JsonSecurityErrors implements AuthenticationEntryPoint, AccessDenie
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         mapper.writeValue(response.getOutputStream(),
-                ApiResponse.failure(new ApiError(code, message, List.of(), false), RequestIdFilter.requestId(request)));
+                ApiResponse.failure(new ApiError(ContractErrorCodes.map(code), message, List.of(), false),
+                        RequestIdFilter.requestId(request)));
     }
 }

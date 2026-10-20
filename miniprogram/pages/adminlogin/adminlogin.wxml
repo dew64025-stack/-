@@ -1,0 +1,37 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page api-page admin-page">
+  <view class="card col gap-md">
+    <text class="admin-eyebrow">教职工工作台</text>
+    <text class="headline-xl primary-text">管理员登录</text>
+    <text class="body-sm muted">仅限学校预先开通的管理员账号。工号或手机号本身不会授予管理权限。</text>
+  </view>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view wx:if="{{!secureReady}}" class="card col gap-sm admin-connection-warning">
+    <text class="label-md">管理员安全连接尚未配置</text>
+
+    <button class="link-btn" bindtap="refreshConfig">重新检查连接配置</button>
+  </view>
+  <view wx:if="{{studentActive}}" class="card col gap-sm">
+    <text class="label-md">当前仍是学生身份</text>
+
+    <button class="btn btn-outline" bindtap="switchAdmin" disabled="{{busy || !secureReady}}">退出学生身份并继续</button>
+  </view>
+  <view class="card col gap-md">
+    <block wx:if="{{stage === 'password'}}">
+      <text class="api-form-label">工号／管理员账号</text>
+      <input class="api-form-input" value="{{username}}" data-field="username" bindinput="input" maxlength="64" disabled="{{busy || !secureReady || studentActive}}" placeholder="请输入已开通的工号账号"/>
+      <text class="api-form-label">密码</text>
+      <input class="api-form-input" value="{{password}}" data-field="password" bindinput="input" password="{{true}}" maxlength="72" disabled="{{busy || !secureReady || studentActive}}" placeholder="请输入管理员密码" bindconfirm="submitPassword"/>
+      <button class="btn btn-primary" bindtap="submitPassword" loading="{{busy}}" disabled="{{busy || !secureReady || studentActive}}">下一步：动态验证</button>
+    </block>
+    <block wx:else>
+      <text class="label-md">验证身份</text>
+      <text class="body-sm muted">请输入认证器中的 6 位动态验证码。有效期截至 {{expiresText}}。</text>
+      <input class="api-form-input admin-code-input" type="number" maxlength="6" value="{{code}}" data-field="code" bindinput="input" disabled="{{busy || !secureReady}}" placeholder="6位动态码" bindconfirm="submitMfa"/>
+      <button class="btn btn-primary" bindtap="submitMfa" loading="{{busy}}" disabled="{{busy || !secureReady || code.length !== 6}}">验证并进入工作台</button>
+      <button class="link-btn" bindtap="restartPassword" disabled="{{busy}}">重新输入工号和密码</button>
+    </block>
+  </view>
+  <text class="admin-note">忘记密码或未配置认证器，请联系学校管理员。这里不提供自助管理员注册。</text>
+  <button class="btn btn-outline" bindtap="switchStudent" disabled="{{busy}}">返回学生登录</button>
+</view>

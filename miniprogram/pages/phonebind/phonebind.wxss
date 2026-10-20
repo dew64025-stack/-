@@ -1,0 +1,231 @@
+.bind-page {
+  padding-bottom: 80rpx;
+}
+
+/* 步骤头 */
+.step-head {
+  gap: 16rpx;
+  padding: 8rpx 0 16rpx;
+}
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: var(--surface-container-high);
+  color: var(--primary);
+}
+.pulse-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.step-compliant {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(165, 243, 201, 0.7);
+  color: var(--on-secondary-container);
+}
+.progress-bar {
+  display: flex;
+  height: 12rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
+  background: var(--surface-container-highest);
+}
+.progress-seg {
+  height: 100%;
+  width: 33.33%;
+}
+.seg-faint {
+  background: rgba(0, 50, 75, 0.4);
+}
+.seg-full {
+  background: var(--primary);
+}
+.seg-empty {
+  background: var(--surface-container-highest);
+}
+
+/* 履约说明 */
+.why-card {
+  margin-top: 8rpx;
+}
+.why-head {
+  align-items: flex-start;
+  gap: 24rpx;
+}
+.why-icon {
+  background: var(--surface-container);
+}
+.why-body {
+  margin-top: 8rpx;
+}
+.point-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.point-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+.point-icon-green {
+  background: rgba(26, 107, 74, 0.1);
+}
+.point-icon-blue {
+  background: rgba(0, 50, 75, 0.1);
+}
+.point-icon-orange {
+  background: rgba(129, 41, 9, 0.1);
+}
+.point-orange {
+  color: #812909;
+}
+
+/* 授权卡 */
+.auth-card {
+  margin-top: 24rpx;
+}
+.phone-show {
+  position: relative;
+  background: var(--surface-low);
+  border-radius: 24rpx;
+  padding: 32rpx 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+.phone-watermark {
+  position: absolute;
+  right: -32rpx;
+  bottom: -32rpx;
+  font-size: 200rpx;
+  color: var(--primary);
+  opacity: 0.05;
+}
+.phone-no {
+  letter-spacing: 4rpx;
+}
+.phone-op {
+  margin-top: 12rpx;
+}
+.phone-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+.wechat-bind-btn {
+  background: #07c160;
+  color: #ffffff;
+  height: 96rpx;
+}
+.btn-disabled {
+  opacity: 0.75;
+}
+.toggle-manual {
+  padding: 8rpx 0;
+}
+.manual-chevron {
+  transition: transform 0.2s;
+}
+.chevron-up {
+  transform: rotate(180deg);
+}
+.manual-form {
+  width: 100%;
+  gap: 16rpx;
+  padding-top: 16rpx;
+}
+.input-box {
+  height: 88rpx;
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  gap: 12rpx;
+  align-items: center;
+}
+.manual-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  color: var(--on-surface);
+}
+.code-btn {
+  background: var(--surface-container);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.btn-submit-manual {
+  background: var(--primary-container);
+  color: var(--on-primary);
+  height: 80rpx;
+  font-size: 26rpx;
+}
+
+/* 隐私承诺 */
+.privacy-card {
+  margin-top: 24rpx;
+  background: var(--surface-container);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.privacy-body {
+  margin-top: 8rpx;
+}
+
+/* 跳过 */
+.skip-wrap {
+  margin-top: 48rpx;
+}
+.skip-btn {
+  background: transparent;
+  color: var(--on-surface-variant);
+  height: auto;
+  padding: 16rpx 24rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+/* Toast */
+.bind-toast {
+  position: fixed;
+  bottom: 128rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 32rpx;
+  border-radius: 999rpx;
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  max-width: 90%;
+}
+.bind-toast.toast-show {
+  opacity: 1;
+}

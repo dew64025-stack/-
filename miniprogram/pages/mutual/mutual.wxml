@@ -1,0 +1,9 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page col pg main-tab-page">
+  <view class="safety-tip row"><text class="safety-text">线下选公共区域交接；勿转定金、押金或兼职费用。</text></view>
+  <view class="row search-row"><view class="search-box"><input class="search-input" value="{{query}}" placeholder="搜索课本、物品认领或求助…" bindinput="onSearchInput" bindconfirm="reload" confirm-type="search"/><button class="publish-btn" bindtap="publishQuick">发互助</button></view></view>
+  <scroll-view scroll-x class="cat-scroll"><view class="row cat-row"><button wx:for="{{cats}}" wx:key="*this" class="cat-btn {{activeCat === item ? 'cat-on' : 'cat-off'}}" data-cat="{{item}}" bindtap="selectCat">{{item}}</button></view></scroll-view>
+  <button class="link-btn" bindtap="openCommunity">校园匿名交流 ›</button>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view class="col pg"><view wx:for="{{posts}}" wx:key="id" class="card col gap-sm"><view class="row space-between"><view class="badge badge-primary">{{team ? '组队搭子' : item.categoryLabel}}</view><text class="caption muted">{{item.dateText}}</text></view><view class="row gap-sm"><image wx:if="{{item.images[0].url}}" class="api-image" src="{{item.images[0].url}}" mode="aspectFill"/><view class="col gap-xs flex-1"><text class="headline-sm">{{item.title || item.name}}</text><text class="body-sm muted">{{item.content || item.description}}</text><text wx:if="{{!team}}" class="headline-sm tertiary-text">{{item.priceText}}</text></view></view><view class="row space-between"><text class="caption muted">{{item.exchangeArea || item.sourceName}}</text><button class="btn btn-secondary btn-xs" data-id="{{item.id}}" bindtap="openDetail">查看详情</button></view></view><text wx:if="{{!loading && !posts.length}}" class="api-empty">暂无符合条件的信息</text><button wx:if="{{hasMore}}" class="btn btn-outline" bindtap="onReachBottom">加载更多</button></view>
+</view>

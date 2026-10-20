@@ -12,15 +12,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * DeepSeek 生产 HTTP 适配：固定 https://api.deepseek.com/chat/completions，
- * Bearer 密钥仅从 DEEPSEEK_API_KEY 读取，模型取 DEEPSEEK_MODEL（默认 deepseek-flash）。
- * 不跟随重定向，不接收请求中的 baseUrl/代理；401/402/422 等配置或请求错误不盲目重试，
- * 429/5xx/超时交给上层任务的有界重试。密钥未配置明确失败，无 fake 成功。
+ * OpenAI-compatible AI 适配。默认使用 DeepSeek 固定端点；AI_PROVIDER=ollama 时切换到本机
+ * Ollama 的 /v1/chat/completions（模型默认 qwen3:8b），用于离线/内网联调。
+ * 端点只由部署配置决定，不接收请求中的 baseUrl；不跟随重定向。
+ * 401/402/422 等配置或请求错误不盲目重试，429/5xx/超时交给上层任务的有界重试。
+ * 密钥未配置明确失败，无 fake 成功；Ollama 本机端点不要求密钥，使用占位值。
  */
 @Component
 public class DeepSeekClient {
     public static final String DEFAULT_MODEL = "deepseek-flash";
+    public static final String DEFAULT_OLLAMA_MODEL = "qwen3:8b";
     private static final URI ENDPOINT = URI.create("https://api.deepseek.com/chat/completions");
+    private static final URI OLLAMA_ENDPOINT = URI.create("http://127.0.0.1:11434/api/chat");
 
     public static final class AiCallException extends RuntimeException {
         private final String code;
@@ -39,23 +42,64 @@ public class DeepSeekClient {
     private final String apiKey;
     private final String model;
     private final URI endpoint;
+    private final boolean ollama;
     private final OkHttpClient http;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public DeepSeekClient(@Value("${DEEPSEEK_API_KEY:}") String apiKey,
-                          @Value("${DEEPSEEK_MODEL:" + DEFAULT_MODEL + "}") String model) {
+    public DeepSeekClient(@Value("${app.ai.provider:deepseek}") String provider,
+                          @Value("${app.ai.endpoint:}") String configuredEndpoint,
+                          @Value("${app.ai.model:}") String configuredModel,
+                          @Value("${app.ai.api-key:}") String configuredApiKey,
+                          @Value("${app.ai.timeout-seconds:60}") int timeoutSeconds,
+                          @Value("${DEEPSEEK_API_KEY:}") String deepseekApiKey,
+                          @Value("${DEEPSEEK_MODEL:" + DEFAULT_MODEL + "}") String deepseekModel) {
+        this(resolveApiKey(provider, configuredApiKey, deepseekApiKey),
+                resolveModel(provider, configuredModel, deepseekModel),
+                resolveEndpoint(provider, configuredEndpoint),
+                isOllamaProvider(provider),
+                timeoutSeconds);
+    }
+
+    private static boolean isOllamaProvider(String provider) {
+        return "ollama".equalsIgnoreCase(provider == null ? "" : provider.trim());
+    }
+
+    private static String resolveApiKey(String provider, String configured, String deepseekKey) {
+        if (configured != null && !configured.isBlank()) return configured.trim();
+        return isOllamaProvider(provider) ? "ollama" : (deepseekKey == null ? "" : deepseekKey);
+    }
+
+    private static String resolveModel(String provider, String configured, String deepseekModel) {
+        if (configured != null && !configured.isBlank()) return configured.trim();
+        if (isOllamaProvider(provider)) return DEFAULT_OLLAMA_MODEL;
+        return (deepseekModel == null || deepseekModel.isBlank()) ? DEFAULT_MODEL : deepseekModel;
+    }
+
+    private static URI resolveEndpoint(String provider, String configured) {
+        if (configured != null && !configured.isBlank()) return URI.create(configured.trim());
+        return isOllamaProvider(provider) ? OLLAMA_ENDPOINT : ENDPOINT;
+    }
+
+    /** 兼容既有测试替身：固定 DeepSeek 端点。 */
+    public DeepSeekClient(String apiKey, String model) {
         this(apiKey, model, ENDPOINT);
     }
 
     /** 测试注入：仅配置期替换端点；请求路径不接受任何 baseUrl。 */
     DeepSeekClient(String apiKey, String model, URI endpoint) {
+        this(apiKey, model, endpoint, false, 60);
+    }
+
+    DeepSeekClient(String apiKey, String model, URI endpoint, boolean ollama, int timeoutSeconds) {
         this.apiKey = apiKey;
         this.model = (model == null || model.isBlank()) ? DEFAULT_MODEL : model;
         this.endpoint = endpoint;
+        this.ollama = ollama;
+        int timeout = timeoutSeconds <= 0 ? 60 : timeoutSeconds;
         this.http = new OkHttpClient.Builder()
                 .connectTimeout(Duration.ofSeconds(2))
-                .callTimeout(Duration.ofSeconds(60))
-                .readTimeout(Duration.ofSeconds(60))
+                .callTimeout(Duration.ofSeconds(timeout))
+                .readTimeout(Duration.ofSeconds(timeout))
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .build();
@@ -85,6 +129,21 @@ public class DeepSeekClient {
         }
         if (raw == null) throw new AiCallException("AI_RESPONSE_TOO_LARGE", false, "AI 响应过大");
         var tree = parse(raw);
+        if (ollama) {
+            // Ollama native /api/chat shape. Qwen3's OpenAI-compatible endpoint emits thinking
+            // tokens into message.reasoning and may finish with empty content, so the local
+            // provider uses the native endpoint with think=false and format=json.
+            if (tree.path("error").isTextual()) throw new AiCallException("AI_UPSTREAM", false, "AI 调用被拒绝");
+            String content = tree.path("message").path("content").isTextual()
+                    ? tree.path("message").path("content").asString() : null;
+            boolean done = tree.path("done").asBoolean(false);
+            String finish = tree.path("done_reason").isTextual() ? tree.path("done_reason").asString()
+                    : (done ? "stop" : null);
+            String usedModel = tree.path("model").isTextual() ? tree.path("model").asString() : model;
+            if (!done || !"stop".equals(finish) || content == null || content.isBlank())
+                throw new AiCallException("AI_BAD_RESPONSE", false, "AI 响应不完整");
+            return new Completion(content, finish, usedModel, (System.nanoTime() - start) / 1_000_000);
+        }
         var choice = tree.path("choices");
         if (!choice.isArray() || choice.isEmpty()) throw new AiCallException("AI_BAD_RESPONSE", false, "AI 响应结构异常");
         var message = choice.get(0).path("message");
@@ -130,6 +189,19 @@ public class DeepSeekClient {
     }
 
     private String requestBody(String system, String user, int maxTokens) {
+        if (ollama) {
+            return new StringBuilder()
+                    .append("{\"model\":\"").append(model).append("\"")
+                    .append(",\"stream\":false")
+                    .append(",\"think\":false")
+                    .append(",\"format\":\"json\"")
+                    .append(",\"options\":{\"num_predict\":").append(maxTokens).append("}")
+                    .append(",\"messages\":[")
+                    .append("{\"role\":\"system\",\"content\":").append(json(system)).append("},")
+                    .append("{\"role\":\"user\",\"content\":").append(json(user)).append("}")
+                    .append("]}")
+                    .toString();
+        }
         return new StringBuilder()
                 .append("{\"model\":\"").append(model).append("\"")
                 .append(",\"stream\":false")

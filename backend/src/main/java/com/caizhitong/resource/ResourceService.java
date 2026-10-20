@@ -5,6 +5,7 @@ import com.caizhitong.common.idempotency.BusinessWrite;
 import com.caizhitong.common.pagination.*;
 import com.caizhitong.identity.IdentityInputs;
 import com.caizhitong.identity.OneTimeSecrets;
+import com.caizhitong.messaging.MessagingService;
 import com.caizhitong.security.*;
 import java.security.SecureRandom;
 import java.time.*;
@@ -24,9 +25,11 @@ public class ResourceService {
     private final OneTimeSecrets secrets;
     private final ServiceSources sources;
     private final tools.jackson.databind.json.JsonMapper mapper;
+    /** D-owned notification writer; nullable only in isolated service tests that do not exercise D. */
+    private final MessagingService messaging;
     private static final ZoneId CAMPUS_ZONE=ZoneId.of("Asia/Shanghai");
-    public ResourceService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,CursorCodec cursors,SensitiveDataCrypto crypto,OneTimeSecrets secrets,ServiceSources sources,tools.jackson.databind.json.JsonMapper mapper){
-        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.cursors=cursors;this.crypto=crypto;this.secrets=secrets;this.sources=sources;this.mapper=mapper;
+    public ResourceService(JdbcTemplate jdbc,CurrentActor current,SnowflakeIds ids,Clock clock,CursorCodec cursors,SensitiveDataCrypto crypto,OneTimeSecrets secrets,ServiceSources sources,tools.jackson.databind.json.JsonMapper mapper,MessagingService messaging){
+        this.jdbc=jdbc;this.current=current;this.ids=ids;this.clock=clock;this.cursors=cursors;this.crypto=crypto;this.secrets=secrets;this.sources=sources;this.mapper=mapper;this.messaging=messaging;
     }
 
     @BusinessWrite(student=true) public ResourceViews.Reservation reserve(ResourceInputs.Reserve input){
@@ -48,6 +51,9 @@ public class ResourceService {
         String source=(String)resource.get("source_type"),status="demo".equals(source)?"confirmed":"pending";
         jdbc.update("INSERT INTO reservations(id,campus_id,user_id,slot_id,seat_no,status,source_type,version,created_at,updated_at,pending_expires_at) VALUES(?,?,?,?,?,?,?,0,?,?,?)",id,actor.campusId(),actor.userId(),slotId,seatNo,status,source,now,now,"pending".equals(status)?now.plusMinutes(15):null);
         jdbc.update("INSERT INTO resource_occupancies(id,slot_id,reservation_id,seat_no,created_at,updated_at) VALUES(?,?,?,?,?,?)",ids.nextId(),slotId,id,seatNo,now,now);
+        // Section 9.3: the notification is registered in the same transaction as the reservation.
+        notifyReservation(id,actor.campusId(),actor.userId(),"reservation",
+                "预约已提交","你的预约已提交，请留意审核或签到时间。",now,"reservation-created:"+id);
         return reservation(id);
     }
 
@@ -58,8 +64,11 @@ public class ResourceService {
         if(actual!=IdentityInputs.version(input.version()))throw conflict();
         String status=jdbc.queryForObject("SELECT status FROM reservations WHERE id=?",String.class,id);
         if(!Set.of("confirmed","pending").contains(status))throw conflict();
-        jdbc.update("UPDATE reservations SET status='cancelled',version=version+1,pending_expires_at=NULL,updated_at=? WHERE id=?",now(),id);
+        LocalDateTime now=now();
+        jdbc.update("UPDATE reservations SET status='cancelled',version=version+1,pending_expires_at=NULL,updated_at=? WHERE id=?",now,id);
         jdbc.update("DELETE FROM resource_occupancies WHERE reservation_id=?",id);
+        notifyReservation(id,number(locked,"campus_id"),number(locked,"user_id"),"reservation",
+                "预约已取消","你的预约已取消，座位已释放。",now,"reservation-cancelled:"+id);
         return reservation(id);
     }
 
@@ -142,8 +151,13 @@ public class ResourceService {
             if(!"available".equals(slot.get("status"))||!slotEnd(slot).isAfter(clock.instant()))throw state();
         }
         if(status.equals("confirmed")&&jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE reservation_id=?",Integer.class,id)!=1)throw state();
-        jdbc.update("UPDATE reservations SET status=?,version=version+1,pending_expires_at=NULL,updated_at=? WHERE id=?",status,now(),id);
+        LocalDateTime now=now();
+        jdbc.update("UPDATE reservations SET status=?,version=version+1,pending_expires_at=NULL,updated_at=? WHERE id=?",status,now,id);
         if(status.equals("rejected"))jdbc.update("DELETE FROM resource_occupancies WHERE reservation_id=?",id);
+        notifyReservation(id,number(row,"campus_id"),number(row,"user_id"),"reservation",
+                status.equals("confirmed")?"预约已确认":"预约未通过",
+                status.equals("confirmed")?"你的预约已确认，请按时签到。":"你的预约未通过审核，座位已释放。",
+                now,"reservation-decision:"+id+":"+status);
         return reservation(id);
     }
 
@@ -337,6 +351,11 @@ public class ResourceService {
     }
     private void checkType(String type){if(type!=null&&!Set.of("library_seat","classroom","equipment").contains(type))throw invalid();}
     private void checkStatus(String status){if(status!=null&&!Set.of("pending","confirmed","checked_in","completed","cancelled","no_show","rejected").contains(status))throw invalid();}
+    /** D-owned notification insertion; skipped only by isolated service tests that pass null. */
+    private void notifyReservation(long id,long campus,long user,String type,String title,String content,
+                                   LocalDateTime now,String dedup){
+        if(messaging!=null)messaging.issueNotification(campus,user,type,title,content,"reservation",id,dedup,now);
+    }
     private BusinessException state(){return new BusinessException(409,"STATE_CONFLICT","当前状态不允许此操作");}
     private BusinessException unavailable(){return new BusinessException(503,"SERVICE_UNAVAILABLE","官方预约服务尚不可用");}
     private LocalDateTime now(){return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);}

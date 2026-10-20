@@ -12,3 +12,9 @@
 uploads/
 backups/
 /CONNECTION.zip
+
+.run/
+backend/run-local.bat
+tools/.image-cache/
+**/project.private.config.json
+**/.DS_Store

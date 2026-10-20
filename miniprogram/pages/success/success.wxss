@@ -1,0 +1,101 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.w-full {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sandbox {
+  padding: 16rpx 20rpx;
+}
+.sb-ico {
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+.dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: var(--outline-variant);
+  flex-shrink: 0;
+}
+.dot-red {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--error);
+  flex-shrink: 0;
+}
+
+/* 场景卡片 */
+.scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+.accent-error {
+  border-left: 6rpx solid var(--error);
+}
+.accent-neutral {
+  border-left: 6rpx solid var(--outline-variant);
+}
+.badge-red-solid {
+  background: var(--error);
+  color: var(--on-error);
+}
+
+.err-ico {
+  background: var(--error-container);
+}
+.neutral-ico {
+  background: var(--surface-container-high);
+  position: relative;
+}
+.link-corner {
+  position: absolute;
+  bottom: -4rpx;
+  right: -4rpx;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: var(--error);
+  color: var(--on-error);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-head {
+  padding-bottom: 16rpx;
+  margin-bottom: 8rpx;
+}
+.destroy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  background: rgba(222, 232, 255, 0.6);
+  border-radius: 8rpx;
+  padding: 8rpx 12rpx;
+  margin-top: 8rpx;
+}
+.redline-head {
+  padding-bottom: 16rpx;
+  margin-bottom: 8rpx;
+}
+.diag {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(193, 199, 206, 0.4);
+}
+
+.center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  text-align: center;
+}

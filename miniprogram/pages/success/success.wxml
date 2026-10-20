@@ -1,0 +1,116 @@
+<view class="page page-safe stack">
+  <!-- 顶部安全沙盒声明 -->
+  <view class="card sandbox">
+    <view class="row gap-sm">
+      <view class="icon-round icon-round-sm sb-ico">
+      </view>
+      <view class="flex-1 col">
+        <view class="row gap-xs">
+          <text class="label-sm primary-text semibold">安全沙盒</text>
+          <view class="dot"></view>
+          <text class="caption muted">零信任与链路自省模式</text>
+        </view>
+        <text class="body-sm muted truncate">零信任文件防护与官方数据链路自省</text>
+      </view>
+      <view class="badge badge-primary">v1.1 §7.1/§9.2</view>
+    </view>
+  </view>
+
+  <!-- 场景一：MinIO 隔离检毒阻断态 -->
+  <view class="card scenario accent-error">
+    <view class="row space-between gap-sm">
+      <view class="row gap-sm flex-1">
+        <view class="icon-round icon-round-md err-ico">
+        </view>
+        <view class="col flex-1">
+          <text class="caption error-text semibold">HTTP 422 · FILE_SECURITY_BLOCKED</text>
+          <text class="headline-sm">附件未通过 ClamAV 恶意代码与格式扫描</text>
+        </view>
+      </view>
+      <view class="badge badge-red-solid">阻断拦截</view>
+    </view>
+
+    <view class="well col gap-xs">
+      <view class="row space-between hairline file-head">
+        <view class="row gap-xs flex-1">
+          <text class="label-md truncate">2026奖学金证明材料_草稿.zip</text>
+        </view>
+        <text class="caption muted">14.2 MB</text>
+      </view>
+      <view class="row gap-xs">
+        <text class="caption faint">扫描引擎：</text>
+        <text class="body-sm">ClamAV 校园专用杀毒网关 · 特征库 2026.10.15</text>
+      </view>
+      <view class="row gap-xs">
+        <text class="caption error-text">阻断依据：</text>
+        <text class="body-sm">检测到压缩包内嵌入未受信任的自解压可执行宏脚本或非白名单类型，违反《§7.1 文件安全上传规范》。</text>
+      </view>
+      <view class="destroy-note">
+        <text class="caption muted">该文件已在 MinIO 隔离区就地物理销毁，未进入材料保险箱，绝不流向大模型或教务系统。</text>
+      </view>
+    </view>
+
+    <view class="row gap-xs">
+      <text class="caption muted">合规准入：仅支持 clean 状态的 PDF/A、JPEG、PNG 或标准 DOCX (≤ 20MB)</text>
+    </view>
+
+    <view class="col gap-xs">
+      <button class="btn btn-primary w-full" bindtap="noop">
+        <text>重新选择合规文件上传</text>
+      </button>
+      <button class="btn btn-ghost w-full" bindtap="noop">
+        <text>了解文件格式安全规范</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- 场景二：官方接口故障与防静默造假 -->
+  <view class="card scenario accent-neutral">
+    <view class="row space-between gap-sm">
+      <view class="row gap-sm flex-1">
+        <view class="icon-round icon-round-md neutral-ico">
+          <view class="link-corner">
+          </view>
+        </view>
+        <view class="col flex-1">
+          <text class="caption faint semibold">HTTP 502 · OFFICIAL_PROVIDER_STALE</text>
+          <text class="headline-sm">学校教务成绩单数字验签接口暂时响应超时</text>
+        </view>
+      </view>
+      <view class="badge badge-plain">链路中断</view>
+    </view>
+
+    <view class="well col gap-xs">
+      <view class="row space-between hairline redline-head">
+        <view class="row gap-xs">
+          <text class="label-md primary-text semibold">【红线规范践行】防静默造假原则</text>
+        </view>
+        <text class="caption faint">provider: OfficialProvider (offline)</text>
+      </view>
+      <text class="body-sm">平台严格遵守《§9.2 官方数据失败不得静默回退假数据原则》，官方通信异常时立即如实预警，绝不静默伪造虚构数据冒充真实教务成绩！</text>
+      <view class="row space-between diag">
+        <text class="caption faint">上游网关：教务处统一身份认证中心 API</text>
+        <view class="row gap-xs error-text">
+          <view class="dot-red"></view>
+          <text class="caption">服务离线重试中</text>
+        </view>
+      </view>
+    </view>
+
+    <button class="btn btn-primary-container w-full" bindtap="noop">
+      <text>转入备用通道：人工凭证复核 (上传学生证/成绩单纸质照片)</text>
+    </button>
+  </view>
+
+  <!-- 底部支持与技术备案 -->
+  <view class="well center-col">
+    <view class="row gap-xs muted body-sm">
+      <text>学工部 × 网络信息中心 联合安全防护与数据主权工程</text>
+    </view>
+    <view class="row gap-sm caption faint">
+      <text>技术支持工单号：<text class="mono">#SEC-9812</text></text>
+      <view class="dot"></view>
+      <text class="primary-text">提交复议申请</text>
+    </view>
+  </view>
+</view>

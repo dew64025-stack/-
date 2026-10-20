@@ -71,6 +71,23 @@ public class TeamReadBridge {
         return value == null ? 0 : value;
     }
 
+    /** Applications a team leader must review; the applicant-side feed cannot see these. */
+    public List<TodoItem> pendingReviewTodos(long userId, long campus) {
+        return jdbc.query("SELECT a.id,a.status,t.title FROM team_applications a"
+                        + " JOIN teams t ON t.id=a.team_id WHERE t.leader_id=? AND t.campus_id=?"
+                        + " AND a.status='pending' AND t.deleted_at IS NULL ORDER BY a.id",
+                (rs, i) -> new TodoItem("team_application", Long.toString(rs.getLong("id")),
+                        rs.getString("title"), null, rs.getString("status"), "处理入队申请"),
+                userId, campus);
+    }
+
+    public long pendingReviewCount(long userId, long campus) {
+        Long value = jdbc.queryForObject("SELECT COUNT(*) FROM team_applications a JOIN teams t ON t.id=a.team_id"
+                + " WHERE t.leader_id=? AND t.campus_id=? AND a.status='pending' AND t.deleted_at IS NULL",
+                Long.class, userId, campus);
+        return value == null ? 0 : value;
+    }
+
     public ConversationContext teamContext(long teamId, long campus, long actorId) {
         var teams = jdbc.query("SELECT leader_id,title FROM teams WHERE id=? AND campus_id=? AND deleted_at IS NULL",
                 (rs, i) -> new Object[]{rs.getLong("leader_id"), rs.getString("title")}, teamId, campus);

@@ -12,6 +12,7 @@ CREATE TABLE reservations(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,
 CREATE TABLE resource_occupancies(id BIGINT PRIMARY KEY,slot_id BIGINT,reservation_id BIGINT,seat_no INT DEFAULT 0,created_at TIMESTAMP,updated_at TIMESTAMP,UNIQUE(slot_id,seat_no),UNIQUE(reservation_id));
 CREATE TABLE reservation_checkins(id BIGINT PRIMARY KEY,reservation_id BIGINT,checked_in_at TIMESTAMP,created_at TIMESTAMP,UNIQUE(reservation_id));
 CREATE TABLE crowd_observations(id BIGINT PRIMARY KEY,campus_id BIGINT,location_type VARCHAR(32),location_name VARCHAR(128),crowd_level VARCHAR(16),source_type VARCHAR(16),observed_at TIMESTAMP,is_stale BOOLEAN DEFAULT FALSE,created_at TIMESTAMP);
+CREATE TABLE notifications(id BIGINT PRIMARY KEY,campus_id BIGINT,user_id BIGINT,type VARCHAR(32),title VARCHAR(128),content VARCHAR(512),target_type VARCHAR(32),target_id BIGINT,read_at TIMESTAMP,dedup_key VARCHAR(64) UNIQUE,created_at TIMESTAMP);
 ALTER TABLE resources ADD COLUMN reservation_mode VARCHAR(16) DEFAULT 'capacity' NOT NULL;
 ALTER TABLE resources ADD COLUMN booking_blocked BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE reservations ADD COLUMN pending_expires_at TIMESTAMP;

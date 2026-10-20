@@ -70,6 +70,8 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiResponse<Void>> response(int status, ApiError error, HttpServletRequest request) {
-        return ResponseEntity.status(status).body(ApiResponse.failure(error, RequestIdFilter.requestId(request)));
+        return ResponseEntity.status(status).body(ApiResponse.failure(
+                new ApiError(ContractErrorCodes.map(error.code()), error.message(), error.fieldErrors(), error.retryable()),
+                RequestIdFilter.requestId(request)));
     }
 }

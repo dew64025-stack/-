@@ -21,7 +21,7 @@ class SecurityBoundaryTest {
         mvc.perform(get("/api/v1/me").header("X-Request-Id", "spoofed"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"))
                 .andExpect(jsonPath("$.error.fieldErrors").isEmpty())
                 .andExpect(jsonPath("$.requestId").value(startsWith("req_")))
                 .andExpect(header().string("X-Request-Id", startsWith("req_")));
@@ -30,12 +30,12 @@ class SecurityBoundaryTest {
     @Test void authenticatedRequestIsStillClosedUntilSessionModuleExists() throws Exception {
         mvc.perform(get("/api/v1/me").with(user("test")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+                .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
     }
 
     @Test void csrfDenialUsesTheSameEnvelope() throws Exception {
         mvc.perform(post("/api/v1/me/update").with(user("test")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+                .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
     }
 }

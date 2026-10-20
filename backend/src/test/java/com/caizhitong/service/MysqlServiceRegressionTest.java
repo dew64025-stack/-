@@ -142,7 +142,7 @@ class MysqlServiceRegressionTest {
         jdbc.update("INSERT INTO resource_occupancies(id,slot_id,reservation_id,seat_no,created_at,updated_at) VALUES(?,?,?,1,UTC_TIMESTAMP(),UTC_TIMESTAMP())",reservation+100,slot,reservation);
         var actor=new Actor(900,1,Set.of("resource.process"),true,true,"active",SessionKind.ADMIN);var current=org.mockito.Mockito.mock(CurrentActor.class);
         org.mockito.Mockito.when(current.requirePermission("resource.process")).thenReturn(actor);
-        var service=new com.caizhitong.resource.ResourceService(jdbc,current,ids,clock,null,null,null,sources,mapper);
+        var service=new com.caizhitong.resource.ResourceService(jdbc,current,ids,clock,null,null,null,sources,mapper,null);
         new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status->{
             assertEquals("active",jdbc.queryForObject("SELECT status FROM resources WHERE id=?",String.class,resource));
             assertEquals("available",jdbc.queryForObject("SELECT status FROM resource_slots WHERE id=?",String.class,slot));

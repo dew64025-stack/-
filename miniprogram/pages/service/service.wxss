@@ -1,0 +1,239 @@
+.page.pg {
+  padding-bottom: calc(128px + env(safe-area-inset-bottom));
+}
+
+.pg { gap: 28rpx; }
+
+/* 顶部系统告知条 */
+.notice-bar {
+  background: var(--surface-container-low);
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  gap: 12rpx;
+}
+.notice-ico { color: var(--outline); font-size: 32rpx; }
+.notice-text { color: var(--on-surface-variant); font-size: 24rpx; }
+.ver-badge {
+  background: var(--surface-container-high);
+  color: var(--primary);
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  flex-shrink: 0;
+}
+
+.sec-head { padding-bottom: 16rpx; }
+
+/* 金刚区 */
+.quick-grid {
+  margin-top: 8rpx;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+}
+.quick-item {
+  flex: 0 0 33.333333%;
+  width: 33.333333%;
+  max-width: 33.333333%;
+  min-width: 0;
+  margin: 0;
+  padding: 24rpx 8rpx;
+  border-radius: 16rpx;
+  background: var(--surface-container-low);
+  border: none;
+  position: relative;
+  box-sizing: border-box;
+}
+.quick-item::after { border: none; }
+.quick-ico {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-container-high);
+  color: var(--primary);
+  margin-bottom: 12rpx;
+}
+.quick-icon-image {
+  display: block;
+  width: 64rpx;
+  height: 64rpx;
+  flex: 0 0 auto;
+  margin: auto;
+}
+.page button.quick-maintenance { background: #d14c4e; }
+.page button.quick-facility { background: #5b59e2; }
+.page button.quick-library { background: #607952; }
+.page button.quick-study { background: #91bd1a; }
+.page button.quick-crowd { background: #d36c18; }
+.page button.quick-issue { background: #928b9b; }
+.page button.quick-maintenance .quick-ico,
+.page button.quick-facility .quick-ico,
+.page button.quick-library .quick-ico,
+.page button.quick-study .quick-ico,
+.page button.quick-crowd .quick-ico,
+.page button.quick-issue .quick-ico { background: #ffffff; color: #173f67; }
+.quick-grid .quick-title,
+.quick-grid .caption { color: #ffffff; }
+.quick-title { margin-top: 0; }
+.quick-item .quick-title, .quick-item .caption {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+.quick-item .caption { margin-top: 4rpx; }
+.hot-badge {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  background: var(--wechat-green);
+  color: #fff;
+  font-size: 18rpx;
+  line-height: 1.2;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+  z-index: 1;
+}
+
+.dot { width: 12rpx; height: 12rpx; border-radius: 50%; }
+.dot-green { background: var(--secondary); }
+
+/* 热力流向 */
+.heat-row { margin-top: 8rpx; align-items: stretch; }
+.heat-card {
+  background: var(--surface-container-low);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+.heat-tag { padding: 4rpx 12rpx; font-size: 18rpx; }
+.bar {
+  width: 100%;
+  height: 12rpx;
+  background: var(--surface-container-high);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+.bar-fill { height: 100%; border-radius: 999rpx; }
+.bar-error { background: var(--error); }
+.bar-green { background: var(--secondary); }
+
+/* 模块 A */
+.warn-bar {
+  background: var(--surface-container-low);
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
+  gap: 16rpx;
+  border-left: 4rpx solid var(--primary);
+}
+.remain {
+  align-items: flex-end;
+  background: var(--surface-container);
+  padding: 12rpx 16rpx;
+  border-radius: 16rpx;
+}
+.res-img { width: 160rpx; height: 128rpx; position: relative; }
+.img-tag {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 50, 75, 0.7);
+  color: var(--on-primary);
+  font-size: 18rpx;
+  text-align: center;
+  padding: 4rpx 0;
+}
+.res-side { gap: 12rpx; }
+.rec-time { background: var(--surface-container-lowest); padding: 8rpx 16rpx; border-radius: 8rpx; }
+.lock-row { padding-top: 8rpx; }
+
+.ticket { background: var(--surface-container-lowest); border-radius: 16rpx; padding: 24rpx; }
+.ticket-body {
+  background: var(--surface-container-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  align-items: center;
+}
+.qr-ph {
+  width: 112rpx;
+  height: 112rpx;
+  background: var(--surface-container-lowest);
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* 模块 B 状态机 */
+.stage-row {
+  background: var(--surface-container-lowest);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  align-items: flex-start;
+}
+.stage-item { flex: 1; }
+.stage-dot {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  margin-bottom: 8rpx;
+}
+.stage-done { background: var(--primary); color: var(--on-primary); }
+.stage-active { background: var(--secondary); color: var(--on-secondary); }
+.stage-todo { background: #d9e3f9; color: var(--on-surface-variant); }
+.stage-line { flex: 1; height: 4rpx; background: #d9e3f9; margin: 14rpx 8rpx 0; }
+.stage-line-done { background: var(--primary); }
+.stage-muted { opacity: 0.4; }
+
+.assign-row {
+  background: var(--surface-container-lowest);
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+  align-items: center;
+}
+.avatar-sm { width: 56rpx; height: 56rpx; font-size: 24rpx; }
+
+.rating-area { background: var(--surface-container-lowest); border-radius: 16rpx; padding: 24rpx; }
+.star-row { justify-content: space-around; padding: 8rpx 0; }
+.star-btn { background: transparent; border: none; padding: 8rpx; line-height: 1; }
+.star-btn::after { border: none; }
+.star-ico { font-size: 52rpx; }
+.star-on { color: var(--tertiary-container); }
+.star-off { color: var(--outline-variant); }
+.star-disabled { opacity: 0.5; pointer-events: none; }
+
+.feedback-success {
+  background: rgba(165, 243, 201, 0.4);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  color: #005235;
+}
+
+/* 模块 C */
+.link-btn { background: transparent; border: none; padding: 0; line-height: 1; }
+.link-btn::after { border: none; }
+.issue-img { height: 240rpx; }
+.vote-btn { background: var(--wechat-green); color: #fff; }
+.vote-note {
+  background: var(--surface-container-lowest);
+  border-radius: 16rpx;
+  padding: 16rpx;
+}
+
+.foot { padding: 16rpx 0 24rpx; }

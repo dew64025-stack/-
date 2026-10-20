@@ -1,0 +1,7 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page col pg main-tab-page">
+  <view class="col gap-sm"><view class="search-box"><input class="search-input" value="{{query}}" placeholder="搜索赛事、奖学金、科研立项…" bindinput="onSearchInput" bindconfirm="onSearch"/><button class="search-btn" bindtap="onSearch">搜索</button></view><scroll-view scroll-x class="cat-scroll"><view class="row cat-row"><button wx:for="{{cats}}" wx:key="*this" class="cat-btn {{activeCat === item ? 'cat-on' : 'cat-off'}} {{item.length < 4 ? 'cat-short' : 'cat-long'}}" data-cat="{{item}}" bindtap="selectCat">{{item}}</button></view></scroll-view></view>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view class="col pg"><view wx:for="{{opportunities}}" wx:key="id" class="card col gap-sm"><view class="row space-between"><view class="badge badge-primary">{{item.categoryLabel}}</view><text class="caption muted">{{item.dateText}}</text></view><text class="headline-sm">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text><text class="api-source">来源：{{item.sourceName || item.organizer || '发布方未提供'}}</text><view class="api-actions"><button class="btn btn-primary btn-sm" data-id="{{item.id}}" bindtap="openDetail">查看通知与申报材料</button></view></view><view wx:if="{{!loading && !opportunities.length}}" class="api-empty">没有找到符合条件的机会</view><button wx:if="{{hasMore}}" class="btn btn-outline" bindtap="onReachBottom">加载更多</button></view>
+  <view class="disclaimer row"><text class="caption muted">匹配建议仅供参考，资格与结果以院系和主办方公示为准。</text></view>
+</view>

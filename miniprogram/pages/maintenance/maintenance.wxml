@@ -1,0 +1,149 @@
+<view class="page page-safe stack">
+  <!-- 顶部全局声明沙盒横幅 -->
+  <view class="banner col gap-xs">
+    <view class="row space-between gap-xs">
+      <view class="row gap-xs flex-1">
+        <text class="label-md primary-text semibold">演示沙盒 · 高并发原子锁与乐观锁演练</text>
+      </view>
+      <view class="badge badge-primary">HTTP 409 SIM</view>
+    </view>
+    <view class="row gap-sm">
+      <view class="dot-green"></view>
+      <text class="body-sm muted">依据《后端接口 v1.1》§2.6 幂等并发控制及 §17 统一错误码准则</text>
+    </view>
+  </view>
+
+  <!-- 冲突案例一：资源时段已被抢占 -->
+  <view class="card section-card">
+    <view class="row space-between gap-xs">
+      <view class="row gap-sm">
+        <view class="icon-round icon-round-sm t3-soft">
+        </view>
+        <view class="badge badge-tertiary">409 · RESERVATION_CONFLICT</view>
+      </view>
+      <view class="badge badge-plain">模拟预约</view>
+    </view>
+
+    <text class="headline-sm">慢了一步！所选席位已被其他同学抢先锁定</text>
+
+    <view class="row gap-xs req-id">
+      <text class="caption muted mono">requestId: req_01JRES_CONF_9912</text>
+    </view>
+
+    <view class="well detail-well">
+      <view class="list-row">
+        <view class="row gap-xs muted">
+          <text class="body-sm">目标席位</text>
+        </view>
+        <text class="label-md semibold">逸夫图书馆 3F 南区 · 3F-A08</text>
+      </view>
+      <view class="list-row">
+        <view class="row gap-xs muted">
+          <text class="body-sm">预约时段</text>
+        </view>
+        <text class="label-md semibold">今日下午场 (14:00 - 18:00)</text>
+      </view>
+      <view class="info-box">
+        <text class="body-sm muted">在您提交确认的毫秒级窗口内，该座位已由另一位同学完成低功耗蓝牙预占。为防止超卖，系统已自动释放您的临时锁定。</text>
+      </view>
+    </view>
+
+    <!-- 智能推荐替代席位 -->
+    <view class="row space-between">
+      <view class="row gap-xs">
+        <text class="label-md">为您智能优选临近空位</text>
+      </view>
+      <text class="caption muted">同区同配置</text>
+    </view>
+
+    <view class="col gap-xs">
+      <view class="rec-card">
+        <view class="flex-1 col">
+          <view class="row gap-xs">
+            <text class="headline-sm bold">3F-A07</text>
+            <view class="badge badge-green">最推荐</view>
+          </view>
+          <view class="row gap-xs muted body-sm">
+            <text>靠窗</text>
+            <text>·</text>
+            <text>同排隔座</text>
+            <text>·</text>
+            <text>独立电源</text>
+          </view>
+        </view>
+        <button class="btn btn-secondary btn-xs" bindtap="noop">立即选定</button>
+      </view>
+
+      <view class="rec-card plain">
+        <view class="flex-1 col">
+          <view class="row gap-xs">
+            <text class="headline-sm bold">3F-A05</text>
+          </view>
+          <view class="row gap-xs muted body-sm">
+            <text>北向景观</text>
+            <text>·</text>
+            <text>光照充裕</text>
+          </view>
+        </view>
+        <button class="btn btn-ghost btn-xs" bindtap="noop">改选此座</button>
+      </view>
+    </view>
+
+    <view class="col gap-xs">
+      <button class="btn btn-primary-container w-full" bindtap="noop">
+        <text>快速改选 3F-A07 座位</text>
+      </button>
+      <button class="btn btn-neutral w-full" bindtap="noop">
+        <text>返回平面图重新自选</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- 冲突案例二：数据版本冲突 -->
+  <view class="card section-card">
+    <view class="row space-between gap-xs">
+      <view class="row gap-sm">
+        <view class="icon-round icon-round-sm p-soft">
+        </view>
+        <view class="badge badge-primary">409 · VERSION_CONFLICT</view>
+      </view>
+      <view class="badge badge-plain">演示数据</view>
+    </view>
+
+    <text class="headline-sm">材料信息已在其他终端更新</text>
+
+    <view class="well col gap-xs">
+      <view class="row space-between">
+        <view class="row gap-xs">
+          <view class="ver-chip mono">本地当前: v1.2</view>
+          <view class="ver-chip latest mono">云端最新: v1.3</view>
+        </view>
+        <text class="caption muted">网页端</text>
+      </view>
+      <text class="body-sm muted">您正在编辑的材料清单版本为 <text class="primary-text mono">v1.2</text>，服务端已同步更新至 <text class="primary-text mono">v1.3</text>（更新人：林学长/网页端）。为防止覆盖他人或另一端修改，请重新加载最新版本。</text>
+    </view>
+
+    <view class="row gap-xs protect">
+      <text class="caption muted">您的本地输入已自动暂存为草稿，合并不会丢失未提交数据</text>
+    </view>
+
+    <button class="btn btn-ghost w-full" bindtap="noop">
+      <text>合并并拉取最新版本 (保留本地修改草稿)</text>
+    </button>
+  </view>
+
+  <!-- 底部合规与技术说明 -->
+  <view class="well center-col">
+    <view class="row gap-xs muted">
+      <text class="label-sm semibold">高并发数据一致性保障机制</text>
+    </view>
+    <text class="caption muted text-center">平台全流程采用乐观锁 (Optimistic Lock) 与 Redis 分布式短锁协同机制，严格保证席位超卖防御与协作数据唯一性。</text>
+    <view class="row gap-sm caption faint">
+      <text>微秒时钟纳秒锁</text>
+      <text>•</text>
+      <text>双向幂等校验</text>
+      <text>•</text>
+      <text>零超卖保障</text>
+    </view>
+  </view>
+</view>

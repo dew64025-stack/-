@@ -1,0 +1,12 @@
+# Local Ollama profile: run the backend with --spring.profiles.active=ollama
+# after `ollama serve` and `ollama pull qwen3:8b`.
+app:
+  ai:
+    provider: ollama
+    # Native endpoint: Qwen3's OpenAI-compatible /v1 endpoint spends tokens on reasoning and
+    # can return an empty content field; native /api/chat supports think=false and format=json.
+    endpoint: http://127.0.0.1:11434/api/chat
+    model: qwen3:8b
+    api-key: ollama
+    # CPU inference on an 8B model can exceed the DeepSeek 60s budget.
+    timeout-seconds: 300

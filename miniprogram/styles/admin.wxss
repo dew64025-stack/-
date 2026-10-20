@@ -1,0 +1,14 @@
+/* 管理页沿用现有字体、配色与按钮，只补信息层级和移动端排版。 */
+.admin-page { max-width: 100%; }
+.admin-page .admin-eyebrow { font-size: 24rpx; font-weight: 600; color: var(--primary); }
+.admin-page .admin-note { color: var(--on-surface-variant); font-size: 24rpx; line-height: 1.7; overflow-wrap: break-word; }
+.admin-page .admin-connection-warning { border-left: 6rpx solid #b9803e; }
+.admin-page .admin-code-input { height: 100rpx; font-size: 36rpx; letter-spacing: 10rpx; text-align: center; }
+.admin-page .admin-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16rpx; }
+.admin-page .admin-filter { width: 100%; height: 88rpx; min-height: 88rpx; margin: 0; padding: 0 8rpx; display: flex; align-items: center; justify-content: center; font-size: 26rpx; white-space: nowrap; line-height: 1.25; }
+.admin-page .admin-review-id { overflow-wrap: anywhere; }
+.admin-page .admin-decision { border: 2rpx solid var(--primary-container); }
+.admin-page .admin-identity-check { align-items: flex-start; }
+.admin-page .admin-identity-check checkbox { flex-shrink: 0; }
+.admin-page .admin-success { display: block; padding: 20rpx; border-radius: 16rpx; color: #246149; background: #eaf5ee; font-size: 26rpx; }
+.admin-page .admin-danger { color: #ffffff; background: #945261; }

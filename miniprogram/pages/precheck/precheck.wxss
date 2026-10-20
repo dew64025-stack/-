@@ -1,0 +1,305 @@
+.precheck-page {
+  padding-bottom: 300rpx;
+}
+
+/* 顶部提示条 */
+.demo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 8rpx;
+  padding: 12rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+.demo-text { font-size: 24rpx; }
+.demo-code { font-size: 22rpx; color: #94a3b8; flex-shrink: 0; margin-left: 16rpx; }
+
+/* 信息卡片 */
+.info-card {
+  margin-bottom: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.info-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+.deadline { font-size: 24rpx; color: #dc2626; font-weight: 500; }
+.green { color: #16a34a; }
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+.tag-solid { background: #f1f5f9; color: #475569; }
+.tag-outline { background: #f8fafc; color: #64748b; border: 1rpx solid #e2e8f0; }
+.tag-gray { background: #e2e8f0; color: #475569; flex-shrink: 0; }
+
+.summary-well {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24rpx;
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 8rpx;
+  padding: 24rpx;
+  margin-top: 4rpx;
+}
+.summary-title { font-size: 26rpx; font-weight: 600; color: #0f172a; }
+.summary-desc { font-size: 24rpx; color: #64748b; line-height: 1.6; }
+.red-text { color: #dc2626; font-weight: 500; }
+
+/* 折叠契约卡片 */
+.rules-card { margin-bottom: 32rpx; }
+.rules-header { cursor: pointer; }
+.rules-title { font-size: 26rpx; font-weight: 500; color: #0f172a; }
+.pass-pill {
+  font-size: 22rpx;
+  color: #16a34a;
+  font-weight: 500;
+  background: #f0fdf4;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  border: 1rpx solid #bbf7d0;
+}
+.chevron {
+  font-size: 36rpx;
+  color: #94a3b8;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.chevron.open { transform: rotate(180deg); }
+
+.rules-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-top: 16rpx;
+  margin-top: 12rpx;
+  border-top: 1rpx solid #f1f5f9;
+}
+.rules-row {
+  font-size: 22rpx;
+  color: #64748b;
+  align-items: flex-start;
+}
+.rules-value {
+  color: #0f172a;
+  font-weight: 500;
+  max-width: 60%;
+  text-align: right;
+}
+.rules-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.rules-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  width: calc(50% - 8rpx);
+  box-sizing: border-box;
+  font-size: 22rpx;
+  color: #334155;
+  background: #f8fafc;
+  padding: 12rpx;
+  border-radius: 8rpx;
+}
+
+/* 材料清单标头 */
+.mat-head {
+  padding: 0 8rpx;
+  margin-bottom: 16rpx;
+}
+.mat-title { font-size: 28rpx; font-weight: 600; color: #0f172a; }
+.count-pill {
+  font-size: 22rpx;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+.mat-note { font-size: 22rpx; color: #94a3b8; }
+
+/* 材料卡片 */
+.mat-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  border: 1rpx solid #e2e8f0;
+  padding: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.mat-card.warn { border-color: #fecaca; }
+
+.mat-head-row {
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.num-badge {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 22rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.num-badge.warn-num { background: #fef2f2; color: #dc2626; }
+.mat-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.status-pass {
+  font-size: 22rpx;
+  color: #16a34a;
+  font-weight: 500;
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+.status-warn {
+  font-size: 22rpx;
+  color: #d97706;
+  font-weight: 500;
+  background: #fffbeb;
+  border: 1rpx solid #fde68a;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.file-box {
+  background: #f8fafc;
+  border: 1rpx solid #f1f5f9;
+  border-radius: 8rpx;
+  padding: 20rpx;
+}
+.file-red { color: #dc2626; }
+.file-gray { color: #94a3b8; }
+.file-name { font-size: 24rpx; font-weight: 500; color: #0f172a; }
+.file-meta { font-size: 22rpx; color: #94a3b8; }
+
+.ready-box {
+  font-size: 22rpx;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 16rpx;
+  border-radius: 8rpx;
+  border: 1rpx solid #f1f5f9;
+  line-height: 1.6;
+}
+.ready-label { color: #16a34a; font-weight: 500; margin-right: 8rpx; }
+
+.warn-box {
+  font-size: 22rpx;
+  color: #b45309;
+  background: #fffbeb;
+  padding: 16rpx;
+  border-radius: 8rpx;
+  border: 1rpx solid #fef3c7;
+  line-height: 1.6;
+}
+.warn-strong { font-weight: 500; color: #dc2626; }
+
+.action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+}
+.small-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: #475569;
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 8rpx;
+}
+
+.flex-btn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+.flex-btn-gray { background: #f8fafc; border: 1rpx solid #e2e8f0; color: #334155; }
+.flex-btn-green { background: #07c160; color: #ffffff; }
+.hint-text {
+  font-size: 20rpx;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* 底部操作栏 */
+.footer-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1rpx solid #e2e8f0;
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  z-index: 40;
+}
+.footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+.footer-btn-gray {
+  border: 1rpx solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0 28rpx;
+  flex-shrink: 0;
+}
+.footer-btn-green {
+  flex: 1;
+  background: #07c160;
+  color: #ffffff;
+}
+.footer-meta {
+  font-size: 22rpx;
+  color: #94a3b8;
+  padding: 0 4rpx;
+}
+.footer-link { color: #475569; flex-shrink: 0; }

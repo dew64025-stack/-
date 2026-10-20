@@ -1,0 +1,168 @@
+/* Shared search capsules. Business buttons and page content are unchanged. */
+.page .ai-box,
+.page .search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 12rpx;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 104rpx;
+  box-sizing: border-box;
+  padding: 8rpx;
+  border: 0;
+  border-radius: 999rpx;
+  background: #ffffff;
+  box-shadow: inset 0 2rpx 6rpx rgba(27, 49, 71, 0.06),
+    0 6rpx 16rpx rgba(27, 49, 71, 0.12);
+}
+
+.page .ai-input,
+.page .search-input {
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
+  height: 64rpx;
+  margin: 0;
+  padding: 0 12rpx 0 24rpx;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 999rpx;
+  background: transparent;
+  color: var(--on-surface);
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.page .ai-box .placeholder,
+.page .search-box .placeholder {
+  color: var(--outline);
+}
+
+.page .ai-submit,
+.page .search-btn,
+.page .publish-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 8rpx;
+  width: auto;
+  min-width: 112rpx;
+  height: 88rpx;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 28rpx;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 999rpx;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, #f8fafc, #e4e9f0);
+  color: #24384c;
+  font-size: 26rpx;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 15rpx 25rpx -4rpx rgba(27, 49, 71, 0.28),
+    0 5rpx 10rpx rgba(27, 49, 71, 0.10),
+    inset 0 -3rpx 4rpx -1rpx rgba(27, 49, 71, 0.10),
+    0 -8rpx 12rpx -1rpx rgba(255, 255, 255, 0.8),
+    inset 0 3rpx 4rpx -1rpx rgba(255, 255, 255, 0.7),
+    inset 0 0 5rpx 1rpx rgba(255, 255, 255, 0.7);
+  transform: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Two highlight layers replace the browser-only .wrap markup. */
+.page .ai-submit::before,
+.page .search-btn::before,
+.page .publish-btn::before,
+.page .ai-submit::after,
+.page .search-btn::after,
+.page .publish-btn::after {
+  content: "";
+  position: absolute;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  pointer-events: none;
+  transform: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.page .ai-submit::before,
+.page .search-btn::before,
+.page .publish-btn::before {
+  top: -100%;
+  right: -15%;
+  bottom: 25%;
+  left: -15%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.page .ai-submit::after,
+.page .search-btn::after,
+.page .publish-btn::after {
+  top: 12%;
+  right: 6%;
+  bottom: 40%;
+  left: 6%;
+  border-radius: 999rpx 999rpx 0 0;
+  box-shadow: inset 0 20rpx 16rpx -20rpx rgba(255, 255, 255, 0.8);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 70%);
+}
+
+.page .ai-submit .ico {
+  margin: 0;
+  color: inherit;
+  font-size: 28rpx;
+}
+
+/* WeChat touch feedback uses the existing hover-class, not desktop hover. */
+.page .ai-submit-hover,
+.page .search-btn-hover,
+.page .btn-hover {
+  transform: translateY(2rpx);
+  box-shadow: inset 0 6rpx 10rpx rgba(255, 255, 255, 0.4),
+    inset 0 -2rpx 6rpx rgba(255, 255, 255, 0.8),
+    inset 0 -8rpx 18rpx rgba(255, 255, 255, 0.5),
+    0 2rpx 6rpx rgba(0, 0, 0, 0.2);
+}
+
+.page .ai-submit-hover::before,
+.page .search-btn-hover::before,
+.page .btn-hover::before {
+  transform: translateY(-5%);
+}
+
+.page .ai-submit-hover::after,
+.page .search-btn-hover::after,
+.page .btn-hover::after {
+  opacity: 0.4;
+  transform: translateY(5%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page .ai-submit,
+  .page .search-btn,
+  .page .publish-btn,
+  .page .ai-submit::before,
+  .page .search-btn::before,
+  .page .publish-btn::before,
+  .page .ai-submit::after,
+  .page .search-btn::after,
+  .page .publish-btn::after {
+    transition: none;
+  }
+}

@@ -1,0 +1,4 @@
+/* Only tab pages import this: reserve room for the custom bar and gesture area. */
+.page.pg {
+  padding-bottom: calc(128px + env(safe-area-inset-bottom));
+}

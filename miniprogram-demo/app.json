@@ -1,0 +1,35 @@
+{
+  "entryPagePath": "pages/index/index",
+  "pages": [
+    "pages/index/index",
+    "pages/service/service",
+    "pages/mutual/mutual",
+    "pages/opportunity/opportunity",
+    "pages/home/home",
+    "pages/profile/profile",
+    "pages/precheck/precheck",
+    "pages/seat-select/seat-select",
+    "pages/library/library",
+    "pages/voucher/voucher",
+    "pages/reservation-confirm/reservation-confirm",
+    "pages/mutual-create/mutual-create",
+    "pages/mutual-detail/mutual-detail",
+    "pages/chat/chat",
+    "pages/login/login",
+    "pages/phone-bind/phone-bind",
+    "pages/verify/verify",
+    "pages/vault/vault",
+    "pages/network-error/network-error",
+    "pages/maintenance/maintenance",
+    "pages/permission-denied/permission-denied",
+    "pages/success/success"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f9f9ff",
+    "backgroundTextStyle": "dark",
+    "navigationBarTextStyle": "black"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

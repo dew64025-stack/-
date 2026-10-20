@@ -96,6 +96,11 @@ class MeHttpTest {
                 + " VALUES(8,1,102,'组队','recruiting',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO team_applications(id,team_id,user_id,status,created_at,updated_at)"
                 + " VALUES(9,8,101,'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        // 101 leads this team, so the applicant-side query alone must not be the only to-do source.
+        jdbc.update("INSERT INTO teams(id,campus_id,leader_id,title,status,version,created_at,updated_at)"
+                + " VALUES(13,1,101,'自己的队伍','recruiting',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO team_applications(id,team_id,user_id,status,created_at,updated_at)"
+                + " VALUES(14,13,102,'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO conversations(id,campus_id,type,title,created_at,updated_at)"
                 + " VALUES(10,1,'direct','会话',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO conversation_members(id,conversation_id,user_id,unread_count,created_at)"
@@ -104,12 +109,13 @@ class MeHttpTest {
                 + " VALUES(12,1,101,'提醒',NULL,CURRENT_TIMESTAMP)");
         mvc.perform(get("/api/v1/me/dashboard").header("Authorization", student))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.todoCount").value(5))
+                .andExpect(jsonPath("$.data.todoCount").value(6))
                 .andExpect(jsonPath("$.data.unreadCount").value(4))
                 .andExpect(jsonPath("$.data.reservationCount").value(1))
                 .andExpect(jsonPath("$.data.workOrderCount").value(1));
         mvc.perform(get("/api/v1/me/todos").header("Authorization", student))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(5))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(6))
+                .andExpect(jsonPath("$.data.items[?(@.action=='处理入队申请')]").exists())
                 .andExpect(jsonPath("$.data.hasMore").value(false));
     }
 

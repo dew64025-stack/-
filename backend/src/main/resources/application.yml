@@ -61,6 +61,12 @@ management:
     health:
       show-details: never
 app:
+  ai:
+    provider: ${AI_PROVIDER:deepseek}
+    endpoint: ${AI_ENDPOINT:}
+    model: ${AI_MODEL:}
+    api-key: ${AI_API_KEY:}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:60}
   messaging:
     scheduling-enabled: ${MESSAGING_SCHEDULING_ENABLED:true}
     reminder-poll-ms: ${MESSAGING_REMINDER_POLL_MS:60000}

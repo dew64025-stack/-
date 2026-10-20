@@ -1,0 +1,23 @@
+
+.api-panel {
+  position: relative;
+  z-index: 10;
+  margin: calc(84px + env(safe-area-inset-top, 0px)) 12px 12px;
+  padding: 14px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+}
+.api-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.api-title { display: block; font-size: 16px; line-height: 22px; font-weight: 700; color: #00324b; }
+.api-sub { display: block; font-size: 10px; line-height: 14px; color: #72787e; margin-top: 2px; }
+.api-refresh { padding: 4px 10px; border-radius: 999px; background: #e7eeff; color: #00324b; font-size: 11px; }
+.api-state { padding: 10px 0; font-size: 12px; color: #72787e; }
+.api-error { color: #ba1a1a; }
+.api-block { margin-top: 12px; }
+.api-block-title { display: block; font-size: 13px; font-weight: 600; color: #121c2c; margin-bottom: 6px; }
+.api-item { padding: 10px 11px; border-radius: 10px; background: #f0f3ff; margin-bottom: 8px; }
+.api-item:last-child { margin-bottom: 0; }
+.api-item-title { display: block; font-size: 14px; line-height: 20px; font-weight: 600; color: #121c2c; }
+.api-item-meta { display: block; font-size: 11px; line-height: 16px; color: #72787e; margin-top: 3px; }
+.api-empty { padding: 8px 0; font-size: 12px; color: #72787e; }

@@ -1,0 +1,139 @@
+<view class="page page-safe stack">
+  <!-- 顶部状态声明 -->
+  <view class="row space-between">
+    <view class="badge badge-primary row gap-xs">
+      <text class="label-sm semibold">合规准入控制 · 敏感业务触发保护</text>
+    </view>
+    <view class="badge badge-secondary row gap-xs">
+      <view class="dot-green"></view>
+      <text>教务直连中</text>
+    </view>
+  </view>
+
+  <!-- 居中核心警示与认证引导 -->
+  <view class="card warn-card">
+    <view class="shield-visual col center">
+      <view class="shield-core">
+      </view>
+      <view class="gateway-label">SECURE GATEWAY</view>
+    </view>
+
+    <view class="badge badge-error">HTTP 403 · STUDENT_VERIFICATION_REQUIRED</view>
+
+    <view class="col center gap-xs">
+      <text class="headline-sm semibold text-center">为了守护纯净安全的校园互助环境</text>
+      <text class="headline-sm semibold text-center">该功能需要先完成学生身份核验</text>
+    </view>
+
+    <view class="well trigger-card">
+      <view class="flex-1 col gap-xs">
+        <text class="label-sm muted">当前拦截来源：</text>
+        <text class="body-sm">您正在尝试执行 <text class="primary-text semibold">［发布仪器借用 / 逸夫馆模拟预约］</text>。根据《材智通校园平台安全规范》，公用科研耗材及研习座席流转须完成在籍学籍认证。</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 认证后权益清单 -->
+  <view class="col gap-xs">
+    <view class="row space-between">
+      <view class="row gap-xs">
+        <text class="headline-sm">学籍认证专属权益</text>
+      </view>
+      <text class="caption muted">4 项特权瞬时激活</text>
+    </view>
+
+    <view class="card benefit">
+      <view class="icon-round icon-round-sm ben-ico green">
+      </view>
+      <view class="flex-1 col gap-xs">
+        <view class="row space-between">
+          <text class="label-md">免押金快速领调</text>
+          <view class="badge badge-primary">即刻可用</view>
+        </view>
+        <text class="body-sm muted">享受校内翻页笔、微距镜头组件、光学显微镜配件免押扫码即领。</text>
+      </view>
+    </view>
+
+    <view class="card benefit">
+      <view class="icon-round icon-round-sm ben-ico blue">
+      </view>
+      <view class="flex-1 col gap-xs">
+        <view class="row space-between">
+          <text class="label-md">逸夫馆三楼研习自习室</text>
+          <view class="badge badge-primary">实时平面</view>
+        </view>
+        <text class="body-sm muted">解锁实时座位看板，动态查座、跨楼层联动选座与快速签到入座。</text>
+      </view>
+    </view>
+
+    <view class="card benefit">
+      <view class="icon-round icon-round-sm ben-ico blue">
+      </view>
+      <view class="flex-1 col gap-xs">
+        <view class="row space-between">
+          <text class="label-md">奖学金 AI 申报预检</text>
+          <view class="badge badge-secondary">智能校验</view>
+        </view>
+        <text class="body-sm muted">佐证材料合规核算比对，查缺补漏助你提前避开申报硬伤。</text>
+      </view>
+    </view>
+
+    <view class="card benefit">
+      <view class="icon-round icon-round-sm ben-ico blue">
+      </view>
+      <view class="flex-1 col gap-xs">
+        <view class="row space-between">
+          <text class="label-md">“挑战杯”跨学科交叉组队</text>
+          <view class="badge badge-primary">课题直聘</view>
+        </view>
+        <text class="body-sm muted">材料物理、智能机电等重点课题发布找人，打破学院壁垒无缝链接。</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快速核验表单 -->
+  <view class="card form-card">
+    <view class="row space-between">
+      <view class="row gap-xs">
+        <text class="headline-sm">快速学籍核验通道</text>
+      </view>
+      <text class="label-sm secondary-text">免传证件照</text>
+    </view>
+
+    <view class="col gap-xs">
+      <text class="label-md">校内统一认证学号</text>
+      <view class="input-wrap">
+        <input class="input-inner" value="{{studentId}}" type="number" maxlength="9" placeholder="请输入 9 位本校在籍学号" placeholder-class="placeholder" bindinput="onIdInput" />
+      </view>
+      <view class="row gap-xs">
+        <text class="caption muted">学号仅用于与教务处在籍名单进行哈希比对，绝不对外公开。</text>
+      </view>
+    </view>
+
+    <view class="well phone-status">
+      <view class="icon-round icon-round-sm green">
+      </view>
+      <view class="flex-1 col">
+        <text class="label-sm semibold truncate">微信安全绑定手机</text>
+        <text class="caption muted">138****8826</text>
+      </view>
+      <view class="badge badge-secondary">已就绪</view>
+    </view>
+  </view>
+
+  <!-- 平台安全承诺 -->
+  <view class="well privacy">
+    <text class="caption muted">《材智通隐私保护承诺》：系统严格执行教育科研最小必要原则，非学籍关联隐私绝不采集，全链路加密留痕，符合教育部数据跨境及本地留存规范。</text>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="col gap-xs">
+    <button class="btn btn-primary w-full" bindtap="onSubmit" disabled="{{submitting}}">
+      <text class="ico ico-32 {{submitting ? 'spin' : ''}}">{{submitting ? '' : ''}}</text>
+      <text>{{submitText}}</text>
+    </button>
+    <button class="btn btn-ghost w-full" bindtap="goBack">
+      <text>暂不认证 · 继续以游客身份公开浏览</text>
+    </button>
+  </view>
+</view>

@@ -60,9 +60,9 @@ class ApiBoundaryTest {
         mvc.perform(get("/fixture/error/version")).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("VERSION_CONFLICT"));
         mvc.perform(get("/fixture/error/denied")).andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+                .andExpect(jsonPath("$.error.code").value("PERMISSION_DENIED"));
         mvc.perform(get("/fixture/error/auth")).andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
         mvc.perform(get("/fixture/error/internal")).andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.error.fieldErrors").isEmpty())

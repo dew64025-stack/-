@@ -1,0 +1,33 @@
+<view class="index-page">
+  <view class="index-hero">
+    <text class="index-kicker">材智通 · HTML 原型转换</text>
+    <text class="index-title">可导入微信开发者工具的前端</text>
+    <text class="index-sub">共 21 个页面 · 仅还原静态视觉，业务交互需接入 API</text>
+    <view class="index-status {{backendOk ? '' : 'index-status-error'}}">
+      <text>{{backendStatus}}</text>
+    </view>
+  </view>
+  <view class="index-list">
+    <view class="menu-item" data-path="pages/service/service" bindtap="openPage"><view class="menu-text"><text class="menu-title">服务</text><text class="menu-desc">Service · 服务大厅</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/mutual/mutual" bindtap="openPage"><view class="menu-text"><text class="menu-title">互助</text><text class="menu-desc">Mutual · 互助广场</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/opportunity/opportunity" bindtap="openPage"><view class="menu-text"><text class="menu-title">机会</text><text class="menu-desc">Opportunity · 机会列表</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/home/home" bindtap="openPage"><view class="menu-text"><text class="menu-title">首页</text><text class="menu-desc">Home · 首页</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/profile/profile" bindtap="openPage"><view class="menu-text"><text class="menu-title">我的</text><text class="menu-desc">Profile · 个人主页</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/precheck/precheck" bindtap="openPage"><view class="menu-text"><text class="menu-title">材料预检</text><text class="menu-desc">Pre Check Flow · 材料预检</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/seat-select/seat-select" bindtap="openPage"><view class="menu-text"><text class="menu-title">选座</text><text class="menu-desc">Seat Selection · 平面选座</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/library/library" bindtap="openPage"><view class="menu-text"><text class="menu-title">图书馆预约</text><text class="menu-desc">Library Seat Reservation · 图书馆预约</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/voucher/voucher" bindtap="openPage"><view class="menu-text"><text class="menu-title">预约凭证</text><text class="menu-desc">Reservation Voucher · 预约凭证</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/reservation-confirm/reservation-confirm" bindtap="openPage"><view class="menu-text"><text class="menu-title">预约确认</text><text class="menu-desc">Reservation Confirm · 预约确认</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/mutual-create/mutual-create" bindtap="openPage"><view class="menu-text"><text class="menu-title">发布互助</text><text class="menu-desc">Create Mutual Aid Post · 发布互助</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/mutual-detail/mutual-detail" bindtap="openPage"><view class="menu-text"><text class="menu-title">互助详情</text><text class="menu-desc">Mutual Aid Detail · 互助详情</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/chat/chat" bindtap="openPage"><view class="menu-text"><text class="menu-title">私信</text><text class="menu-desc">Direct Communication · 私信</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/login/login" bindtap="openPage"><view class="menu-text"><text class="menu-title">登录</text><text class="menu-desc">Login · 登录</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/phone-bind/phone-bind" bindtap="openPage"><view class="menu-text"><text class="menu-title">绑定手机号</text><text class="menu-desc">Phone Bind · 绑定手机号</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/verify/verify" bindtap="openPage"><view class="menu-text"><text class="menu-title">学生认证</text><text class="menu-desc">Verify · 学生认证</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/vault/vault" bindtap="openPage"><view class="menu-text"><text class="menu-title">材料保险箱</text><text class="menu-desc">Material Vault · 材料保险箱</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/network-error/network-error" bindtap="openPage"><view class="menu-text"><text class="menu-title">网络异常</text><text class="menu-desc">Network Exception · 网络异常</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/maintenance/maintenance" bindtap="openPage"><view class="menu-text"><text class="menu-title">服务维护</text><text class="menu-desc">Service Maintenance · 服务维护</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/permission-denied/permission-denied" bindtap="openPage"><view class="menu-text"><text class="menu-title">权限不足</text><text class="menu-desc">Permission Denied · 权限不足</text></view><text class="menu-arrow">›</text></view>
+    <view class="menu-item" data-path="pages/success/success" bindtap="openPage"><view class="menu-text"><text class="menu-title">操作结果</text><text class="menu-desc">Action Success Feedback · 操作结果</text></view><text class="menu-arrow">›</text></view>
+  </view>
+</view>

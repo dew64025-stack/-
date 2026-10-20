@@ -97,7 +97,8 @@ public class MeService {
         long todo = reminders.pendingCount(actor.userId()) + resources.userTodos(actor.userId(), actor.campusId())
                 + workOrders.userTodos(actor.userId(), actor.campusId())
                 + mutualAid.pendingBorrowCount(actor.userId(), actor.campusId())
-                + teams.pendingApplicationCount(actor.userId(), actor.campusId());
+                + teams.pendingApplicationCount(actor.userId(), actor.campusId())
+                + teams.pendingReviewCount(actor.userId(), actor.campusId());
         return new MeViews.Dashboard(user, todo, messaging.unreadTotal(actor.userId(), actor.campusId()),
                 mutualAid.userPosts(actor.userId(), actor.campusId()),
                 resources.userReservations(actor.userId(), actor.campusId()),
@@ -114,6 +115,7 @@ public class MeService {
         all.addAll(workOrders.pendingTodos(actor.userId(), actor.campusId()));
         all.addAll(mutualAid.pendingBorrowTodos(actor.userId(), actor.campusId()));
         all.addAll(teams.pendingApplicationTodos(actor.userId(), actor.campusId()));
+        all.addAll(teams.pendingReviewTodos(actor.userId(), actor.campusId()));
         all.sort(TODO_ORDER);
         TodoItem after = null;
         if (cursor != null) {

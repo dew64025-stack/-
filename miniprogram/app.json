@@ -1,0 +1,75 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/opportunity/opportunity",
+    "pages/service/service",
+    "pages/mutual/mutual",
+    "pages/profile/profile",
+    "pages/settings/settings",
+    "pages/precheck/precheck",
+    "pages/seatplan/seatplan",
+    "pages/seatreserve/seatreserve",
+    "pages/voucher/voucher",
+    "pages/reserveconfirm/reserveconfirm",
+    "pages/postcreate/postcreate",
+    "pages/mutualdetail/mutualdetail",
+    "pages/chat/chat",
+    "pages/login/login",
+    "pages/phonebind/phonebind",
+    "pages/verify/verify",
+    "pages/vault/vault",
+    "pages/neterror/neterror",
+    "pages/maintenance/maintenance",
+    "pages/denied/denied",
+    "pages/success/success",
+    "pages/opportunitydetail/opportunitydetail",
+    "pages/teams/teams",
+    "pages/activity/activity",
+    "pages/workorder/workorder",
+    "pages/campusissues/campusissues",
+    "pages/community/community",
+    "pages/borrows/borrows",
+    "pages/adminlogin/adminlogin",
+    "pages/adminreview/adminreview"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f9f9ff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "材智通",
+    "backgroundColor": "#f9f9ff",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#A0AEC0",
+    "selectedColor": "#1B4965",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/opportunity/opportunity",
+        "text": "机会"
+      },
+      {
+        "pagePath": "pages/service/service",
+        "text": "服务"
+      },
+      {
+        "pagePath": "pages/mutual/mutual",
+        "text": "互助"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

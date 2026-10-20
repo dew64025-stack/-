@@ -1,0 +1,19 @@
+{
+  "description": "材智通 HTML 原型转微信小程序（视觉转换）",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.12",
+  "appid": "wx019bf0b6d1a50ad3",
+  "projectname": "caizhitong-prototypes",
+  "miniprogramRoot": "./"
+}

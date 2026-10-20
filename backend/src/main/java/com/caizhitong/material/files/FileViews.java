@@ -10,7 +10,7 @@ public final class FileViews {
     public record Completed(String attachmentId,String scanStatus,String jobId) {}
     public record Metadata(String id,String fileName,String mimeType,long sizeBytes,String scanStatus) {}
     public record Download(String url,Instant expiresAt) {}
-    public record Version(String id,int versionNo) {}
+    public record Version(String id,int versionNo,String attachmentId) {}
     public record Material(String id,String fileName,String mimeType,long sizeBytes,String scanStatus,String status,
             Instant expiresAt,List<String> tags,Version currentVersion,int version) {}
     public record MaterialDetail(String id,String fileName,String mimeType,long sizeBytes,String scanStatus,String status,

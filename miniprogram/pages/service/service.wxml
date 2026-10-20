@@ -1,0 +1,57 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page col pg main-tab-page">
+  <!-- 顶部系统告知条 (合规严正声明) -->
+  <view class="notice-bar row">
+    <text class="flex-1 notice-text">演示环境 · 尚未接入学校真实服务数据</text>
+  </view>
+
+  <!-- 金刚区快捷服务入口 -->
+  <view class="card">
+    <view class="row space-between sec-head">
+      <view class="row gap-sm">
+        <text class="headline-sm">综合服务专区</text>
+      </view>
+      <text class="caption muted">快捷办理通道</text>
+    </view>
+    <view class="row wrap quick-grid">
+      <button class="quick-item quick-maintenance col center" bindtap="onQuick" data-name="宿舍报修">
+        <view class="icon-round quick-ico"><image class="quick-icon-image" src="../../assets/service-icons/repair.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">宿舍报修</text>
+        <text class="caption muted">水暖·电表·床架</text>
+      </button>
+      <button class="quick-item quick-facility col center" bindtap="onQuick" data-name="公共设施">
+        <view class="icon-round quick-ico"><image class="quick-icon-image" src="../../assets/service-icons/facility.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">公共设施</text>
+        <text class="caption muted">路灯·教学设备</text>
+      </button>
+      <button class="quick-item quick-library col center quick-hot" bindtap="onQuick" data-name="图书馆选座">
+        <view class="hot-badge">热点</view>
+        <view class="icon-round quick-ico quick-ico-green"><image class="quick-icon-image" src="../../assets/service-icons/library.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">图书馆选座</text>
+        <text class="caption muted">主馆·分馆预约</text>
+      </button>
+      <button class="quick-item quick-study col center" bindtap="onQuick" data-name="自习教室">
+        <view class="icon-round quick-ico"><image class="quick-icon-image" src="../../assets/service-icons/study.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">自习教室</text>
+        <text class="caption muted">空闲楼宇检索</text>
+      </button>
+      <button class="quick-item quick-crowd col center" bindtap="onQuick" data-name="食堂拥堵">
+        <view class="icon-round quick-ico"><image class="quick-icon-image" src="../../assets/service-icons/crowd.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">食堂拥堵</text>
+        <text class="caption muted">客流热力监控</text>
+      </button>
+      <button class="quick-item quick-issue col center" bindtap="onQuick" data-name="问题广场">
+        <view class="icon-round quick-ico"><image class="quick-icon-image" src="../../assets/service-icons/issue.png" mode="aspectFit" /></view>
+        <text class="label-md quick-title">问题广场</text>
+        <text class="caption muted">师生共建协同</text>
+      </button>
+    </view>
+  </view>
+
+
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view class="card col gap-md"><text class="headline-sm">校园点位拥堵</text><view wx:for="{{crowd}}" wx:key="id" class="well col gap-xs"><view class="api-heading"><text class="label-md">{{item.locationName}}</text><text class="caption muted">{{item.levelLabel}}</text></view><text class="api-source">{{item.sourceName}} · {{item.dateText}}</text></view><text wx:if="{{!loading && !crowd.length}}" class="api-empty">暂无拥堵观测</text></view>
+  <view class="card col gap-md"><text class="headline-sm">场地与设施预约</text><view wx:for="{{resources}}" wx:key="id" class="well col gap-sm"><text class="label-md">{{item.name}}</text><text class="caption muted">{{item.type}} · {{item.statusLabel}} · {{item.sourceName}}</text><button class="btn btn-primary btn-sm" bindtap="openResource" data-id="{{item.id}}">查看可预约时段</button></view><text wx:if="{{!loading && !resources.length}}" class="api-empty">暂无可用资源</text></view>
+  <view class="card col gap-md"><text class="headline-sm">我的工单进度</text><view wx:for="{{workOrders}}" wx:key="id" class="well col gap-sm"><text class="label-md">{{item.description}}</text><text class="caption muted">{{item.location}} · {{item.statusLabel}}</text><button class="btn btn-outline btn-sm" bindtap="openOrder" data-id="{{item.id}}">进度与评价</button></view><text wx:if="{{loggedIn && !workOrders.length}}" class="api-empty">暂无工单</text><button wx:if="{{!loggedIn}}" class="btn btn-outline" bindtap="goLogin">登录查看我的工单</button></view>
+  <view class="card col gap-md"><text class="headline-sm">校园公共问题广场</text><view wx:for="{{issues}}" wx:key="id" class="well col gap-sm"><text class="headline-sm">{{item.title}}</text><text class="body-sm muted">{{item.description}}</text><view class="api-heading"><text class="caption muted">{{item.statusLabel}} · {{item.voteCount}} 人支持</text><button class="btn btn-outline btn-xs" bindtap="openIssue" data-id="{{item.id}}">查看议题</button></view></view><text wx:if="{{!loading && !issues.length}}" class="api-empty">暂无公开议题</text></view>
+</view>

@@ -30,6 +30,7 @@ class DeepSeekClientTest {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/chat/completions", DeepSeekClientTest::handle);
+        server.createContext("/api/chat", DeepSeekClientTest::handleNative);
         server.start();
     }
 
@@ -77,6 +78,17 @@ class DeepSeekClientTest {
         exchange.close();
     }
 
+    private static void handleNative(HttpExchange exchange) throws IOException {
+        lastAuth.set(exchange.getRequestHeaders().getFirst("Authorization"));
+        lastBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+        byte[] body = "{\"model\":\"qwen3:8b\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"a\\\":1}\"},"
+                .concat("\"done\":true,\"done_reason\":\"stop\"}").getBytes();
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, body.length);
+        exchange.getResponseBody().write(body);
+        exchange.close();
+    }
+
     private DeepSeekClient client() {
         return new DeepSeekClient("test-secret-key", "deepseek-flash",
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/chat/completions"));
@@ -96,6 +108,21 @@ class DeepSeekClientTest {
         assertTrue(lastBody.get().contains("\"model\":\"deepseek-flash\""));
         assertTrue(lastBody.get().contains("system-prompt"));
         assertTrue(lastBody.get().contains("user-content"));
+    }
+
+    @Test
+    void ollamaProtocolUsesNativeThinkFalseJsonMode() {
+        var client = new DeepSeekClient("ollama", "qwen3:8b",
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/chat"), true, 300);
+        var completion = client.complete("system-prompt", "user-content", 256);
+        assertEquals("{\"a\":1}", completion.content());
+        assertEquals("Bearer ollama", lastAuth.get());
+        assertTrue(lastBody.get().contains("\"model\":\"qwen3:8b\""));
+        assertTrue(lastBody.get().contains("\"think\":false"));
+        assertTrue(lastBody.get().contains("\"format\":\"json\""));
+        assertTrue(lastBody.get().contains("\"num_predict\":256"));
+        assertFalse(lastBody.get().contains("\"response_format\""));
+        assertFalse(lastBody.get().contains("\"thinking\""));
     }
 
     @Test

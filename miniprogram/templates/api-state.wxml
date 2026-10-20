@@ -1,0 +1,8 @@
+<template name="api-state">
+  <view wx:if="{{loading}}" class="api-state"><text>正在加载…</text></view>
+  <view wx:if="{{error}}" class="card col gap-sm api-error">
+    <text class="body-sm">{{error}}</text>
+    <button wx:if="{{needsLogin}}" class="btn btn-primary btn-sm" bindtap="goLogin">微信登录</button>
+    <button wx:else class="btn btn-outline btn-sm" bindtap="reload">重新加载</button>
+  </view>
+</template>

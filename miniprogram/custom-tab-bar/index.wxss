@@ -1,0 +1,248 @@
+/* Adapted from Uiverse.io by david-mohseni.
+   保持现有 WXML 类名，适配微信小程序触控。
+*/
+
+:host {
+  display: block;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
+/* 底部导航整体 */
+.tabbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+
+  display: block;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+
+  padding: 24rpx 16rpx 16rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+
+  border-top: 1rpx solid #edf0f5;
+  background: #ffffff;
+  box-shadow: 0 -8rpx 36rpx rgba(0, 0, 0, 0.04);
+
+  overflow: visible;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* 对应原样式的 .wrapper */
+.nav-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+
+  width: 100%;
+  max-width: 1120rpx;
+  margin: 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 五个导航入口 */
+.nav-item {
+  position: relative;
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: 20%;
+  min-width: 0;
+  min-height: 148rpx;
+
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+
+  color: #4a5568;
+  font-family: inherit;
+  font-size: 24rpx;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: center;
+
+  overflow: visible;
+}
+
+/* 清除小程序 button 默认边框 */
+.nav-item::after {
+  border: 0;
+}
+
+/* 对应原样式的 .icon */
+.nav-circle {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+
+  width: 100rpx;
+  height: 100rpx;
+  margin: 0;
+
+  border-radius: 50%;
+  background: #ffffff;
+
+  box-shadow: 0 20rpx 20rpx rgba(0, 0, 0, 0.1);
+  overflow: visible;
+
+  transition:
+    background-color 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    box-shadow 0.2s ease;
+}
+
+/* 圆形中的图标 */
+.nav-icon {
+  position: absolute;
+  top: 26rpx;
+  left: 26rpx;
+
+  display: block;
+  width: 48rpx;
+  height: 48rpx;
+
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* 白色选中图标，默认隐藏 */
+.nav-icon-active {
+  opacity: 0;
+}
+
+/* 圆形下方文字 */
+.nav-label {
+  display: block;
+  margin-top: 12rpx;
+  min-height: 36rpx;
+
+  color: #4a5568;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  white-space: nowrap;
+}
+
+/* 默认选中/按压颜色：原 facebook 蓝 */
+.nav-item.is-selected,
+.nav-item.nav-pressed {
+  color: #1877f2;
+}
+
+/* 第二、第五个入口：原 twitter 蓝 */
+.nav-item:nth-child(2).is-selected,
+.nav-item:nth-child(2).nav-pressed,
+.nav-item:nth-child(5).is-selected,
+.nav-item:nth-child(5).nav-pressed {
+  color: #1da1f2;
+}
+
+/* 第三个入口：原 instagram 粉 */
+.nav-item:nth-child(3).is-selected,
+.nav-item:nth-child(3).nav-pressed {
+  color: #e4405f;
+}
+
+/* currentColor 使用上面入口对应的颜色 */
+.is-selected .nav-circle,
+.nav-pressed .nav-circle {
+  background: currentColor;
+}
+
+/* 选中/按压时隐藏普通图标 */
+.is-selected .nav-icon,
+.nav-pressed .nav-icon {
+  opacity: 0;
+}
+
+/* 显示白色选中图标 */
+.is-selected .nav-icon-active,
+.nav-pressed .nav-icon-active {
+  opacity: 1;
+}
+
+.is-selected .nav-label {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+/* 对应原样式的 .tooltip */
+.nav-tooltip {
+  position: absolute;
+  bottom: calc(100% + 24rpx);
+  left: 50%;
+  z-index: 2;
+
+  padding: 10rpx 16rpx;
+  border-radius: 10rpx;
+
+  /* 跟随圆形的选中/按压背景色 */
+  background: inherit;
+  color: #ffffff;
+
+  box-shadow: 0 20rpx 20rpx rgba(0, 0, 0, 0.1);
+
+  font-size: 28rpx;
+  font-weight: 400;
+  line-height: 40rpx;
+  white-space: nowrap;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+
+  transform: translate(-50%, 12rpx);
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    visibility 0.2s ease;
+}
+
+/* 提示框下方的小三角 */
+.nav-tooltip::before {
+  position: absolute;
+  bottom: -6rpx;
+  left: 50%;
+
+  width: 16rpx;
+  height: 16rpx;
+
+  background: inherit;
+  content: "";
+
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* 手指按压时显示提示 */
+.nav-pressed .nav-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.nav-pressed .nav-label,
+.nav-pressed .nav-tooltip {
+  text-shadow: 0 -2rpx 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 减少动态效果 */
+@media (prefers-reduced-motion: reduce) {
+  .nav-circle,
+  .nav-icon,
+  .nav-tooltip {
+    transition: none;
+  }
+}

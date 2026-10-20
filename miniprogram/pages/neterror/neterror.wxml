@@ -1,0 +1,119 @@
+<view class="page page-safe stack">
+  <!-- 1. 全局合规演练提示条 -->
+  <view class="compliance-banner">
+    <view class="flex-1 col">
+      <text class="label-md primary-text semibold">演示模式 · 异常兜底策略</text>
+      <text class="caption muted truncate">§17 网络与空态契约演练 · 容灾自愈已激活</text>
+    </view>
+    <view class="badge badge-primary">演示数据</view>
+  </view>
+
+  <!-- 2. 网络连接超时与离线容灾卡片 -->
+  <view class="card error-card">
+    <view class="err-visual">
+      <view class="err-circle">
+        <view class="err-sub">
+        </view>
+      </view>
+    </view>
+
+    <view class="row wrap gap-xs center">
+      <view class="badge badge-error">HTTP 502 / UPSTREAM_FAILED</view>
+      <view class="badge badge-plain mono">req_01JNET_ERR_7701</view>
+    </view>
+
+    <text class="headline-sm semibold text-center">校园网络不稳定或上游服务暂不可用</text>
+    <text class="body-sm muted text-center">校务主干网网关响应超时，系统已自动阻断无效重试并切换至弱网保护通道。</text>
+
+    <view class="draft-well">
+      <view class="flex-1 col gap-xs">
+        <view class="row gap-xs">
+          <text class="label-md secondary-text semibold">本地草稿已无损保全</text>
+          <view class="chip-time mono">14:28:10</view>
+        </view>
+        <text class="caption muted">当前填报的表单与凭据已加密留存至安全存储区，网络恢复后可一键完整还原。</text>
+      </view>
+    </view>
+
+    <view class="col gap-xs w-full">
+      <button class="btn btn-primary w-full" bindtap="onRetry">
+        <text>{{retryText}}</text>
+      </button>
+      <button class="btn btn-outline w-full" bindtap="onDraft">
+        <text>查看离线草稿箱 (2份待恢复)</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- 3. 业务空态契约示例 -->
+  <view class="section-head">
+    <view class="row gap-sm">
+      <text class="label-md semibold">业务空态契约示例</text>
+    </view>
+    <text class="caption muted mono">STATE_CONTRACT_VIEW</text>
+  </view>
+
+  <!-- 4. 异常场景二：机会空列表态 -->
+  <view class="card">
+    <view class="row space-between hairline card-head">
+      <view class="row gap-xs">
+        <text class="label-md">科创与奖助机会列表</text>
+      </view>
+      <view class="badge badge-plain">EMPTY_LIST</view>
+    </view>
+    <view class="col center empty-body">
+      <view class="icon-round icon-round-md empty-ico">
+      </view>
+      <text class="headline-sm text-center">暂未检索到符合当前条件的机会</text>
+      <view class="well empty-tip">
+        <view class="row gap-xs">
+          <text class="caption muted">当前绑定画像为 <text class="primary-text semibold">“材料学院·大三本科”</text>，该范畴下定向直推项目已归档。建议放宽评奖学年限制，或补充更新科研论文成果画像。</text>
+        </view>
+      </view>
+      <view class="row gap-xs w-full">
+        <button class="btn btn-neutral btn-sm flex-1" bindtap="noop">
+          <text>重置筛选条件</text>
+        </button>
+        <button class="btn btn-primary-container btn-sm flex-1" bindtap="noop">
+          <text>去完善画像</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 5. 异常场景三：互助记录空态 -->
+  <view class="card">
+    <view class="row space-between hairline card-head">
+      <view class="row gap-xs">
+        <text class="label-md">材化楼邻近互助圈</text>
+      </view>
+      <view class="badge badge-secondary">NO_MUTUAL_RECORD</view>
+    </view>
+    <view class="col center empty-body">
+      <view class="icon-round icon-round-md empty-ico green">
+      </view>
+      <text class="headline-sm text-center">材化楼周边 500m 暂无闲置信息</text>
+      <text class="body-sm muted text-center">实验耗材借调与考研专业课教材正处于周转空窗期，成为第一个点亮互助图谱的人吧。</text>
+      <view class="row gap-xs w-full">
+        <button class="btn btn-outline btn-sm flex-1" bindtap="noop">
+          <text>扩大至全校</text>
+        </button>
+        <button class="btn btn-secondary btn-sm flex-1" bindtap="noop">
+          <text>发起首条互助</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 6. 底部合规声明卡片 -->
+  <view class="well">
+    <view class="row gap-xs muted">
+      <text class="label-sm semibold">合规与离线安全保证机制</text>
+    </view>
+    <view class="col gap-xs foot-lines">
+      <text class="caption muted">1. 本系统严格执行零数据丢失契约，在弱网或 502/503 异常下遵循《本地沙箱离线缓存规范》。</text>
+      <text class="caption muted">2. 个人学术凭据、表单敏感字段在终端以 AES-256 标准脱敏加密留存，杜绝回退不可靠虚假假数据。</text>
+      <text class="caption muted">3. 网络通信重新握手成功后，将启动时钟校验并静默对齐云端版本戳。</text>
+    </view>
+  </view>
+</view>

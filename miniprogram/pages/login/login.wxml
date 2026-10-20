@@ -1,0 +1,10 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page login-page api-page">
+  <view class="card col gap-md"><text class="headline-xl primary-text">欢迎使用材智通</text><text class="body-sm muted">校园机会、服务与互助</text></view>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view class="card col gap-md"><text class="api-form-label">所在学校</text><button class="btn btn-outline" bindtap="onSwitchCampus">{{campusName}} · 切换</button></view>
+  <view class="card col gap-sm"><view class="row gap-sm" bindtap="toggleAgree"><text>{{agreed ? '☑' : '□'}}</text><text class="body-sm">我已阅读并同意服务协议与隐私政策</text></view><button class="link-btn" bindtap="noop">查看服务与隐私说明</button></view>
+  <button class="btn wx-login-btn" disabled="{{busy || loading}}" loading="{{wxLoginLoading}}" bindtap="onWxLogin">微信登录</button>
+  <button class="btn btn-outline admin-entry" bindtap="onAdminLogin" disabled="{{busy}}">教职工／管理员登录</button>
+  <button class="btn guest-btn" bindtap="onGuest">{{guestText}}</button>
+</view>

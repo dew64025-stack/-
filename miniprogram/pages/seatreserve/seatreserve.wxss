@@ -1,0 +1,274 @@
+.seatreserve-page {
+  padding-bottom: 60rpx;
+}
+
+.primary { color: #00324b; }
+
+/* 合规存证横幅 */
+.compliance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  background: rgba(27, 73, 101, 0.1);
+  border-radius: 24rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+}
+.compliance-text { font-size: 22rpx; color: #00324b; }
+.compliance-badge {
+  font-size: 20rpx;
+  color: #00324b;
+  background: #ffffff;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
+
+.section { margin-bottom: 16rpx; }
+
+.venue-btn {
+  padding: 12rpx 16rpx;
+  border-radius: 16rpx;
+  background: #f0f3ff;
+}
+.venue-name { font-size: 34rpx; font-weight: 600; color: #121c2c; }
+.chevron { font-size: 36rpx; color: #41474d; }
+
+.open-pill {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(165, 243, 201, 0.4);
+}
+.open-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #1a6b4a; }
+.open-text { font-size: 22rpx; color: #237150; }
+
+.step-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+}
+.step-num {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #00324b;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-title { font-size: 26rpx; font-weight: 600; color: #00324b; }
+.step-sub { font-size: 20rpx; color: #41474d; }
+
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8rpx;
+  padding-top: 4rpx;
+}
+.date-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 8rpx;
+  border-radius: 24rpx;
+  background: #ffffff;
+  box-shadow: 0 1rpx 3rpx rgba(27, 73, 101, 0.08);
+}
+.date-btn.selected {
+  background: #00324b;
+  color: #ffffff;
+}
+.date-label { font-size: 22rpx; opacity: 0.9; }
+.date-btn:not(.selected) .date-label { color: #41474d; }
+.date-num { font-size: 34rpx; font-weight: 700; }
+.date-btn:not(.selected) .date-num { color: #121c2c; font-weight: 600; }
+.date-sub {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  margin-top: 8rpx;
+}
+.date-btn.selected .date-sub { background: rgba(255, 255, 255, 0.15); }
+.date-btn:not(.selected) .date-sub { color: #237150; background: rgba(165, 243, 201, 0.5); }
+
+/* 微环境看板 */
+.env-card {
+  margin-bottom: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.env-head { padding-bottom: 8rpx; }
+.env-title { font-size: 26rpx; font-weight: 700; color: #121c2c; }
+.env-note { font-size: 20rpx; color: #41474d; }
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8rpx;
+}
+.metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  padding: 8rpx 4rpx;
+  text-align: center;
+}
+.metric-value { font-size: 34rpx; font-weight: 700; color: #121c2c; margin-top: 4rpx; }
+.metric-value.green { color: #1a6b4a; }
+.metric-label { font-size: 20rpx; color: #41474d; }
+.metric-label.green-label { color: #237150; font-weight: 500; }
+
+/* 区域列表 */
+.zone-section { margin-top: 8rpx; }
+.zone-title { font-size: 34rpx; font-weight: 700; color: #121c2c; }
+.zone-count { font-size: 22rpx; color: #41474d; }
+
+.zone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.zone-card.dim { opacity: 0.9; }
+.zone-name { font-size: 34rpx; font-weight: 700; color: #121c2c; }
+
+.rec-pill {
+  font-size: 20rpx;
+  color: #ffffff;
+  background: #1a6b4a;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+.multi-pill {
+  font-size: 20rpx;
+  color: #00324b;
+  background: #dee8ff;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+.auth-pill {
+  font-size: 20rpx;
+  color: #93000a;
+  background: #ffdad6;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+
+.tag {
+  font-size: 20rpx;
+  color: #121c2c;
+  background: #e7eeff;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.remain { font-size: 26rpx; font-weight: 700; color: #1a6b4a; }
+.remain.tertiary { color: #7f2708; }
+.total { font-size: 20rpx; color: #41474d; }
+.text-right { align-items: flex-end; }
+
+.zone-image {
+  height: 192rpx;
+  width: 100%;
+}
+
+.slot-label { font-size: 22rpx; font-weight: 500; color: #41474d; }
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8rpx;
+}
+.slot {
+  padding: 8rpx;
+  border-radius: 16rpx;
+  background: #f0f3ff;
+  display: flex;
+  flex-direction: column;
+}
+.slot.selected {
+  background: #1b4965;
+  color: #ffffff;
+  box-shadow: 0 1rpx 4rpx rgba(0, 50, 75, 0.2);
+}
+.slot-name { font-size: 22rpx; font-weight: 600; }
+.slot:not(.selected) .slot-name { color: #121c2c; }
+.slot-time { font-size: 20rpx; margin-top: 4rpx; }
+.slot:not(.selected) .slot-time { color: #41474d; }
+.slot.selected .slot-time { color: #8eb8d8; }
+.slot-sub { font-size: 20rpx; margin-top: 8rpx; font-weight: 500; }
+.slot:not(.selected) .slot-sub { color: #1a6b4a; }
+.slot.selected .slot-sub { color: #a5f3c9; font-weight: 600; }
+
+.go-seat {
+  margin-top: 4rpx;
+}
+.go-seat-2 {
+  background: #dee8ff;
+  color: #00324b;
+  height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.slot-row {
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+}
+.slot-row-text { font-size: 22rpx; color: #121c2c; }
+.remain-2 { font-size: 20rpx; color: #7f2708; font-weight: 600; }
+
+.full-pill {
+  font-size: 20rpx;
+  color: #93000a;
+  background: #ffdad6;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.wait-row {
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+}
+.wait-text { font-size: 20rpx; color: #41474d; }
+.wait-btn {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 8rpx 20rpx;
+  background: #d9e3f9;
+  color: #00324b;
+  font-size: 22rpx;
+  font-weight: 600;
+  border-radius: 999rpx;
+}
+.wait-sub { font-size: 20rpx; color: #41474d; }
+
+/* 规则须知 */
+.rules-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+.rules-notice-title { font-size: 26rpx; font-weight: 700; color: #121c2c; }
+.rules-notice-text { font-size: 24rpx; color: #41474d; line-height: 1.6; }

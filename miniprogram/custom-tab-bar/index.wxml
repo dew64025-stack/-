@@ -1,0 +1,16 @@
+<view class="tabbar">
+  <view class="nav-wrapper">
+    <button wx:for="{{list}}" wx:key="pagePath"
+      class="nav-item {{selected === index ? 'is-selected' : ''}}"
+      data-index="{{index}}" bindtap="onTabTap"
+      hover-class="nav-pressed" hover-start-time="0" hover-stay-time="80"
+      aria-label="{{item.text}}{{selected === index ? '，当前页面' : ''}}">
+      <view class="nav-circle">
+        <view class="nav-tooltip" aria-hidden="true">{{item.text}}</view>
+        <image class="nav-icon" src="{{item.iconPath}}" mode="aspectFit" aria-hidden="true" />
+        <image class="nav-icon nav-icon-active" src="{{item.selectedIconPath}}" mode="aspectFit" aria-hidden="true" />
+      </view>
+      <text class="nav-label">{{item.text}}</text>
+    </button>
+  </view>
+</view>

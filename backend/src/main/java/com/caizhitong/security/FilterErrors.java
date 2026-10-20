@@ -11,7 +11,8 @@ public final class FilterErrors {
     public FilterErrors(JsonMapper mapper) { this.mapper = mapper; }
     public void write(HttpServletRequest request, HttpServletResponse response, BusinessException error) throws IOException {
         response.setStatus(error.getStatus()); response.setContentType("application/json"); response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        mapper.writeValue(response.getOutputStream(), ApiResponse.failure(new ApiError(error.getCode(), error.getMessage(),
+        mapper.writeValue(response.getOutputStream(), ApiResponse.failure(new ApiError(
+                com.caizhitong.common.ContractErrorCodes.map(error.getCode()), error.getMessage(),
                 error.getFieldErrors(), error.isRetryable()), RequestIdFilter.requestId(request)));
     }
 }

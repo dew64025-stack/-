@@ -75,7 +75,7 @@ public class MaterialService {
         return new FileViews.Material(m.id(),m.fileName(),m.mimeType(),m.sizeBytes(),m.scanStatus(),m.status(),m.expiresAt(),m.tags(),versions.getFirst(),m.version());
     }
     private List<String> tags(String json){if(json==null)return List.of();var node=mapper.readTree(json);if(node.isString())node=mapper.readTree(node.asString());return strings(node);}
-    private List<FileViews.Version> versions(long id){return jdbc.query("SELECT id,version_no FROM material_versions WHERE file_id=? ORDER BY version_no DESC",(r,i)->new FileViews.Version(r.getString(1),r.getInt(2)),id);}
+    private List<FileViews.Version> versions(long id){return jdbc.query("SELECT id,version_no,attachment_id FROM material_versions WHERE file_id=? ORDER BY version_no DESC",(r,i)->new FileViews.Version(r.getString(1),r.getInt(2),r.getString(3)),id);}
     public FileViews.MaterialDetail detail(long id){authorize(id,false);var m=material(id);return new FileViews.MaterialDetail(m.id(),m.fileName(),m.mimeType(),m.sizeBytes(),m.scanStatus(),m.status(),m.expiresAt(),m.tags(),m.currentVersion(),m.version(),versions(id));}
     public FileViews.Page list(String q,String tag,String cursor,Integer limit){
         Actor actor=current.require();int size=PageLimits.resolve(limit);q=q==null?"":q.trim();tag=tag==null?"":tag.trim();if(q.length()>255||tag.length()>32)throw invalid();

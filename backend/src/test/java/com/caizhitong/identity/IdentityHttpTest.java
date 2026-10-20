@@ -130,8 +130,8 @@ class IdentityHttpTest {
         phone(201);String student=bearer(201,2,SessionKind.STUDENT),admin=bearer(900,1,SessionKind.ADMIN);
         write("/student-verifications",student,"{\"studentNumber\":\"20260001\"}","other-apply").andExpect(status().isOk());
         long id=jdbc.queryForObject("SELECT id FROM student_verifications",Long.class);
-        write("/admin/student-verifications/"+id+"/decision",admin,"{\"decision\":\"approve\",\"reason\":\"核验\",\"version\":0}","other-review").andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
-        write("/admin/student-verifications/999999/decision",admin,"{\"decision\":\"approve\",\"reason\":\"核验\",\"version\":0}","missing-review").andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+        write("/admin/student-verifications/"+id+"/decision",admin,"{\"decision\":\"approve\",\"reason\":\"核验\",\"version\":0}","other-review").andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+        write("/admin/student-verifications/999999/decision",admin,"{\"decision\":\"approve\",\"reason\":\"核验\",\"version\":0}","missing-review").andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
         write("/me/update",bearer(101,1,SessionKind.STUDENT),"{\"avatarAttachmentId\":\"500\",\"version\":0}","file-avatar").andExpect(status().isServiceUnavailable());
         write("/admin/student-roster/imports",admin,"{\"attachmentId\":\"500\"}","file-roster").andExpect(status().isServiceUnavailable());
         Assertions.assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_logs",Integer.class));
@@ -209,7 +209,7 @@ class IdentityHttpTest {
         String admin=bearer(900,1,SessionKind.ADMIN);
         for(String token:List.of(reauth(900,1,1_999_999_999L),reauth(101,1,2_000_000_300L),reauth(900,2,2_000_000_300L)))write("/admin/users/101/roles",admin,"{\"roleCode\":\"content_moderator\",\"campusId\":\"1\",\"reauthToken\":\""+token+"\",\"reason\":\"分配\"}",UUID.randomUUID().toString()).andExpect(status().isForbidden());
         write("/admin/users/201/roles",admin,"{\"roleCode\":\"content_moderator\",\"campusId\":\"2\",\"reauthToken\":\""+reauth(900,1,2_000_000_300L)+"\",\"reason\":\"分配\"}","role-other-campus").andExpect(status().isForbidden());
-        for(String user:List.of("201","999999"))write("/admin/users/"+user+"/roles",admin,"{\"roleCode\":\"content_moderator\",\"campusId\":\"1\",\"reauthToken\":\""+reauth(900,1,2_000_000_300L)+"\",\"reason\":\"分配\"}","role-invisible-"+user).andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+        for(String user:List.of("201","999999"))write("/admin/users/"+user+"/roles",admin,"{\"roleCode\":\"content_moderator\",\"campusId\":\"1\",\"reauthToken\":\""+reauth(900,1,2_000_000_300L)+"\",\"reason\":\"分配\"}","role-invisible-"+user).andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
     }
     @Test void rosterImportEncryptsValidRowsAndDoesNotGrantStudentCapability() throws Exception {
         String admin=bearer(900,1,SessionKind.ADMIN);

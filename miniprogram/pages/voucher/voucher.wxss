@@ -1,0 +1,205 @@
+.voucher-page {
+  padding-bottom: 60rpx;
+}
+
+.green { color: #1a6b4a; }
+.warn { color: #7f2708; }
+
+/* 沙盒提示 */
+.sandbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  background: #e7eeff;
+  border-radius: 16rpx;
+  padding: 8rpx 24rpx;
+  margin-bottom: 16rpx;
+}
+.sandbox-text { font-size: 22rpx; color: #121c2c; }
+.sandbox-badge {
+  font-size: 20rpx;
+  color: #41474d;
+  background: #d9e3f9;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+/* 凭证卡片 */
+.voucher-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 1rpx 3rpx rgba(27, 73, 101, 0.06);
+  margin-bottom: 24rpx;
+}
+.voucher-head {
+  background: #1a6b4a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+}
+.voucher-title { font-size: 34rpx; font-weight: 600; }
+.voucher-sub { font-size: 20rpx; opacity: 0.75; margin-top: 4rpx; }
+.success-pill {
+  font-size: 22rpx;
+  font-weight: 600;
+  background: #ffffff;
+  color: #1a6b4a;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
+
+.voucher-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 1rpx solid #e7eeff;
+}
+.cd-row { margin-bottom: 8rpx; }
+.cd-label { font-size: 22rpx; color: #1a6b4a; }
+.cd-time {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #121c2c;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  letter-spacing: 2rpx;
+  margin-bottom: 24rpx;
+}
+.qr-box {
+  width: 320rpx;
+  height: 320rpx;
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  color: #00324b;
+  font-size: 22rpx;
+  margin-bottom: 24rpx;
+}
+.code-row {
+  background: #e7eeff;
+  padding: 8rpx 32rpx;
+  border-radius: 999rpx;
+}
+.code {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #1a6b4a;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  letter-spacing: 6rpx;
+}
+.refresh-btn {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1a6b4a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.code-caption {
+  font-size: 20rpx;
+  color: #41474d;
+  margin-top: 16rpx;
+}
+
+.voucher-details {
+  padding: 24rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+}
+.dl { font-size: 24rpx; color: #41474d; }
+.dd { font-size: 28rpx; color: #121c2c; }
+.dd.dd-semibold { font-weight: 600; }
+
+.copy-btn {
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  background: #e7eeff;
+  color: #00324b;
+  font-size: 20rpx;
+}
+.warn-well {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  background: #f0f3ff;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-top: 16rpx;
+}
+.warn-line {
+  font-size: 20rpx;
+  color: #41474d;
+  line-height: 1.5;
+}
+.bold { font-weight: 700; }
+.dark { color: #121c2c; }
+
+/* 按钮行 */
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+  margin-bottom: 16rpx;
+}
+.btn-copy,
+.btn-cancel {
+  height: 88rpx;
+  border-radius: 16rpx;
+  background: #e7eeff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+.btn-copy { color: #00324b; }
+.btn-cancel { color: #ba1a1a; }
+
+.back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  color: #41474d;
+  font-size: 22rpx;
+  padding: 16rpx 0;
+}
+
+/* 轻提示 */
+.toast {
+  position: fixed;
+  top: 160rpx;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8rpx);
+  background: #273141;
+  color: #ebf1ff;
+  padding: 16rpx 32rpx;
+  border-radius: 999rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 50;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast-icon { font-size: 36rpx; }
+.toast-text { font-size: 24rpx; }

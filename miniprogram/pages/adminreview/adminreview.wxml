@@ -1,0 +1,46 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page api-page admin-page">
+  <view class="card col gap-md">
+    <view class="api-heading"><text class="admin-eyebrow">管理工作台</text><text wx:if="{{admin}}" class="caption muted">{{admin.nickname || '管理员'}}</text></view>
+    <text class="headline-lg primary-text">学生身份审核</text>
+    <text class="body-sm muted">仅处理当前账号授权校区的申请。名单匹配只是线索，通过前仍需核验申请人的本人身份。</text>
+  </view>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view wx:if="{{admin && !canReview && !error}}" class="card col gap-sm">
+    <text class="label-md">当前账号暂无学生认证审核权限</text>
+    <text class="body-sm muted">请联系学校权限负责人开通对应职责，不能自行选择角色获得权限。</text>
+  </view>
+  <block wx:if="{{canReview}}">
+    <view class="admin-filters">
+      <button wx:for="{{filters}}" wx:key="value" class="btn btn-xs admin-filter {{status === item.value ? 'btn-primary' : 'btn-outline'}}" data-status="{{item.value}}" bindtap="selectStatus" disabled="{{busy}}">{{item.label}}</button>
+    </view>
+    <view class="api-heading"><text class="label-md">认证申请</text><button class="link-btn" bindtap="reload" disabled="{{busy || loading}}">刷新</button></view>
+    <text wx:if="{{notice}}" class="admin-success">{{notice}}</text>
+    <view wx:for="{{applications}}" wx:key="id" class="card col gap-md">
+      <view class="api-heading"><text class="headline-sm">{{item.studentNumberMasked}}</text><text class="badge {{item.status === 'verified' ? 'badge-secondary' : 'badge-primary'}}">{{item.statusLabel}}</text></view>
+      <view class="col gap-xs"><text class="caption muted admin-review-id">申请编号：{{item.id}}</text><text class="caption muted">提交时间：{{item.dateText}}</text></view>
+      <text class="body-sm muted">{{item.rosterMatched ? '学号命中名单，仍需核验本人绑定关系' : '未匹配到名单，请通过学校认可渠道核验'}}</text>
+      <text wx:if="{{item.rejectReason}}" class="body-sm error-text">驳回原因：{{item.rejectReason}}</text>
+      <button wx:if="{{item.status === 'pending'}}" class="btn btn-outline" data-index="{{index}}" bindtap="openReview" disabled="{{busy}}">核验并处理</button>
+    </view>
+    <text wx:if="{{!loading && !error && !applications.length}}" class="api-empty">当前分类暂无认证申请</text>
+    <button wx:if="{{hasMore}}" class="btn btn-outline" bindtap="onReachBottom" disabled="{{loading || busy}}">加载更多申请</button>
+    <view wx:if="{{selected}}" class="card col gap-md admin-decision">
+      <view class="api-heading"><text class="headline-sm">处理认证申请</text><button class="link-btn" bindtap="closeReview" disabled="{{busy}}">关闭</button></view>
+      <text class="label-md">学号：{{selected.studentNumberMasked}}</text>
+      <text class="caption muted admin-review-id">申请编号：{{selected.id}}</text>
+      <text class="admin-note">请申请人出示申请编号，并通过学校认可方式核验本人学号；本页面仅展示脱敏学号，不能代替身份凭据。</text>
+      <radio-group bindchange="changeDecision" class="row gap-md">
+        <label class="row gap-xs"><radio value="approve" checked="{{decision === 'approve'}}" disabled="{{busy}}" color="#1b4965"/><text>通过认证</text></label>
+        <label class="row gap-xs"><radio value="reject" checked="{{decision === 'reject'}}" disabled="{{busy}}" color="#1b4965"/><text>驳回申请</text></label>
+      </radio-group>
+      <checkbox-group wx:if="{{decision === 'approve'}}" bindchange="confirmIdentity">
+        <label class="row gap-sm admin-identity-check"><checkbox value="checked" checked="{{identityChecked}}" disabled="{{busy}}" color="#1b4965"/><text class="body-sm">已核验该申请人与学号的可信绑定关系，不是仅凭名单命中。</text></label>
+      </checkbox-group>
+      <text class="api-form-label">{{decision === 'approve' ? '本人身份核验依据' : '具体驳回原因'}}</text>
+      <textarea class="api-form-textarea" value="{{reason}}" bindinput="inputReason" maxlength="{{decision === 'reject' ? 255 : 512}}" disabled="{{busy}}" placeholder="{{decision === 'approve' ? '填写已采用的可信核验方式，不要录入证件密码等敏感内容' : '说明需要补充或更正的信息'}}"/>
+      <button class="btn {{decision === 'reject' ? 'admin-danger' : 'btn-primary'}}" bindtap="submitDecision" loading="{{busy}}" disabled="{{busy || !reason || (decision === 'approve' && !identityChecked)}}">{{decision === 'approve' ? '确认通过认证' : '确认驳回申请'}}</button>
+    </view>
+  </block>
+  <button class="btn btn-outline" bindtap="switchStudent" disabled="{{busy}}">退出管理／返回学生登录</button>
+</view>

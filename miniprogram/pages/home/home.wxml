@@ -1,0 +1,26 @@
+<import src="../../templates/api-state.wxml"/>
+<view class="page col pg main-tab-page">
+  <view class="col gap-sm"><view class="ai-box"><input class="ai-input" value="{{aiInput}}" placeholder="搜索校园机会、服务和互助" bindinput="onAiInput" bindconfirm="submitAi"/><button class="ai-submit" bindtap="submitAi" loading="{{busy}}">搜索</button></view><view class="row quick-pills"><view class="quick-pill" data-q="图书馆" bindtap="onQuickTap">图书馆预约</view><view class="quick-pill" data-q="报修" bindtap="onQuickTap">宿舍报修</view></view></view>
+  <template is="api-state" data="{{loading,error,needsLogin}}"/>
+  <view wx:if="{{searched}}" class="col gap-sm"><text class="headline-sm">搜索结果</text><view wx:for="{{results}}" wx:key="id" class="card col gap-xs" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="openTarget"><text class="label-md">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text><text class="api-source">{{item.sourceName}}</text></view><text wx:if="{{!results.length}}" class="api-empty">没有找到相关内容</text></view>
+  <view class="assistant-section col">
+    <button class="assistant-banner" bindtap="toggleAi" hover-class="assistant-banner-pressed" aria-label="AI校园助手，点击展开或收起提问区" aria-expanded="{{aiExpanded}}">
+      <text class="assistant-mark" aria-hidden="true">AI</text>
+      <view class="assistant-heading col"><text class="assistant-title">AI 校园助手</text><text class="assistant-subtitle">机会申请、校园办事，有问题就问</text></view>
+      <text class="assistant-entry-action">{{aiExpanded ? '收起' : '提问'}}<text class="assistant-chevron">{{aiExpanded ? '⌃' : '›'}}</text></text>
+    </button>
+    <view wx:if="{{aiExpanded}}" class="assistant-panel col gap-sm">
+      <label class="assistant-label" for="assistant-question">你想了解什么？</label>
+      <textarea id="assistant-question" class="assistant-question" value="{{aiQuestion}}" bindinput="onAssistantInput" maxlength="2000" focus="{{aiFocus}}" disabled="{{aiBusy}}"  placeholder-class="assistant-placeholder" cursor-spacing="32"/>
+      <text class="assistant-note">请勿填写密码、验证码等敏感信息。</text>
+      <text wx:if="{{aiError}}" class="assistant-error api-content">{{aiError}}</text>
+      <button class="btn btn-primary assistant-send" bindtap="askAi" disabled="{{aiBusy}}" loading="{{aiBusy}}" hover-class="assistant-send-pressed">{{aiBusy ? '正在回答…' : (aiError ? '重新提问' : '向 AI 提问')}}</button>
+      <text wx:if="{{aiStatus}}" class="assistant-status">{{aiStatus}}</text>
+      <view wx:if="{{answer}}" class="assistant-answer col gap-sm"><text class="assistant-label">助手回答</text><text class="body-sm api-content" selectable="{{true}}">{{answer}}</text><text class="assistant-note">{{aiDisclaimer}}</text></view>
+    </view>
+  </view>
+  <view class="col gap-sm"><view class="row space-between sec-head"><text class="headline-sm">今日截止事项</text><text class="caption muted">{{deadlines.length}} 项</text></view><view wx:for="{{deadlines}}" wx:key="id" class="card col gap-sm" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="openTarget"><text class="label-md">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text><text class="caption error-text">截止 {{item.dateText}}</text></view><text wx:if="{{!loading && !deadlines.length}}" class="api-empty">暂无今日截止事项</text></view>
+  <view class="col gap-sm"><view class="row space-between sec-head"><text class="headline-sm">个性化机会推荐</text><button class="link-btn" bindtap="moreOpportunities">更多项目 ›</button></view><view wx:for="{{recommendations}}" wx:key="id" class="card col gap-sm" data-id="{{item.id}}" data-type="{{item.type}}" bindtap="openTarget"><text class="headline-sm">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text><text class="api-source">{{item.sourceName}}</text></view><text wx:if="{{!loading && !recommendations.length}}" class="api-empty">暂无推荐机会，可前往机会页浏览</text></view>
+  <view class="col gap-sm"><text class="headline-sm">校园热点问题</text><view wx:for="{{hotIssues}}" wx:key="id" class="card col gap-sm" data-id="{{item.id}}" data-type="campus_issue" bindtap="openTarget"><text class="label-md">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text></view><text wx:if="{{!loading && !hotIssues.length}}" class="api-empty">暂无公开热点问题</text></view>
+  <view class="col gap-sm"><text class="headline-sm">校园互助快报</text><view wx:for="{{nearbyPosts}}" wx:key="id" class="card col gap-sm" data-id="{{item.id}}" data-type="mutual_aid" bindtap="openTarget"><text class="label-md">{{item.title}}</text><text class="body-sm muted">{{item.summary}}</text><text class="caption muted">{{item.locationName}}</text></view><text wx:if="{{!loading && !nearbyPosts.length}}" class="api-empty">暂无互助信息</text></view>
+</view>

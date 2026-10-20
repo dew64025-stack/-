@@ -1,0 +1,14 @@
+const api=require('../../utils/request');const data=require('../../utils/data');const ui=require('../../utils/ui');const session=require('../../utils/session');
+function compare(a,b){return a.length-b.length||a.localeCompare(b);}
+ui.define({
+ data:{inputValue:'',messages:[],hasMore:false},
+ onLoad(o){this.id=o.id;this.contextType=o.contextType;this.contextId=o.contextId;},
+ onShow(){this._hidden=false;this.reload().then(()=>this.schedule());},
+ onHide(){this._hidden=true;clearTimeout(this.timer);},
+ onUnload(){this._disposed=true;clearTimeout(this.timer);},
+ schedule(){clearTimeout(this.timer);if(!this._hidden&&!this._disposed)this.timer=setTimeout(()=>this.reload().then(()=>this.schedule()),5000);},
+ reload(){return ui.load(this,async()=>{const generation=this._loadGeneration;if(!this.id){if(!this.contextId||!this.contextType)throw Error('请从业务内容或消息列表进入会话');const conversation=await api.post('/conversations',{contextType:this.contextType,contextId:this.contextId});this.id=conversation.id;}const p=await api.get('/conversations/'+this.id+'/messages',{limit:50},true);const user=session.get().user;const incoming=p.items.slice().sort((a,b)=>compare(a.id,b.id)).map(x=>Object.assign({},x,{kind:x.sender.id===user.id?'right':'left',author:x.sender.nickname||'校园用户',time:data.date(x.createdAt),text:x.content}));if(this._disposed||generation!==this._loadGeneration)return {};const byId=new Map(this.data.messages.map(x=>[x.id,x]));incoming.forEach(x=>byId.set(x.id,x));const messages=Array.from(byId.values()).sort((a,b)=>compare(a.id,b.id));if(!this._messagesLoaded){this.cursor=p.nextCursor;this._messagesLoaded=true;}const last=messages[messages.length-1];if(last&&last.id!==this.readId){await api.post('/conversations/'+this.id+'/read',{lastReadMessageId:last.id});this.readId=last.id;}return {messages,hasMore:this.cursor!=null};});},
+ older(){return ui.action(this,async()=>{const p=await api.get('/conversations/'+this.id+'/messages',{limit:50,cursor:this.cursor},true);const user=session.get().user;const older=p.items.map(x=>Object.assign({},x,{kind:x.sender.id===user.id?'right':'left',author:x.sender.nickname||'校园用户',time:data.date(x.createdAt),text:x.content}));const messages=older.concat(this.data.messages).filter((x,i,a)=>a.findIndex(y=>y.id===x.id)===i).sort((a,b)=>compare(a.id,b.id));this.cursor=p.nextCursor;this.setData({messages,hasMore:p.hasMore});});},
+ onInput(e){this.setData({inputValue:e.detail.value});},
+ send(){const content=this.data.inputValue.trim();if(!content)return;return ui.action(this,async()=>{if(!this.pending||this.pending.content!==content)this.pending={content,clientMessageId:api.newIdempotencyKey(),key:api.newIdempotencyKey()};await api.post('/conversations/'+this.id+'/messages',{content,clientMessageId:this.pending.clientMessageId},true,this.pending.key);this.pending=null;this.setData({inputValue:''});await this.reload();wx.pageScrollTo({scrollTop:999999,duration:200});});}
+});

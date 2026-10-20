@@ -1,0 +1,388 @@
+/* 学生认证页 私有样式（rpx，1px = 2rpx） */
+
+/* 通用块级文本辅助 */
+.blk { display: block; }
+.body-medium {
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: var(--on-surface);
+  font-weight: 500;
+}
+.on-surface-strong {
+  color: var(--on-surface);
+  font-weight: 500;
+}
+
+/* 步骤与进度 */
+.step-wrap {
+  padding: 8rpx 0 24rpx;
+}
+.step-head {
+  margin-bottom: 8rpx;
+}
+.badge-step {
+  background: #c9e6ff;
+  color: #001e2f;
+}
+.progress-track {
+  width: 100%;
+  height: 12rpx;
+  background: var(--surface-container-highest);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+.progress-fill {
+  width: 100%;
+  height: 100%;
+  background: var(--primary-container);
+  border-radius: 999rpx;
+}
+
+/* 状态横幅 */
+.banner {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-low);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 1rpx 3rpx rgba(27, 73, 101, 0.06);
+  margin-bottom: 24rpx;
+}
+.banner-deco {
+  position: absolute;
+  right: -48rpx;
+  bottom: -48rpx;
+  width: 192rpx;
+  height: 192rpx;
+  border-radius: 50%;
+  background: rgba(27, 73, 101, 0.1);
+  pointer-events: none;
+}
+.banner-row {
+  align-items: flex-start;
+  gap: 16rpx;
+}
+.banner-ico {
+  width: 64rpx;
+  height: 64rpx;
+  font-size: 32rpx;
+  background: var(--surface-container);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+.banner-title {
+  margin-bottom: 8rpx;
+}
+.badge-demo {
+  background: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+  padding: 4rpx 12rpx;
+}
+.banner-desc {
+  line-height: 1.6;
+}
+
+/* 学术权益卡 */
+.entitle-card {
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+.entitle-head {
+  align-items: flex-start;
+  margin-bottom: 24rpx;
+}
+.entitle-ico {
+  width: 72rpx;
+  height: 72rpx;
+  font-size: 36rpx;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  border-radius: 16rpx;
+  flex-shrink: 0;
+}
+.entitle-head .headline-sm {
+  margin-bottom: 4rpx;
+}
+.rights-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.right-item {
+  width: calc(50% - 8rpx);
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+}
+.right-ico {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: var(--surface-container);
+  color: var(--primary-container);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  margin-bottom: 8rpx;
+}
+.right-item .label-md {
+  margin-bottom: 4rpx;
+}
+
+/* 表单区 */
+.form-block {
+  margin-bottom: 24rpx;
+}
+.form-card {
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+.form-card:last-child {
+  margin-bottom: 0;
+}
+.form-label-row {
+  margin-bottom: 12rpx;
+}
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.label-ico {
+  color: var(--primary);
+  font-size: 28rpx;
+}
+.badge-lock {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  padding: 4rpx 12rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+}
+.value-row {
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  gap: 16rpx;
+}
+.value-ico {
+  color: var(--outline);
+  font-size: 32rpx;
+}
+
+/* 培养层次胶囊 */
+.degree-label {
+  display: block;
+  margin-bottom: 16rpx;
+}
+.degree-grid {
+  display: flex;
+  gap: 16rpx;
+}
+.degree-pill {
+  flex: 1;
+  padding: 20rpx 0;
+  border-radius: 16rpx;
+  background: var(--surface-low);
+  color: var(--on-surface-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.degree-pill:active {
+  transform: scale(0.95);
+}
+.degree-pill-active {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 2rpx 6rpx rgba(0, 50, 75, 0.18);
+}
+
+/* 学号输入 */
+.input-label {
+  display: block;
+  margin-bottom: 12rpx;
+}
+.student-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.student-input-ico {
+  position: absolute;
+  left: 24rpx;
+  color: var(--outline);
+  font-size: 36rpx;
+  z-index: 1;
+}
+.student-input {
+  height: 88rpx;
+  padding-left: 88rpx;
+  border-radius: 16rpx;
+  background: var(--surface-low);
+}
+.student-note {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+.note-ico {
+  color: var(--secondary);
+  font-size: 24rpx;
+}
+
+/* 年级 / 手机 */
+.badge-major {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  flex-shrink: 0;
+}
+.badge-wechat {
+  background: rgba(165, 243, 201, 0.5);
+  color: var(--secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+
+/* 双轨保障 */
+.dual-channel {
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+.dual-title {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+.track {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: var(--surface-lowest);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+.track:last-child {
+  margin-bottom: 0;
+}
+.track-num {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.track-num-1 {
+  background: #c9e6ff;
+  color: #001e2f;
+}
+.track-num-2 {
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
+}
+.track-link {
+  color: var(--primary-container);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* 学术诚信 */
+.integrity-card {
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+.agree-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+.agree-row checkbox {
+  margin-top: 4rpx;
+  transform: scale(0.8);
+}
+.agree-text {
+  line-height: 1.6;
+}
+.integrity-foot {
+  margin-top: 16rpx;
+  color: var(--outline);
+}
+
+/* 底部操作 */
+.cta-block {
+  padding-top: 8rpx;
+}
+.submit-btn {
+  width: 100%;
+  height: 88rpx;
+  border-radius: 16rpx;
+  background: #3a7294;
+  color: var(--on-primary);
+  font-size: 26rpx;
+  font-weight: 600;
+  gap: 12rpx;
+  box-shadow: 0 4rpx 12rpx rgba(58, 114, 148, 0.3);
+}
+.submit-btn::after { border: none; }
+.submit-btn-busy {
+  opacity: 0.75;
+}
+.submit-post {
+  opacity: 0.75;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-weight: 400;
+}
+.skip-btn {
+  width: 100%;
+  padding: 20rpx 0;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-size: 24rpx;
+  text-align: center;
+}
+.skip-btn::after { border: none; }
+
+/* 轻提示 */
+.toast {
+  position: fixed;
+  bottom: 160rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #273141;
+  color: #ebf1ff;
+  padding: 16rpx 24rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 999;
+  max-width: 640rpx;
+}
+.toast-show {
+  opacity: 1;
+}
+.toast-ico {
+  color: #8ad6ae;
+  font-size: 28rpx;
+}

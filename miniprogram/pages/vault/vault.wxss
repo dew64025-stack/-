@@ -1,0 +1,447 @@
+/* 材料保险箱页 私有样式（rpx，1px = 2rpx） */
+
+/* 通用 */
+.blk { display: block; }
+.on-surface-strong {
+  color: var(--on-surface);
+  font-weight: 500;
+}
+
+/* 顶部标头 */
+.vault-head {
+  padding: 8rpx 0 16rpx;
+  align-items: center;
+}
+.vault-title {
+  align-items: center;
+  min-width: 0;
+}
+.head-ico {
+  color: var(--primary-container);
+  font-size: 36rpx;
+}
+.badge-vault {
+  background: var(--surface-container-high);
+  color: var(--primary-container);
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+.vault-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+
+/* 资产概览卡 */
+.overview-card {
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+.overview-top {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.overview-left {
+  min-width: 0;
+}
+.overview-scan {
+  margin-bottom: 8rpx;
+}
+.overview-count {
+  align-items: baseline;
+}
+.overview-count .headline-xl {
+  margin-right: 8rpx;
+}
+.upload-btn {
+  height: 72rpx;
+  padding: 0 24rpx;
+  background: var(--primary-container);
+  color: var(--on-primary);
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+.upload-btn::after { border: none; }
+.upload-btn:active {
+  background: var(--primary);
+}
+
+/* 容量进度条 */
+.capacity {
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+.capacity-head {
+  margin-bottom: 8rpx;
+}
+.capacity-label {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.capacity-track {
+  width: 100%;
+  height: 16rpx;
+  border-radius: 999rpx;
+  background: var(--surface-container-highest);
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+.capacity-fill {
+  width: 21%;
+  height: 100%;
+  background: var(--primary-container);
+  border-radius: 999rpx;
+}
+.capacity-foot {
+  align-items: center;
+}
+.badge-capacity {
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  padding: 2rpx 12rpx;
+  flex-shrink: 0;
+}
+
+/* 盲水印引导 */
+.watermark-guide {
+  align-items: flex-start;
+  gap: 16rpx;
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+}
+.watermark-guide-ico {
+  color: var(--primary-container);
+  font-size: 32rpx;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+.watermark-guide-text {
+  line-height: 1.6;
+}
+
+/* 列表模块标题 */
+.list-head {
+  align-items: center;
+  padding: 8rpx 0 16rpx;
+}
+.badge-count {
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+}
+.list-lock {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+/* 材料卡片 */
+.material-card {
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+}
+.material-top {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+.material-main {
+  align-items: flex-start;
+  gap: 16rpx;
+  flex: 1;
+  min-width: 0;
+}
+.material-ico {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  flex-shrink: 0;
+}
+.material-ico-1 { background: var(--surface-container-high); color: var(--primary-container); }
+.material-ico-2 { background: var(--secondary-container); color: var(--on-secondary-container); }
+.material-ico-3 { background: #ffdbd0; color: #3a0a00; }
+.material-ico-4 { background: var(--surface-container-high); color: var(--primary-container); }
+.material-info {
+  min-width: 0;
+}
+.material-title {
+  margin-bottom: 4rpx;
+}
+.material-meta {
+  line-height: 1.4;
+}
+.badge-sensitive {
+  background: #ffdbd0;
+  color: #3a0a00;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+.badge-official {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+.badge-pending {
+  background: var(--error-container);
+  color: var(--on-error-container);
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+.badge-verified {
+  background: var(--surface-container-highest);
+  color: var(--primary-container);
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  flex-shrink: 0;
+}
+
+/* 盲水印专有标记条 */
+.watermark-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+  margin-bottom: 8rpx;
+}
+.watermark-bar-ico {
+  color: var(--secondary);
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+/* 哈希固化条 */
+.hash-bar {
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+  margin-bottom: 8rpx;
+}
+.hash-left {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.hash-right {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+/* 警示条 */
+.warn-bar {
+  align-items: flex-start;
+  gap: 12rpx;
+  background: rgba(255, 218, 214, 0.4);
+  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+  margin-bottom: 8rpx;
+}
+.warn-ico {
+  color: var(--on-error-container);
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+.warn-text {
+  color: var(--on-error-container);
+  line-height: 1.5;
+}
+
+/* 卡片按钮网格 */
+.btn-grid {
+  display: flex;
+  gap: 8rpx;
+  padding-top: 8rpx;
+}
+.card-btn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 16rpx;
+  background: var(--surface-container);
+  color: var(--primary-container);
+  font-size: 22rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 0 16rpx;
+  box-sizing: border-box;
+}
+.card-btn::after { border: none; }
+.card-btn:active { background: var(--surface-container-high); }
+.card-btn-ghost {
+  background: var(--surface-low);
+  color: var(--on-surface-variant);
+}
+.card-btn-ghost:active { background: var(--surface-container); }
+.card-btn-primary {
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+.card-btn-primary:active { background: var(--primary); }
+.ready-ico { color: var(--secondary); }
+.ready-text { color: var(--secondary); }
+
+/* 数据权利治理板块 */
+.rights-card {
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+.rights-title {
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+.rights-title-ico {
+  color: var(--primary-container);
+  font-size: 32rpx;
+}
+.rights-row {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+.ai-info {
+  min-width: 0;
+  padding-right: 8rpx;
+}
+.ai-title-row {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 4rpx;
+}
+.badge-material-ai {
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  padding: 2rpx 12rpx;
+  font-size: 20rpx;
+}
+.ai-desc {
+  line-height: 1.4;
+}
+
+/* 开关 */
+.switch {
+  width: 88rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  padding: 4rpx;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+.switch-on {
+  background: var(--primary-container);
+  justify-content: flex-end;
+}
+.switch-off {
+  background: var(--outline-variant);
+  justify-content: flex-start;
+}
+.switch-dot {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 120秒防盗链机制说明 */
+.link-mechanism {
+  align-items: flex-start;
+  gap: 16rpx;
+  background: var(--surface-low);
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+.link-mechanism-ico {
+  color: var(--primary-container);
+  font-size: 32rpx;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+.link-mechanism-text {
+  line-height: 1.6;
+}
+
+/* 数据权利动作 */
+.rights-actions {
+  padding-top: 8rpx;
+}
+.export-btn {
+  width: 100%;
+  height: 88rpx;
+  background: var(--surface-container);
+  color: var(--primary-container);
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  gap: 12rpx;
+}
+.export-btn::after { border: none; }
+.export-btn:active { background: var(--surface-container-high); }
+.delete-row {
+  text-align: center;
+  padding-top: 8rpx;
+}
+.delete-btn {
+  background: transparent;
+  color: var(--error);
+  font-size: 22rpx;
+  font-weight: 500;
+  text-decoration: underline;
+}
+.delete-btn::after { border: none; }
+.delete-btn:active { opacity: 0.7; }
+
+/* 底部免责声明 */
+.disclaimer {
+  padding: 8rpx 16rpx 0;
+  text-align: center;
+}
+.disclaimer-row {
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-bottom: 8rpx;
+  color: var(--on-surface-variant);
+}
+.disclaimer-line {
+  font-size: 22rpx;
+  color: var(--on-surface-variant);
+}
+.disclaimer-text {
+  line-height: 1.4;
+}

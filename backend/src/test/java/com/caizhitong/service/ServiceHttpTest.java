@@ -34,7 +34,7 @@ class ServiceHttpTest {
 
     @BeforeEach void seed(){
         clock.value=Instant.parse("2026-10-20T00:00:00Z");
-        for(String t:List.of("api_idempotency_records","work_order_ratings","work_order_events","work_orders","campus_issue_events","campus_issue_locations","campus_issue_follows","campus_issue_evidences","campus_issue_votes","campus_issues","reservation_checkins","resource_occupancies","reservations","resource_slots","resources","crowd_observations","external_references","external_systems","campus_regions"))jdbc.update("DELETE FROM "+t);
+        for(String t:List.of("api_idempotency_records","notifications","work_order_ratings","work_order_events","work_orders","campus_issue_events","campus_issue_locations","campus_issue_follows","campus_issue_evidences","campus_issue_votes","campus_issues","reservation_checkins","resource_occupancies","reservations","resource_slots","resources","crowd_observations","external_references","external_systems","campus_regions"))jdbc.update("DELETE FROM "+t);
         jdbc.update("DELETE FROM user_roles");jdbc.update("DELETE FROM roles");
         jdbc.update("DELETE FROM user_phones");jdbc.update("DELETE FROM authorizations");jdbc.update("DELETE FROM student_verifications");
         jdbc.update("DELETE FROM users");jdbc.update("DELETE FROM campuses");
@@ -81,9 +81,13 @@ class ServiceHttpTest {
         String slot=mapper.readTree(adminCommand("/admin/resources/"+resource+"/slots",admin,"{\"slotDate\":\"2026-10-20\",\"startTime\":\"08:00:00\",\"endTime\":\"10:00:00\",\"capacity\":1}","rs-slot-1").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
         String resv=mapper.readTree(command("/reservations",student,"{\"slotId\":\""+slot+"\",\"seatNo\":1}","rs-book-1").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("data").path("id").asString();
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE slot_id=?",Integer.class,Long.parseLong(slot)));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM notifications WHERE user_id=101"
+                + " AND type='reservation' AND target_type='reservation' AND target_id=?",Integer.class,Long.parseLong(resv)));
         command("/reservations",student2,"{\"slotId\":\""+slot+"\",\"seatNo\":1}","rs-book2").andExpect(status().isConflict());
         command("/reservations/"+resv+"/cancel",student,"{\"version\":0}","rs-cancel").andExpect(status().isOk());
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM resource_occupancies WHERE slot_id=?",Integer.class,Long.parseLong(slot)));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM notifications WHERE user_id=101"
+                + " AND type='reservation' AND target_type='reservation' AND target_id=?",Integer.class,Long.parseLong(resv)));
         command("/reservations",student2,"{\"slotId\":\""+slot+"\",\"seatNo\":1}","rs-book3").andExpect(status().isCreated());
     }
 

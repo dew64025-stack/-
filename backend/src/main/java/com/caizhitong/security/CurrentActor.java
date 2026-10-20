@@ -14,21 +14,24 @@ public class CurrentActor {
                 .filter(current -> current.kind() == actor.kind() && current.userId() == actor.userId()
                         && current.campusId() == actor.campusId());
     }
-    public Actor requireAuthenticatedIdentity() { return optional().orElseThrow(() -> new BusinessException(401, "UNAUTHENTICATED", "请先登录")); }
+    public Actor requireAuthenticatedIdentity() { return optional().orElseThrow(() -> new BusinessException(401, "AUTH_REQUIRED", "请先登录")); }
     public Actor require() {
         Actor actor = requireAuthenticatedIdentity();
-        if (!"active".equals(actor.status())) throw forbidden();
+        if (!"active".equals(actor.status())) throw new BusinessException(403, "ACCOUNT_RESTRICTED", "账号当前不可用");
         return actor;
     }
     public Actor requireStudent() {
         Actor actor = require();
-        if (actor.kind() != SessionKind.STUDENT || !actor.phoneBound() || !actor.studentVerified()) throw forbidden();
+        if (actor.kind() != SessionKind.STUDENT) throw new BusinessException(403, "PERMISSION_DENIED", "无权执行此操作");
+        if (!actor.phoneBound()) throw new BusinessException(403, "PHONE_BIND_REQUIRED", "请先绑定手机号");
+        if (!actor.studentVerified()) throw new BusinessException(403, "STUDENT_VERIFICATION_REQUIRED", "请先完成学生认证");
         return actor;
     }
     public Actor requirePermission(String permission) {
         Actor actor = require();
-        if (actor.kind() != SessionKind.ADMIN || !actor.permissions().contains(permission)) throw forbidden();
+        if (actor.kind() != SessionKind.ADMIN || !actor.permissions().contains(permission)) {
+            throw new BusinessException(403, "PERMISSION_DENIED", "无权执行此操作");
+        }
         return actor;
     }
-    private BusinessException forbidden() { return new BusinessException(403, "FORBIDDEN", "无权执行此操作"); }
 }

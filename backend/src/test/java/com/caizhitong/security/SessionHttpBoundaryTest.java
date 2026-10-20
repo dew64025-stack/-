@@ -140,7 +140,7 @@ class SessionHttpBoundaryTest {
                 () -> next[0] = sessions.refresh(first.refreshToken(), SessionKind.STUDENT);
         mvc.perform(post("/api/v1/auth/logout").contentType("application/json").content("{\"refreshToken\":\"" + first.refreshToken() + "\"}"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+                .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
         mvc.perform(get("/api/v1/me/probe").header("Authorization", "Bearer " + next[0].accessToken())).andExpect(status().isOk());
         mvc.perform(post("/api/v1/auth/logout").contentType("application/json").content("{\"refreshToken\":\"" + next[0].refreshToken() + "\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.revoked").value(true));

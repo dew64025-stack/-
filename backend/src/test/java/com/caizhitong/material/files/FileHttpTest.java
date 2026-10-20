@@ -79,7 +79,7 @@ class FileHttpTest {
         String bearer="Bearer "+sessions.issue(101,1,SessionKind.STUDENT).accessToken();
         var crypto=new com.caizhitong.common.SensitiveDataCrypto(new byte[32],new byte[]{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
         for(long id:List.of(501L,502L))jdbc.update("INSERT INTO file_attachments(id,upload_id,campus_id,owner_user_id,access_domain,purpose,file_name,mime_type,size_bytes,original_sha256,content_sha256,object_key_encrypted,scan_status,state,created_at,updated_at) VALUES(?,?,1,101,'student','material','test','application/pdf',3,?,?,?,'clean','active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,id,"a".repeat(64),"b".repeat(64),crypto.encrypt("file-object-key","clean/"+id));
-        var response=command("/materials",bearer,"{\"attachmentId\":\"501\",\"tags\":[\"入学\"]}","material-first").andExpect(status().isCreated()).andExpect(jsonPath("$.data.currentVersion.versionNo").value(1)).andReturn();
+        var response=command("/materials",bearer,"{\"attachmentId\":\"501\",\"tags\":[\"入学\"]}","material-first").andExpect(status().isCreated()).andExpect(jsonPath("$.data.currentVersion.versionNo").value(1)).andExpect(jsonPath("$.data.currentVersion.attachmentId").value("501")).andReturn();
         String material=new tools.jackson.databind.json.JsonMapper().readTree(response.getResponse().getContentAsString()).path("data").path("id").asString();
         long first=jdbc.queryForObject("SELECT id FROM material_versions",Long.class);
         jdbc.update("INSERT INTO material_checklist_items VALUES(1,?)",first);

@@ -1,0 +1,14 @@
+.index-page { min-height: 100vh; background: #f9f9ff; padding: 32px 16px 48px; }
+.index-hero { background: #00324b; color: #fff; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.index-kicker { display: block; font-size: 11px; letter-spacing: .08em; opacity: .75; }
+.index-title { display: block; font-size: 22px; font-weight: 700; line-height: 30px; margin-top: 6px; }
+.index-sub { display: block; font-size: 12px; line-height: 18px; opacity: .78; margin-top: 6px; }
+.index-status { margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.12); font-size: 12px; }
+.index-status-error { background: rgba(255,120,120,.25); }
+.index-list { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #e7eeff; }
+.menu-item:last-child { border-bottom: 0; }
+.menu-text { display: flex; flex-direction: column; min-width: 0; }
+.menu-title { font-size: 15px; font-weight: 600; color: #121c2c; }
+.menu-desc { font-size: 11px; color: #72787e; margin-top: 2px; }
+.menu-arrow { color: #00324b; font-size: 20px; margin-left: 12px; }
